@@ -33,6 +33,7 @@ function makeShape(overrides: Partial<WorkspaceShape["props"]> = {}): WorkspaceS
 }
 
 function routedFetch() {
+  let lastArtifact: Record<string, unknown> | null = null;
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/state")) {
@@ -91,6 +92,35 @@ function routedFetch() {
                 },
               ]
             : [],
+        }),
+      );
+    }
+    if (url.includes("/artifacts")) {
+      return new Response(JSON.stringify(lastArtifact ? [lastArtifact] : []));
+    }
+    if (url.includes("/evals")) {
+      return new Response(JSON.stringify([]));
+    }
+    if (url.endsWith("/jobs")) {
+      lastArtifact = {
+        id: "artifact_1",
+        job_config_id: "job_1",
+        modality: "text",
+        kind: "prompt_eval",
+        payload: { legal_move_rate: 1.0, valid_json_rate: 1.0, move_count: 1 },
+        cached: false,
+        created_at: "now",
+      };
+      return new Response(
+        JSON.stringify({
+          job_config: {
+            id: "job_1",
+            workspace_id: "workspace_1",
+            job_type: "text.prompt_eval",
+            params_json: "{}",
+            created_at: "now",
+          },
+          artifact: lastArtifact,
         }),
       );
     }
@@ -176,5 +206,22 @@ describe("WorkspacePanel", () => {
     await waitFor(() => screen.getByTestId("chess-board"));
     expect(screen.getByText("locked")).toBeTruthy();
     expect(screen.getByTestId("square-e2").hasAttribute("disabled")).toBe(true);
+  });
+
+  test("running a job shows the resulting artifact", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("config-panel"));
+    fireEvent.click(screen.getByTestId("run-job-text.prompt_eval"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("artifact-panel")).toBeTruthy();
+    });
+    expect(screen.getByText("prompt_eval")).toBeTruthy();
   });
 });

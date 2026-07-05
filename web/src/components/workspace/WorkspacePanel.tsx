@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
+import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ChessBoard } from "../../components/chess/ChessBoard";
 import { DatasetPanel } from "../../components/chess/DatasetPanel";
+import { ConfigPanel } from "../../components/config/ConfigPanel";
+import { EvalPanel } from "../../components/eval/EvalPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
-import { type DatasetRow, fetchWorkspaceState, makeMove, selectSnippet } from "../../data/api";
+import {
+  type Artifact,
+  type DatasetRow,
+  type EvalResult,
+  fetchArtifacts,
+  fetchEvals,
+  fetchWorkspaceState,
+  makeMove,
+  runJob,
+  selectSnippet,
+} from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
 import { usePresenterState } from "../../lib/presenterContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
@@ -15,6 +28,11 @@ interface WorkspacePanelProps {
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+const TEXT_JOBS = [
+  { jobType: "text.prompt_eval", label: "Run prompt eval" },
+  { jobType: "text.reward_eval", label: "Run reward eval" },
+];
+
 export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const currentUser = useCurrentUser();
   const { locked, resetToken } = usePresenterState();
@@ -24,6 +42,9 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [fen, setFen] = useState(STARTING_FEN);
   const [datasetRows, setDatasetRows] = useState<DatasetRow[]>([]);
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(null);
+  const [artifact, setArtifact] = useState<Artifact | null>(null);
+  const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
+  const [runningJob, setRunningJob] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
   useEffect(() => {
@@ -35,10 +56,24 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       setDatasetRows(state.dataset_rows);
       setSelectedSnippetId(state.workspace.selected_snippet_id);
     });
+    refreshArtifactAndEvals();
     return () => {
       cancelled = true;
     };
   }, [workspaceId, resetToken]);
+
+  function refreshArtifactAndEvals() {
+    fetchArtifacts({ modality: "text", workspaceId }).then((artifacts) => {
+      setArtifact(artifacts[0] ?? null);
+    });
+    Promise.all([
+      fetchEvals({ modality: "text", workspaceId }),
+      fetchEvals({ modality: "text" }),
+    ]).then(([computed, cached]) => {
+      const cachedOnly = cached.filter((row) => row.workspace_id === null);
+      setEvalResults([...computed, ...cachedOnly]);
+    });
+  }
 
   async function handleMove(uci: string) {
     const response = await makeMove(workspaceId, uci);
@@ -51,6 +86,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   async function handleSelectSnippet(snippetId: string) {
     setSelectedSnippetId(snippetId);
     await selectSnippet(workspaceId, snippetId);
+  }
+
+  async function handleRunJob(jobType: string) {
+    setRunningJob(true);
+    try {
+      const response = await runJob(jobType, {}, workspaceId);
+      setArtifact(response.artifact);
+      refreshArtifactAndEvals();
+    } finally {
+      setRunningJob(false);
+    }
   }
 
   const boardInteractive = isEditing && isOwnWorkspace && !locked;
@@ -81,12 +127,15 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
         </section>
         <section className="workspace-panel-section" data-section="config">
           <h3>Config</h3>
+          <ConfigPanel jobs={TEXT_JOBS} onRunJob={handleRunJob} running={runningJob} />
         </section>
         <section className="workspace-panel-section" data-section="artifact">
           <h3>Artifact</h3>
+          <ArtifactPanel artifact={artifact} />
         </section>
         <section className="workspace-panel-section" data-section="eval">
           <h3>Eval</h3>
+          <EvalPanel results={evalResults} />
         </section>
       </div>
     </div>

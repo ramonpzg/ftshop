@@ -161,3 +161,71 @@ export function resetPage(pageSlug: string): Promise<ResetPageResponse> {
     body: JSON.stringify({ page_slug: pageSlug }),
   });
 }
+
+export function fetchJobTypes(): Promise<string[]> {
+  return request<string[]>("/jobs/types");
+}
+
+export interface Artifact {
+  id: string;
+  job_config_id: string | null;
+  modality: string;
+  kind: string;
+  payload: Record<string, unknown>;
+  cached: boolean;
+  created_at: string;
+}
+
+export interface JobConfigOut {
+  id: string;
+  workspace_id: string | null;
+  job_type: string;
+  params_json: string;
+  created_at: string;
+}
+
+export interface RunJobResponse {
+  job_config: JobConfigOut;
+  artifact: Artifact;
+}
+
+export function runJob(
+  jobType: string,
+  params: Record<string, unknown> = {},
+  workspaceId?: string,
+): Promise<RunJobResponse> {
+  return request<RunJobResponse>("/jobs", {
+    method: "POST",
+    body: JSON.stringify({ job_type: jobType, params, workspace_id: workspaceId ?? null }),
+  });
+}
+
+export function fetchArtifacts(
+  opts: { modality?: string; workspaceId?: string } = {},
+): Promise<Artifact[]> {
+  const query = new URLSearchParams();
+  if (opts.modality) query.set("modality", opts.modality);
+  if (opts.workspaceId) query.set("workspace_id", opts.workspaceId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<Artifact[]>(`/artifacts${suffix}`);
+}
+
+export interface EvalResult {
+  id: string;
+  modality: string;
+  metric: string;
+  value: number;
+  workspace_id: string | null;
+  source: string;
+  created_at: string;
+}
+
+export function fetchEvals(
+  opts: { modality?: string; workspaceId?: string } = {},
+): Promise<EvalResult[]> {
+  const query = new URLSearchParams();
+  if (opts.modality) query.set("modality", opts.modality);
+  if (opts.workspaceId) query.set("workspace_id", opts.workspaceId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<EvalResult[]>(`/evals${suffix}`);
+}

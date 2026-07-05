@@ -10,6 +10,10 @@ function seedShapeId(slug: string, index: number) {
   return createShapeId(`seed-${slug}-${index}`);
 }
 
+function modalityPanelShapeId(slug: string) {
+  return createShapeId(`modality-panel-${slug}`);
+}
+
 function toShapePartial(shape: SeedShape, pageId: TLPageId, slug: string, index: number) {
   const id = seedShapeId(slug, index);
   if (shape.kind === "heading") {
@@ -39,6 +43,8 @@ function toShapePartial(shape: SeedShape, pageId: TLPageId, slug: string, index:
   };
 }
 
+const MODALITY_PANEL_MODALITIES = new Set(["image", "audio", "video"]);
+
 /**
  * Ensures all five workshop pages exist with their starter content.
  * Safe to call on every mount: pages and shapes are only created once,
@@ -53,9 +59,20 @@ export function ensurePagesSeeded(editor: Editor): void {
     }
     if (editor.getPageShapeIds(pageId).size === 0) {
       const seeds = getPageSeedShapes(page.slug);
-      editor.createShapes(
-        seeds.map((seed, index) => toShapePartial(seed, pageId, page.slug, index)),
-      );
+      const shapes = seeds.map((seed, index) => toShapePartial(seed, pageId, page.slug, index));
+
+      if (MODALITY_PANEL_MODALITIES.has(page.modality)) {
+        shapes.push({
+          id: modalityPanelShapeId(page.slug),
+          type: "modality-panel",
+          parentId: pageId,
+          x: 0,
+          y: 900,
+          props: { modality: page.modality, pageSlug: page.slug },
+        } as never);
+      }
+
+      editor.createShapes(shapes);
     }
   }
   editor.setCurrentPage(pageIdForSlug(PAGES[0].slug));

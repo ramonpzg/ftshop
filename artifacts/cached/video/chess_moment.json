@@ -1,0 +1,12 @@
+{
+  "modality": "video",
+  "kind": "chess_moment_reveal",
+  "payload": {
+    "event": "knight_fork",
+    "description": "Cached example: a short clip of a knight fork moment.",
+    "duration_seconds": 2.0,
+    "fps": 24,
+    "frame_count": 48,
+    "note": "v0 doesn't generate or play real video; this reveals a cached example of the intended clip."
+  }
+}

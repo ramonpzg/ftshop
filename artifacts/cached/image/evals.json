@@ -1,0 +1,27 @@
+[
+  {
+    "metric": "piece_identity",
+    "value": 0.88,
+    "note": "Illustrative cached example. Measures whether a generated piece is still recognizable as the correct piece type after restyling."
+  },
+  {
+    "metric": "style_consistency",
+    "value": 0.79,
+    "note": "Illustrative cached example. Measures whether all 12 piece images share one coherent style."
+  },
+  {
+    "metric": "prompt_adherence",
+    "value": 0.83,
+    "note": "Illustrative cached example. Measures whether the generated image matches its caption."
+  },
+  {
+    "metric": "caption_sensitivity",
+    "value": 0.66,
+    "note": "Illustrative cached example. Measures how much the output changes when the caption's trigger word is removed."
+  },
+  {
+    "metric": "human_preference",
+    "value": 0.7,
+    "note": "Illustrative cached example. Fraction of pairwise comparisons where a human preferred the fine-tuned output."
+  }
+]

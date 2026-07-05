@@ -1,0 +1,27 @@
+[
+  {
+    "metric": "action_success",
+    "value": 0.64,
+    "note": "Illustrative cached example. Measures whether the depicted chess move or analogy scene actually happens on screen."
+  },
+  {
+    "metric": "piece_identity_consistency",
+    "value": 0.77,
+    "note": "Illustrative cached example. Measures whether a piece keeps a consistent appearance across frames."
+  },
+  {
+    "metric": "temporal_flicker",
+    "value": 0.12,
+    "note": "Illustrative cached example. Lower is better; measures frame-to-frame instability."
+  },
+  {
+    "metric": "caption_adherence",
+    "value": 0.71,
+    "note": "Illustrative cached example. Measures whether the generated clip matches its caption."
+  },
+  {
+    "metric": "human_preference",
+    "value": 0.6,
+    "note": "Illustrative cached example. Fraction of pairwise comparisons where a human preferred the fine-tuned output."
+  }
+]

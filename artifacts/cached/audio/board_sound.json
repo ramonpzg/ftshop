@@ -1,0 +1,11 @@
+{
+  "modality": "audio",
+  "kind": "board_sound_reveal",
+  "payload": {
+    "event": "capture",
+    "description": "Cached example: a wood-on-wood capture sound.",
+    "tags": ["capture", "wood", "impact"],
+    "duration_seconds": 0.4,
+    "note": "v0 doesn't synthesize or play real audio; this reveals a cached example of the intended sound event."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "modality": "image",
+  "kind": "dataset_sample",
+  "payload": {
+    "trigger_word": "wtrclrchess",
+    "note": "Cached example rows. A real run would generate these from a folder of styled piece renders plus captions.",
+    "rows": [
+      {
+        "image": "wB.svg",
+        "caption": "a wtrclrchess style white bishop, soft watercolor edges, plain background",
+        "aspect_ratio": "1:1"
+      },
+      {
+        "image": "bN.svg",
+        "caption": "a wtrclrchess style black knight, soft watercolor edges, plain background",
+        "aspect_ratio": "1:1"
+      },
+      {
+        "image": "wQ.svg",
+        "caption": "a wtrclrchess style white queen, soft watercolor edges, plain background",
+        "aspect_ratio": "1:1"
+      },
+      {
+        "image": "bK.svg",
+        "caption": "a wtrclrchess style black king, soft watercolor edges, plain background",
+        "aspect_ratio": "1:1"
+      }
+    ]
+  }
+}

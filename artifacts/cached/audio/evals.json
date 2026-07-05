@@ -1,0 +1,27 @@
+[
+  {
+    "metric": "tag_similarity",
+    "value": 0.81,
+    "note": "Illustrative cached example. Measures whether the generated sound matches its tag list (e.g. capture, wood, impact)."
+  },
+  {
+    "metric": "duration_error",
+    "value": 0.05,
+    "note": "Illustrative cached example. Mean absolute difference, in seconds, between requested and generated clip length."
+  },
+  {
+    "metric": "clipping",
+    "value": 0.02,
+    "note": "Illustrative cached example. Fraction of samples with waveform clipping."
+  },
+  {
+    "metric": "event_recognisability",
+    "value": 0.9,
+    "note": "Illustrative cached example. Fraction of listeners who correctly identified the chess event from the sound alone."
+  },
+  {
+    "metric": "human_preference",
+    "value": 0.68,
+    "note": "Illustrative cached example. Fraction of pairwise comparisons where a human preferred the fine-tuned output."
+  }
+]

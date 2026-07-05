@@ -1,0 +1,17 @@
+[
+  {
+    "metric": "centipawn_loss",
+    "value": 38.5,
+    "note": "Illustrative cached example. A real run needs a Stockfish evaluation of the model's move against the engine's best move; v0 doesn't run Stockfish live."
+  },
+  {
+    "metric": "mate_in_one_accuracy",
+    "value": 0.72,
+    "note": "Illustrative cached example from a held-out mate-in-one puzzle set."
+  },
+  {
+    "metric": "explanation_correctness",
+    "value": 0.61,
+    "note": "Illustrative cached example. Requires a judge model to grade the move explanation against the actual best line."
+  }
+]

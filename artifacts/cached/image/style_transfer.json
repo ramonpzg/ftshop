@@ -1,0 +1,11 @@
+{
+  "modality": "image",
+  "kind": "style_transfer_reveal",
+  "payload": {
+    "trigger_word": "wtrclrchess",
+    "description": "Cached example: a bishop re-rendered in the fine-tuned watercolor style.",
+    "before_image": "wB.svg",
+    "after_caption": "a wtrclrchess style white bishop, soft watercolor edges, plain background",
+    "note": "v0 doesn't run image generation live; this reveals a cached example of the intended before/after."
+  }
+}

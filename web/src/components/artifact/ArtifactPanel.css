@@ -1,0 +1,55 @@
+.artifact-panel-empty {
+  font-size: 11px;
+  color: #868e96;
+}
+
+.artifact-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  overflow-y: auto;
+}
+
+.artifact-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.artifact-cached-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  background: #adb5bd;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.artifact-panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 10px;
+}
+
+.spectrogram-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: #212529;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.spectrogram-row {
+  display: flex;
+  gap: 1px;
+}
+
+.spectrogram-cell {
+  width: 10px;
+  height: 10px;
+  background: #4dabf7;
+}

@@ -46,3 +46,11 @@ def list_eval_results(
         params.append(workspace_id)
     query += " ORDER BY created_at"
     return conn.execute(query, params).fetchall()
+
+
+def delete_cached_eval_results(conn: sqlite3.Connection) -> None:
+    """Clears seeded cached eval rows so re-seeding doesn't duplicate them.
+    Computed rows (source='computed') are untouched.
+    """
+    conn.execute("DELETE FROM eval_results WHERE source = 'cached'")
+    conn.commit()

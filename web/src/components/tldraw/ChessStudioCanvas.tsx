@@ -3,9 +3,10 @@ import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 import { ensurePagesSeeded } from "../../actions/seedTldrawDocument";
 import { PageTabs } from "./PageTabs";
+import { ModalityPanelShapeUtil } from "./shapes/ModalityPanelShapeUtil";
 import { WorkspaceShapeUtil } from "./shapes/WorkspaceShapeUtil";
 
-const shapeUtils = [WorkspaceShapeUtil];
+const shapeUtils = [WorkspaceShapeUtil, ModalityPanelShapeUtil];
 
 interface ChessStudioCanvasProps {
   onEditorMount?: (editor: Editor) => void;

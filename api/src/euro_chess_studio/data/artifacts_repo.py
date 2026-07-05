@@ -41,3 +41,16 @@ def list_artifacts(conn: sqlite3.Connection, modality: str | None = None) -> lis
             "SELECT * FROM artifacts WHERE modality = ? ORDER BY created_at DESC", (modality,)
         ).fetchall()
     return conn.execute("SELECT * FROM artifacts ORDER BY created_at DESC").fetchall()
+
+
+def list_artifacts_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        """
+        SELECT artifacts.*
+        FROM artifacts
+        JOIN job_configs ON job_configs.id = artifacts.job_config_id
+        WHERE job_configs.workspace_id = ?
+        ORDER BY artifacts.created_at DESC
+        """,
+        (workspace_id,),
+    ).fetchall()
