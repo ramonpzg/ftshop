@@ -1,2 +1,4 @@
 [test]
 preload = ["./tests/setup.ts"]
+# Playwright e2e specs live in e2e/ and run via `bun run test:e2e`, not `bun test`.
+root = "tests"

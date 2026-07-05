@@ -21,9 +21,3 @@ export const PAGES: PageDef[] = [
     order: 4,
   },
 ];
-
-export function getPageBySlug(slug: string): PageDef {
-  const page = PAGES.find((p) => p.slug === slug);
-  if (!page) throw new Error(`unknown page slug: ${slug}`);
-  return page;
-}

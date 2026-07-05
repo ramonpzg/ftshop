@@ -162,10 +162,6 @@ export function resetPage(pageSlug: string): Promise<ResetPageResponse> {
   });
 }
 
-export function fetchJobTypes(): Promise<string[]> {
-  return request<string[]>("/jobs/types");
-}
-
 export interface Artifact {
   id: string;
   job_config_id: string | null;
