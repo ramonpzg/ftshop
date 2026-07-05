@@ -96,7 +96,13 @@ CREATE TABLE IF NOT EXISTS presenter_state (
 
 
 def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path or get_db_path())
+    # FastAPI runs sync route/dependency code in a thread pool, and a
+    # generator dependency's setup and teardown aren't guaranteed to land on
+    # the same worker thread. sqlite3 refuses to open/close across threads
+    # by default (check_same_thread=True), so disable that check here; each
+    # request still gets its own connection, opened and closed within that
+    # request's handling, never shared concurrently.
+    conn = sqlite3.connect(db_path or get_db_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

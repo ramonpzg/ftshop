@@ -19,9 +19,7 @@ def test_init_db_creates_all_tables(tmp_path: Path):
     conn = get_connection(tmp_path / "test.db")
     try:
         init_db(conn)
-        rows = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
-        ).fetchall()
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
         table_names = {row["name"] for row in rows}
         assert EXPECTED_TABLES.issubset(table_names)
     finally:

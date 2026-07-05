@@ -1,0 +1,64 @@
+.join-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 20, 0.6);
+}
+
+.join-form {
+  background: white;
+  border-radius: 10px;
+  padding: 24px 28px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.join-form h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.join-form p {
+  margin: 0;
+  font-size: 13px;
+  color: #495057;
+}
+
+.join-form label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.join-form input {
+  padding: 8px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.join-form button {
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #4263eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.join-form button:disabled {
+  background: #adb5bd;
+  cursor: default;
+}
+
+.join-form-error {
+  color: #e03131;
+}

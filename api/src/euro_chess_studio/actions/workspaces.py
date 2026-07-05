@@ -1,0 +1,47 @@
+"""Actions that mutate state: joining the workshop and creating workspaces."""
+
+import sqlite3
+
+import chess
+
+from euro_chess_studio.calculations.ids import generate_id, workspace_shape_id
+from euro_chess_studio.data.pages_repo import get_page_by_slug
+from euro_chess_studio.data.users_repo import insert_user
+from euro_chess_studio.data.workspaces_repo import (
+    count_workspaces_for_page,
+    get_workspace_for_user_and_page,
+    insert_workspace,
+)
+
+
+class PageNotFoundError(ValueError):
+    pass
+
+
+def join_workshop(conn: sqlite3.Connection, name: str) -> sqlite3.Row:
+    if not name.strip():
+        raise ValueError("name must not be empty")
+    return insert_user(conn, name.strip())
+
+
+def create_or_get_workspace(conn: sqlite3.Connection, user_id: str, page_slug: str) -> sqlite3.Row:
+    page = get_page_by_slug(conn, page_slug)
+    if page is None:
+        raise PageNotFoundError(f"unknown page slug: {page_slug}")
+
+    existing = get_workspace_for_user_and_page(conn, user_id, page["id"])
+    if existing is not None:
+        return existing
+
+    position_index = count_workspaces_for_page(conn, page["id"])
+    shape_id = workspace_shape_id(user_id, page_slug)
+    workspace_id = generate_id("workspace")
+    return insert_workspace(
+        conn,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        page_id=page["id"],
+        shape_id=shape_id,
+        position_index=position_index,
+        board_fen=chess.STARTING_FEN,
+    )
