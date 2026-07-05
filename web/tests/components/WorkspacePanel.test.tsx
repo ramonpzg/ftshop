@@ -43,6 +43,20 @@ function routedFetch() {
         }),
       );
     }
+    if (url.endsWith("/snippet")) {
+      const body = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          id: "workspace_1",
+          user_id: "user_1",
+          page_id: "page_1",
+          shape_id: "shape:workspace-user_1-chess-machine",
+          position_index: 0,
+          selected_snippet_id: body.snippet_id,
+          board_fen: STARTING_FEN,
+        }),
+      );
+    }
     if (url.endsWith("/moves")) {
       const body = JSON.parse(String(init?.body));
       const legal = body.uci === "e2e4";
@@ -80,7 +94,7 @@ function routedFetch() {
       );
     }
     return new Response("not found", { status: 404 });
-  }) as unknown as typeof fetch;
+  });
 }
 
 afterEach(() => {
@@ -89,7 +103,7 @@ afterEach(() => {
 
 describe("WorkspacePanel", () => {
   test("loads and shows the board for the workspace", async () => {
-    globalThis.fetch = routedFetch();
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
     render(<WorkspacePanel shape={makeShape()} isEditing={false} />);
 
     await waitFor(() => {
@@ -98,7 +112,7 @@ describe("WorkspacePanel", () => {
   });
 
   test("a legal move updates the board and adds a dataset row", async () => {
-    globalThis.fetch = routedFetch();
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
     render(
       <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
         <WorkspacePanel shape={makeShape()} isEditing={true} />
@@ -114,8 +128,29 @@ describe("WorkspacePanel", () => {
     });
   });
 
+  test("switching the mini IDE snippet persists the selection", async () => {
+    const fetchMock = routedFetch();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("chess-board"));
+    fireEvent.click(screen.getByTestId("snippet-tab-reward_function"));
+
+    expect(screen.getByTestId("snippet-tab-reward_function").className).toContain(
+      "mini-ide-tab-active",
+    );
+    await waitFor(() => {
+      const putCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith("/snippet"));
+      expect(putCall).toBeTruthy();
+    });
+  });
+
   test("shows read-only styling for someone else's workspace", async () => {
-    globalThis.fetch = routedFetch();
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
     render(
       <CurrentUserContext.Provider value={{ id: "someone_else", name: "Grace" }}>
         <WorkspacePanel shape={makeShape()} isEditing={false} />

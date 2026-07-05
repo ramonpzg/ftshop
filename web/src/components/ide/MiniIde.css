@@ -1,0 +1,33 @@
+.mini-ide {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.mini-ide-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.mini-ide-tab {
+  border: none;
+  background: #f1f3f5;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.mini-ide-tab-active {
+  background: #4263eb;
+  color: white;
+}
+
+.mini-ide .cm-editor {
+  flex: 1;
+  min-height: 0;
+  font-size: 11px;
+}

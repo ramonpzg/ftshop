@@ -38,6 +38,36 @@ def test_create_user_rejects_blank_name(client: TestClient):
     assert response.status_code == 422
 
 
+def test_put_snippet_persists_selection(client: TestClient):
+    user = client.post("/users", json={"name": "Ada"}).json()
+    workspace = client.post(
+        "/workspaces", json={"user_id": user["id"], "page_slug": "chess-machine"}
+    ).json()
+
+    response = client.put(
+        f"/workspaces/{workspace['id']}/snippet", json={"snippet_id": "prompt_template"}
+    )
+    assert response.status_code == 200
+    assert response.json()["selected_snippet_id"] == "prompt_template"
+
+
+def test_put_snippet_rejects_unknown_snippet_id(client: TestClient):
+    user = client.post("/users", json={"name": "Ada"}).json()
+    workspace = client.post(
+        "/workspaces", json={"user_id": user["id"], "page_slug": "chess-machine"}
+    ).json()
+
+    response = client.put(f"/workspaces/{workspace['id']}/snippet", json={"snippet_id": "nope"})
+    assert response.status_code == 422
+
+
+def test_put_snippet_on_unknown_workspace_returns_404(client: TestClient):
+    response = client.put(
+        "/workspaces/does-not-exist/snippet", json={"snippet_id": "prompt_template"}
+    )
+    assert response.status_code == 404
+
+
 def test_list_workspaces_includes_details(client: TestClient):
     user = client.post("/users", json={"name": "Ada"}).json()
     client.post("/workspaces", json={"user_id": user["id"], "page_slug": "chess-machine"})

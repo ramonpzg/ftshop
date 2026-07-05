@@ -1,8 +1,8 @@
-import type { Editor, TLShapeId } from "tldraw";
+import type { Editor } from "tldraw";
 import { createOrGetWorkspace, createUser, type User, type Workspace } from "../data/api";
 import { saveLocalUser } from "../data/localUser";
 import { ensureWorkspaceShape } from "./ensureWorkspaceShape";
-import { pageIdForSlug } from "./seedTldrawDocument";
+import { navigateToWorkspace } from "./navigateToWorkspace";
 
 /** New attendees land on the main technical page, where the interactive board lives. */
 export const PRIMARY_WORKSPACE_PAGE_SLUG = "chess-machine";
@@ -18,12 +18,7 @@ export async function joinWorkshop(editor: Editor, name: string): Promise<JoinRe
   saveLocalUser({ id: user.id, name: user.name });
 
   ensureWorkspaceShape(editor, workspace, user.name, PRIMARY_WORKSPACE_PAGE_SLUG);
-  editor.setCurrentPage(pageIdForSlug(PRIMARY_WORKSPACE_PAGE_SLUG));
-
-  const bounds = editor.getShapePageBounds(workspace.shape_id as TLShapeId);
-  if (bounds) {
-    editor.zoomToBounds(bounds, { animation: { duration: 300 } });
-  }
+  navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
 
   return { user, workspace };
 }

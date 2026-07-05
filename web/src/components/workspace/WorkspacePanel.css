@@ -51,6 +51,10 @@
   border: 1px dashed #ced4da;
   border-radius: 6px;
   padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .workspace-panel-section h3 {

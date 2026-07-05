@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pytest
 
+from euro_chess_studio.actions.errors import InvalidSnippetError, WorkspaceNotFoundError
 from euro_chess_studio.actions.workspaces import (
     PageNotFoundError,
     create_or_get_workspace,
     join_workshop,
+    select_snippet,
 )
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
@@ -64,3 +66,25 @@ def test_create_or_get_workspace_rejects_unknown_page(tmp_path: Path):
     user = join_workshop(conn, "Ada")
     with pytest.raises(PageNotFoundError):
         create_or_get_workspace(conn, user["id"], "not-a-page")
+
+
+def test_select_snippet_persists_the_choice(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    updated = select_snippet(conn, workspace["id"], "reward_function")
+    assert updated["selected_snippet_id"] == "reward_function"
+
+
+def test_select_snippet_rejects_unknown_snippet_id(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    with pytest.raises(InvalidSnippetError):
+        select_snippet(conn, workspace["id"], "not-a-snippet")
+
+
+def test_select_snippet_rejects_unknown_workspace(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    with pytest.raises(WorkspaceNotFoundError):
+        select_snippet(conn, "workspace_does_not_exist", "reward_function")

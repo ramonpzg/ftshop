@@ -112,3 +112,10 @@ export interface WorkspaceState {
 export function fetchWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
   return request<WorkspaceState>(`/workspaces/${workspaceId}/state`);
 }
+
+export function selectSnippet(workspaceId: string, snippetId: string): Promise<Workspace> {
+  return request<Workspace>(`/workspaces/${workspaceId}/snippet`, {
+    method: "PUT",
+    body: JSON.stringify({ snippet_id: snippetId }),
+  });
+}

@@ -3,6 +3,7 @@ import type { Editor } from "tldraw";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import type { JoinResult } from "../actions/joinWorkshop";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "../actions/joinWorkshop";
+import { navigateToWorkspace } from "../actions/navigateToWorkspace";
 import { AttendeePanel } from "../components/AttendeePanel";
 import { JoinForm } from "../components/JoinForm";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
@@ -35,13 +36,16 @@ export function App() {
 
   // Re-materializes the returning user's workspace shape once the canvas is
   // ready, covering reloads where tldraw's local store was cleared but the
-  // backend still remembers the workspace.
+  // backend still remembers the workspace. Also returns the camera to their
+  // workspace, since ensurePagesSeeded always lands a fresh mount on the
+  // Presentation page.
   useEffect(() => {
     if (!editor || !currentUser) return;
     let cancelled = false;
     createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG).then((workspace) => {
       if (cancelled) return;
       ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
+      navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
       setAttendeeRefreshToken((token) => token + 1);
     });
     return () => {

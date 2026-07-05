@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Editor, TLShapeId } from "tldraw";
+import type { Editor } from "tldraw";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
-import { pageIdForSlug } from "../actions/seedTldrawDocument";
+import { navigateToWorkspace } from "../actions/navigateToWorkspace";
 import { fetchWorkspaces, type WorkspaceWithDetails } from "../data/api";
 import "./AttendeePanel.css";
 
@@ -28,11 +28,7 @@ export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeeP
   function goToWorkspace(workspace: WorkspaceWithDetails) {
     if (!editor) return;
     ensureWorkspaceShape(editor, workspace, workspace.user_name, workspace.page_slug);
-    editor.setCurrentPage(pageIdForSlug(workspace.page_slug));
-    const bounds = editor.getShapePageBounds(workspace.shape_id as TLShapeId);
-    if (bounds) {
-      editor.zoomToBounds(bounds, { animation: { duration: 300 } });
-    }
+    navigateToWorkspace(editor, workspace, workspace.page_slug);
   }
 
   return (

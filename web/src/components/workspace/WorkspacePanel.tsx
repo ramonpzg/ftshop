@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChessBoard } from "../../components/chess/ChessBoard";
 import { DatasetPanel } from "../../components/chess/DatasetPanel";
-import { type DatasetRow, fetchWorkspaceState, makeMove } from "../../data/api";
+import { MiniIde } from "../../components/ide/MiniIde";
+import { type DatasetRow, fetchWorkspaceState, makeMove, selectSnippet } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
 import "./WorkspacePanel.css";
@@ -20,6 +21,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
 
   const [fen, setFen] = useState(STARTING_FEN);
   const [datasetRows, setDatasetRows] = useState<DatasetRow[]>([]);
+  const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -28,6 +30,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       if (cancelled) return;
       setFen(state.workspace.board_fen);
       setDatasetRows(state.dataset_rows);
+      setSelectedSnippetId(state.workspace.selected_snippet_id);
     });
     return () => {
       cancelled = true;
@@ -40,6 +43,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       setFen(response.move.fen_after);
       setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
     }
+  }
+
+  async function handleSelectSnippet(snippetId: string) {
+    setSelectedSnippetId(snippetId);
+    await selectSnippet(workspaceId, snippetId);
   }
 
   const boardInteractive = isEditing && isOwnWorkspace;
@@ -65,6 +73,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
         </section>
         <section className="workspace-panel-section" data-section="ide">
           <h3>Mini IDE</h3>
+          <MiniIde selectedSnippetId={selectedSnippetId} onSelectSnippet={handleSelectSnippet} />
         </section>
         <section className="workspace-panel-section" data-section="config">
           <h3>Config</h3>
