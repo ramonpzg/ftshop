@@ -1,0 +1,31 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from euro_chess_studio.data.db import get_connection, init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    conn = get_connection()
+    try:
+        init_db(conn)
+    finally:
+        conn.close()
+    yield
+
+
+app = FastAPI(title="EuroSciPy Chess Studio API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
