@@ -17,3 +17,17 @@ def test_health_endpoint(client: TestClient):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_pages_endpoint_returns_seeded_pages(client: TestClient):
+    response = client.get("/pages")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 5
+    assert [p["slug"] for p in body] == [
+        "presentation",
+        "chess-machine",
+        "painting-pieces",
+        "board-sound",
+        "real-world-video",
+    ]

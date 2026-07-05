@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { fetchHealth } from "../data/api";
+import "./App.css";
 
 type BackendStatus = "checking" | "connected" | "unreachable";
 
@@ -21,9 +23,11 @@ export function App() {
   }, []);
 
   return (
-    <main>
-      <h1>EuroSciPy Chess Studio</h1>
-      <p data-testid="backend-status">Backend: {status}</p>
-    </main>
+    <div className="app-shell">
+      <div className="status-badge" data-testid="backend-status">
+        Backend: {status}
+      </div>
+      <ChessStudioCanvas />
+    </div>
   );
 }
