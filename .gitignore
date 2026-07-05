@@ -1,0 +1,14 @@
+web/node_modules/
+web/dist/
+api/.venv/
+api/**/__pycache__/
+api/.pytest_cache/
+api/.ruff_cache/
+*.pyc
+euro_chess_studio.db
+euro_chess_studio.db-journal
+web/test-results/
+web/playwright-report/
+.env
+.DS_Store
+*.log
