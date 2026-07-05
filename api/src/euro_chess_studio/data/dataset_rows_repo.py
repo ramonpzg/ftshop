@@ -35,3 +35,8 @@ def list_dataset_rows(conn: sqlite3.Connection, workspace_id: str) -> list[sqlit
         "SELECT * FROM dataset_rows WHERE workspace_id = ? ORDER BY created_at",
         (workspace_id,),
     ).fetchall()
+
+
+def delete_dataset_rows_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
+    conn.execute("DELETE FROM dataset_rows WHERE workspace_id = ?", (workspace_id,))
+    conn.commit()

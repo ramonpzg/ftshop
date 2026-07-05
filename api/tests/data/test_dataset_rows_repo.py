@@ -3,7 +3,11 @@ from pathlib import Path
 import chess
 
 from euro_chess_studio.calculations.pages import PAGES
-from euro_chess_studio.data.dataset_rows_repo import insert_dataset_row, list_dataset_rows
+from euro_chess_studio.data.dataset_rows_repo import (
+    delete_dataset_rows_for_workspace,
+    insert_dataset_row,
+    list_dataset_rows,
+)
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.users_repo import insert_user
@@ -46,3 +50,12 @@ def test_list_dataset_rows_returns_rows_in_creation_order(tmp_path: Path):
     )
     rows = list_dataset_rows(conn, workspace["id"])
     assert [row["shape"] for row in rows] == ["a", "b"]
+
+
+def test_delete_dataset_rows_for_workspace(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    insert_dataset_row(
+        conn, workspace_id=workspace["id"], move_id=None, shape="a", payload={"n": 1}
+    )
+    delete_dataset_rows_for_workspace(conn, workspace["id"])
+    assert list_dataset_rows(conn, workspace["id"]) == []

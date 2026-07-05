@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { CurrentUserContext } from "../../src/lib/currentUserContext";
 import { WorkspacePanel } from "../../src/components/workspace/WorkspacePanel";
 import type { WorkspaceShape } from "../../src/components/tldraw/shapes/workspaceShapeTypes";
+import { CurrentUserContext } from "../../src/lib/currentUserContext";
+import { PresenterContext } from "../../src/lib/presenterContext";
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -160,5 +161,20 @@ describe("WorkspacePanel", () => {
     await waitFor(() => {
       expect(screen.getByText("view only")).toBeTruthy();
     });
+  });
+
+  test("disables the board and shows a locked badge when the presenter has locked editing", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <PresenterContext.Provider value={{ locked: true, resetToken: 0 }}>
+          <WorkspacePanel shape={makeShape()} isEditing={true} />
+        </PresenterContext.Provider>
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("chess-board"));
+    expect(screen.getByText("locked")).toBeTruthy();
+    expect(screen.getByTestId("square-e2").hasAttribute("disabled")).toBe(true);
   });
 });

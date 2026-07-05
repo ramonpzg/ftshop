@@ -6,6 +6,7 @@ from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.moves_repo import (
     count_legal_moves,
+    delete_moves_for_workspace,
     insert_move,
     list_legal_sans,
     list_moves,
@@ -123,3 +124,22 @@ def test_list_legal_sans_excludes_illegal_attempts(tmp_path: Path):
         reward=1,
     )
     assert list_legal_sans(conn, workspace["id"]) == ["e4", "e5"]
+
+
+def test_delete_moves_for_workspace(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    insert_move(
+        conn,
+        workspace_id=workspace["id"],
+        ply=0,
+        uci="e2e4",
+        san="e4",
+        fen_before=chess.STARTING_FEN,
+        fen_after="fen-1",
+        is_legal=True,
+        is_check=False,
+        is_checkmate=False,
+        reward=1,
+    )
+    delete_moves_for_workspace(conn, workspace["id"])
+    assert list_moves(conn, workspace["id"]) == []

@@ -4,6 +4,7 @@ import { DatasetPanel } from "../../components/chess/DatasetPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
 import { type DatasetRow, fetchWorkspaceState, makeMove, selectSnippet } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
+import { usePresenterState } from "../../lib/presenterContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
 import "./WorkspacePanel.css";
 
@@ -16,6 +17,7 @@ const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const currentUser = useCurrentUser();
+  const { locked, resetToken } = usePresenterState();
   const isOwnWorkspace = currentUser?.id === shape.props.userId;
   const { workspaceId } = shape.props;
 
@@ -23,6 +25,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [datasetRows, setDatasetRows] = useState<DatasetRow[]>([]);
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
   useEffect(() => {
     if (!workspaceId) return;
     let cancelled = false;
@@ -35,7 +38,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceId]);
+  }, [workspaceId, resetToken]);
 
   async function handleMove(uci: string) {
     const response = await makeMove(workspaceId, uci);
@@ -50,7 +53,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     await selectSnippet(workspaceId, snippetId);
   }
 
-  const boardInteractive = isEditing && isOwnWorkspace;
+  const boardInteractive = isEditing && isOwnWorkspace && !locked;
 
   return (
     <div
@@ -60,6 +63,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       <header className="workspace-panel-header">
         <span>{shape.props.userName || "Unnamed"}</span>
         {!isOwnWorkspace && <span className="workspace-panel-readonly">view only</span>}
+        {locked && <span className="workspace-panel-readonly">locked</span>}
         {!isEditing && <span className="workspace-panel-hint">Double-click to open</span>}
       </header>
       <div className="workspace-panel-grid">

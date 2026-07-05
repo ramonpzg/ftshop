@@ -119,3 +119,45 @@ export function selectSnippet(workspaceId: string, snippetId: string): Promise<W
     body: JSON.stringify({ snippet_id: snippetId }),
   });
 }
+
+export interface PresenterState {
+  mode: string;
+  locked: boolean;
+  active_page_slug: string | null;
+  focused_user_id: string | null;
+  updated_at: string;
+}
+
+export function fetchPresenterState(): Promise<PresenterState> {
+  return request<PresenterState>("/presenter");
+}
+
+export function bringToPresenterView(pageSlug: string): Promise<PresenterState> {
+  return request<PresenterState>("/presenter/bring-to-presenter-view", {
+    method: "POST",
+    body: JSON.stringify({ page_slug: pageSlug }),
+  });
+}
+
+export function sendToWorkspaces(): Promise<PresenterState> {
+  return request<PresenterState>("/presenter/send-to-workspaces", { method: "POST" });
+}
+
+export function lockEditing(): Promise<PresenterState> {
+  return request<PresenterState>("/presenter/lock", { method: "POST" });
+}
+
+export function unlockEditing(): Promise<PresenterState> {
+  return request<PresenterState>("/presenter/unlock", { method: "POST" });
+}
+
+export interface ResetPageResponse {
+  workspaces_reset: number;
+}
+
+export function resetPage(pageSlug: string): Promise<ResetPageResponse> {
+  return request<ResetPageResponse>("/presenter/reset-page", {
+    method: "POST",
+    body: JSON.stringify({ page_slug: pageSlug }),
+  });
+}

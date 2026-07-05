@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
-from euro_chess_studio.routes import moves, pages, users, workspaces
+from euro_chess_studio.routes import moves, pages, presenter, users, workspaces
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ app.include_router(pages.router)
 app.include_router(users.router)
 app.include_router(workspaces.router)
 app.include_router(moves.router)
+app.include_router(presenter.router)
 
 
 @app.get("/health")

@@ -22,6 +22,17 @@ function routedFetch(healthStatus: number) {
     if (url.endsWith("/workspaces")) {
       return new Response(JSON.stringify([]));
     }
+    if (url.endsWith("/presenter")) {
+      return new Response(
+        JSON.stringify({
+          mode: "idle",
+          locked: false,
+          active_page_slug: null,
+          focused_user_id: null,
+          updated_at: "now",
+        }),
+      );
+    }
     return new Response("not found", { status: 404 });
   }) as unknown as typeof fetch;
 }

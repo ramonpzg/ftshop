@@ -77,3 +77,8 @@ def list_legal_sans(conn: sqlite3.Connection, workspace_id: str) -> list[str]:
         (workspace_id,),
     ).fetchall()
     return [row["san"] for row in rows]
+
+
+def delete_moves_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
+    conn.execute("DELETE FROM moves WHERE workspace_id = ?", (workspace_id,))
+    conn.commit()
