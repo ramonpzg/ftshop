@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { ChessBoard } from "../../components/chess/ChessBoard";
+import { DatasetPanel } from "../../components/chess/DatasetPanel";
+import { type DatasetRow, fetchWorkspaceState, makeMove } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
 import "./WorkspacePanel.css";
@@ -7,18 +11,38 @@ interface WorkspacePanelProps {
   isEditing: boolean;
 }
 
-const SECTIONS = [
-  { key: "board", label: "Board" },
-  { key: "dataset", label: "Dataset" },
-  { key: "ide", label: "Mini IDE" },
-  { key: "config", label: "Config" },
-  { key: "artifact", label: "Artifact" },
-  { key: "eval", label: "Eval" },
-];
+const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const currentUser = useCurrentUser();
   const isOwnWorkspace = currentUser?.id === shape.props.userId;
+  const { workspaceId } = shape.props;
+
+  const [fen, setFen] = useState(STARTING_FEN);
+  const [datasetRows, setDatasetRows] = useState<DatasetRow[]>([]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    fetchWorkspaceState(workspaceId).then((state) => {
+      if (cancelled) return;
+      setFen(state.workspace.board_fen);
+      setDatasetRows(state.dataset_rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  async function handleMove(uci: string) {
+    const response = await makeMove(workspaceId, uci);
+    if (response.move.is_legal) {
+      setFen(response.move.fen_after);
+      setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
+    }
+  }
+
+  const boardInteractive = isEditing && isOwnWorkspace;
 
   return (
     <div
@@ -31,11 +55,26 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
         {!isEditing && <span className="workspace-panel-hint">Double-click to open</span>}
       </header>
       <div className="workspace-panel-grid">
-        {SECTIONS.map((section) => (
-          <section key={section.key} className="workspace-panel-section" data-section={section.key}>
-            <h3>{section.label}</h3>
-          </section>
-        ))}
+        <section className="workspace-panel-section" data-section="board">
+          <h3>Board</h3>
+          <ChessBoard fen={fen} interactive={boardInteractive} onMove={handleMove} />
+        </section>
+        <section className="workspace-panel-section" data-section="dataset">
+          <h3>Dataset</h3>
+          <DatasetPanel rows={datasetRows} />
+        </section>
+        <section className="workspace-panel-section" data-section="ide">
+          <h3>Mini IDE</h3>
+        </section>
+        <section className="workspace-panel-section" data-section="config">
+          <h3>Config</h3>
+        </section>
+        <section className="workspace-panel-section" data-section="artifact">
+          <h3>Artifact</h3>
+        </section>
+        <section className="workspace-panel-section" data-section="eval">
+          <h3>Eval</h3>
+        </section>
       </div>
     </div>
   );

@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { computeWorkspacePosition, WORKSPACE_DIMENSIONS } from "../../src/calculations/layout";
 
 describe("computeWorkspacePosition", () => {
-  test("places the first workspace at the origin", () => {
-    expect(computeWorkspacePosition(0)).toEqual({ x: 0, y: 0 });
+  test("places the first workspace at the left edge, below the seed content band", () => {
+    const first = computeWorkspacePosition(0);
+    expect(first.x).toBe(0);
+    expect(first.y).toBeGreaterThan(800);
   });
 
   test("advances columns before wrapping to a new row", () => {
@@ -14,9 +16,10 @@ describe("computeWorkspacePosition", () => {
   });
 
   test("wraps to a new row after three columns", () => {
+    const first = computeWorkspacePosition(0);
     const wrapped = computeWorkspacePosition(3);
     expect(wrapped.x).toBe(0);
-    expect(wrapped.y).toBeGreaterThan(0);
+    expect(wrapped.y).toBeGreaterThan(first.y);
   });
 
   test("never overlaps workspace bounds between adjacent columns", () => {

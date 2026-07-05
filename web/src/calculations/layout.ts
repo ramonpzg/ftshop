@@ -9,6 +9,10 @@ const WORKSPACE_WIDTH = 900;
 const WORKSPACE_HEIGHT = 560;
 const GUTTER = 80;
 const COLUMNS = 3;
+// Every page's seeded starter content (headings and notes) occupies the
+// area from y=0 to roughly y=800. Workspaces start below that band so a
+// newly generated workspace shape never overlaps the seeded content.
+const BASE_Y_OFFSET = 900;
 
 /**
  * Grid position for the Nth workspace created on a page, wrapping to a new
@@ -23,7 +27,7 @@ export function computeWorkspacePosition(index: number): WorkspacePosition {
   const row = Math.floor(index / COLUMNS);
   return {
     x: column * (WORKSPACE_WIDTH + GUTTER),
-    y: row * (WORKSPACE_HEIGHT + GUTTER),
+    y: BASE_Y_OFFSET + row * (WORKSPACE_HEIGHT + GUTTER),
   };
 }
 

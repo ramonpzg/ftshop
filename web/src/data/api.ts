@@ -66,3 +66,49 @@ export function createOrGetWorkspace(userId: string, pageSlug: string): Promise<
 export function fetchWorkspaces(): Promise<WorkspaceWithDetails[]> {
   return request<WorkspaceWithDetails[]>("/workspaces");
 }
+
+export interface Move {
+  id: string;
+  workspace_id: string;
+  ply: number;
+  uci: string;
+  san: string | null;
+  fen_before: string;
+  fen_after: string;
+  is_legal: boolean;
+  is_check: boolean;
+  is_checkmate: boolean;
+  reward: number;
+  created_at: string;
+}
+
+export interface DatasetRow {
+  id: string;
+  workspace_id: string;
+  move_id: string | null;
+  shape: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MoveResponse {
+  move: Move;
+  dataset_rows: DatasetRow[];
+}
+
+export function makeMove(workspaceId: string, uci: string): Promise<MoveResponse> {
+  return request<MoveResponse>(`/workspaces/${workspaceId}/moves`, {
+    method: "POST",
+    body: JSON.stringify({ uci }),
+  });
+}
+
+export interface WorkspaceState {
+  workspace: Workspace;
+  moves: Move[];
+  dataset_rows: DatasetRow[];
+}
+
+export function fetchWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
+  return request<WorkspaceState>(`/workspaces/${workspaceId}/state`);
+}

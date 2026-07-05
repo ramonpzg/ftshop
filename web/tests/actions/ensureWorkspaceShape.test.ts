@@ -46,7 +46,7 @@ describe("ensureWorkspaceShape", () => {
     expect(created.props.userName).toBe("Ada");
   });
 
-  test("positions the first workspace at the grid origin", () => {
+  test("positions the first workspace at the left edge, below the seed content", () => {
     const editor = makeFakeEditor(undefined);
     ensureWorkspaceShape(
       editor as never,
@@ -56,7 +56,7 @@ describe("ensureWorkspaceShape", () => {
     );
     const [created] = editor.createShape.mock.calls[0];
     expect(created.x).toBe(0);
-    expect(created.y).toBe(0);
+    expect(created.y).toBeGreaterThan(800);
   });
 
   test("updates the display name when the shape already exists", () => {

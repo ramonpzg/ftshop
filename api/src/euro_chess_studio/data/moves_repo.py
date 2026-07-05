@@ -1,0 +1,79 @@
+"""SQLite access for the moves table. No business logic here."""
+
+import sqlite3
+from datetime import UTC, datetime
+
+from euro_chess_studio.calculations.ids import generate_id
+
+
+def count_legal_moves(conn: sqlite3.Connection, workspace_id: str) -> int:
+    (count,) = conn.execute(
+        "SELECT COUNT(*) FROM moves WHERE workspace_id = ? AND is_legal = 1", (workspace_id,)
+    ).fetchone()
+    return count
+
+
+def insert_move(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: str,
+    ply: int,
+    uci: str,
+    san: str | None,
+    fen_before: str,
+    fen_after: str,
+    is_legal: bool,
+    is_check: bool,
+    is_checkmate: bool,
+    reward: int,
+) -> sqlite3.Row:
+    move_id = generate_id("move")
+    created_at = datetime.now(UTC).isoformat()
+    conn.execute(
+        """
+        INSERT INTO moves
+            (id, workspace_id, ply, uci, san, fen_before, fen_after,
+             is_legal, is_check, is_checkmate, reward, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            move_id,
+            workspace_id,
+            ply,
+            uci,
+            san,
+            fen_before,
+            fen_after,
+            int(is_legal),
+            int(is_check),
+            int(is_checkmate),
+            reward,
+            created_at,
+        ),
+    )
+    conn.commit()
+    row = get_move(conn, move_id)
+    assert row is not None
+    return row
+
+
+def get_move(conn: sqlite3.Connection, move_id: str) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM moves WHERE id = ?", (move_id,)).fetchone()
+
+
+def list_moves(conn: sqlite3.Connection, workspace_id: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM moves WHERE workspace_id = ? ORDER BY ply, created_at", (workspace_id,)
+    ).fetchall()
+
+
+def list_legal_sans(conn: sqlite3.Connection, workspace_id: str) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT san FROM moves
+        WHERE workspace_id = ? AND is_legal = 1
+        ORDER BY ply, created_at
+        """,
+        (workspace_id,),
+    ).fetchall()
+    return [row["san"] for row in rows]

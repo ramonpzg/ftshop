@@ -1,0 +1,41 @@
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 220px;
+  border: 1px solid #999;
+}
+
+.chess-square {
+  padding: 0;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chess-square-light {
+  background: #f0d9b5;
+}
+
+.chess-square-dark {
+  background: #b58863;
+}
+
+.chess-square-selected {
+  outline: 2px solid #4263eb;
+  outline-offset: -2px;
+}
+
+.chess-square:disabled {
+  cursor: default;
+}
+
+.chess-piece-image {
+  width: 85%;
+  height: 85%;
+  pointer-events: none;
+}
