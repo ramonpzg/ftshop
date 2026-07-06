@@ -49,6 +49,26 @@ function slideRow(slides: { name: string; prompt: string }[]): SeedFrame[] {
   }));
 }
 
+const EXPLAINER_W = 1200;
+const EXPLAINER_H = 650;
+// To the right of the seeded note rows (which end near x=1040) and above
+// the workspace grid (y=1500) and the modality panel (x<900 at y=1200),
+// so explainers can never collide with generated shapes.
+const EXPLAINER_X = 1400;
+const EXPLAINER_Y = 80;
+
+function explainerRow(slides: { name: string; prompt: string }[]): SeedFrame[] {
+  return slides.map((slide, index) => ({
+    kind: "frame",
+    name: slide.name,
+    x: EXPLAINER_X + index * (EXPLAINER_W + 120),
+    y: EXPLAINER_Y,
+    w: EXPLAINER_W,
+    h: EXPLAINER_H,
+    prompt: slide.prompt,
+  }));
+}
+
 const PRESENTATION_SLIDES = slideRow([
   {
     name: "Slide 01 Title",
@@ -173,6 +193,16 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       860,
       "light-blue",
     ),
+    ...explainerRow([
+      {
+        name: "Explainer 01 From moves to a model",
+        prompt: "Play a game. Every move becomes rows.\nExport the rows to a file.\nPoint the trainer at the file. That is the whole pipeline.",
+      },
+      {
+        name: "Explainer 02 SFT vs RL",
+        prompt: "SFT: show the model good answers.\nRL: let the model act, price every action.\nChess prices actions for free: legal +1, check +2, mate +10, illegal -1.",
+      },
+    ]),
   ],
   "painting-pieces": [
     { kind: "heading", text: "Painting Our Pieces", x: 0, y: 0 },
@@ -200,6 +230,16 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       "yellow",
     ),
     ...noteRow(["Image evals"], 860, "orange"),
+    ...explainerRow([
+      {
+        name: "Explainer 01 Diffusion in one picture",
+        prompt: "Noise in, image out, guided by your caption.\nFine-tuning teaches the guide new words: a trigger word becomes a style.",
+      },
+      {
+        name: "Explainer 02 Data prep is the whole game",
+        prompt: "Captions, trigger words, aspect ratios, composition.\nImage adaptation is far more sensitive to dataset size than text.",
+      },
+    ]),
   ],
   "board-sound": [
     { kind: "heading", text: "Giving the Board Sound", x: 0, y: 0 },
@@ -216,6 +256,16 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       "light-blue",
     ),
     ...noteRow(["Audio evals"], 860, "orange"),
+    ...explainerRow([
+      {
+        name: "Explainer 01 Sound as image",
+        prompt: "Sound is vibration. Audio is its recording.\nA spectrogram turns the recording into a picture, and pictures we know how to model.",
+      },
+      {
+        name: "Explainer 02 Tokens vs diffusion for audio",
+        prompt: "MusicGen predicts audio tokens like an LLM predicts words.\nStable Audio denoises like an image model. Same recipe, different substrate.",
+      },
+    ]),
   ],
   "real-world-video": [
     { kind: "heading", text: "Video of the Real-World Use Case", x: 0, y: 0 },
@@ -237,6 +287,16 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       "grey",
     ),
     ...noteRow(["Video evals"], 860, "orange"),
+    ...explainerRow([
+      {
+        name: "Explainer 01 Why video is hard",
+        prompt: "Every frame must agree with the last one.\nTemporal consistency is the failure mode; compute escalates faster than you expect.",
+      },
+      {
+        name: "Explainer 02 From prompts to LTX",
+        prompt: "Take the 100 scenario prompts from the text page.\nGenerate short clips with a top model. Fine-tune LTX on the result.",
+      },
+    ]),
   ],
 };
 

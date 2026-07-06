@@ -25,7 +25,7 @@ export function DatasetPanel({ rows, maxRows = 6 }: DatasetPanelProps) {
   return (
     <div className="dataset-panel" data-testid="dataset-panel">
       {recent.map((row) => (
-        <details key={row.id} className="dataset-row">
+        <details key={row.id} className="dataset-row" data-shape={row.shape}>
           <summary>{SHAPE_LABELS[row.shape] ?? row.shape}</summary>
           <pre>{JSON.stringify(row.payload, null, 2)}</pre>
         </details>

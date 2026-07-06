@@ -25,10 +25,12 @@
 
 .eval-metric {
   flex: 1;
+  color: #1c2733;
 }
 
 .eval-value {
-  font-weight: 600;
+  font-weight: 700;
+  color: #0b7285;
 }
 
 .eval-source {

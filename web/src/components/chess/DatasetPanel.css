@@ -15,12 +15,14 @@
 .dataset-row {
   background: #f8f9fa;
   border-radius: 4px;
+  border-left: 3px solid #adb5bd;
   padding: 4px 6px;
 }
 
 .dataset-row summary {
   cursor: pointer;
   font-weight: 600;
+  color: #1c2733;
 }
 
 .dataset-row pre {
@@ -28,4 +30,25 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 10px;
+  color: #343a40;
+}
+
+/* One color per dataset shape so the six row types read at a glance. */
+.dataset-row[data-shape="pgn_prefix_to_move"] {
+  border-left-color: #1971c2;
+}
+.dataset-row[data-shape="fen_to_move"] {
+  border-left-color: #2b8a3e;
+}
+.dataset-row[data-shape="fen_legal_moves_to_move"] {
+  border-left-color: #0b7285;
+}
+.dataset-row[data-shape="board_tensor_to_move_class"] {
+  border-left-color: #6741d9;
+}
+.dataset-row[data-shape="policy_value_to_move"] {
+  border-left-color: #e8590c;
+}
+.dataset-row[data-shape="rl_trajectory"] {
+  border-left-color: #c2255c;
 }

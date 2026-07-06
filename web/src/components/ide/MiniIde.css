@@ -49,8 +49,20 @@
   background: #5a5a72;
 }
 
-.mini-ide-window .cm-editor {
+/* The @uiw/react-codemirror wrapper div has no intrinsic height; without
+ * this the editor grows past the window and the clipped overflow makes
+ * vertical scrolling impossible. */
+.mini-ide-window > div:last-child {
   flex: 1;
   min-height: 0;
-  font-size: 11px;
+  overflow: hidden;
+}
+
+.mini-ide-window .cm-editor {
+  height: 100%;
+  font-size: 12px;
+}
+
+.mini-ide-window .cm-scroller {
+  overflow: auto;
 }

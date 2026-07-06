@@ -36,10 +36,17 @@ describe("getPageSeedShapes", () => {
     expect(uniqueX.size).toBe(frames.length);
   });
 
-  test("only the presentation page has slide frames", () => {
+  test("every technical page seeds explainer frames clear of the workspace grid", () => {
     for (const page of PAGES.slice(1)) {
       const frames = getPageSeedShapes(page.slug).filter((shape) => shape.kind === "frame");
-      expect(frames.length).toBe(0);
+      expect(frames.length).toBeGreaterThanOrEqual(2);
+      for (const frame of frames) {
+        expect(frame.name).toContain("Explainer");
+        // Workspaces are generated from y=1500 down starting at x=0;
+        // explainers must never overlap that band.
+        expect(frame.y + frame.h).toBeLessThan(1500);
+        expect(frame.x).toBeGreaterThanOrEqual(1400);
+      }
     }
   });
 

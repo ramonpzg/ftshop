@@ -5,8 +5,8 @@ export interface WorkspacePosition {
   y: number;
 }
 
-const WORKSPACE_WIDTH = 900;
-const WORKSPACE_HEIGHT = 560;
+const WORKSPACE_WIDTH = 1160;
+const WORKSPACE_HEIGHT = 800;
 const GUTTER = 80;
 const COLUMNS = 3;
 // Every page's seeded starter content (headings and notes) occupies the

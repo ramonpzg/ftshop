@@ -46,15 +46,19 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
       </header>
       <div className="modality-panel-grid">
         <section className="modality-panel-section">
-          <h3>Config</h3>
+          <h3 title="Run jobs for this modality. The backend decides how each one runs.">Config</h3>
           <ConfigPanel jobs={jobs} onRunJob={handleRunJob} running={running} />
         </section>
         <section className="modality-panel-section">
-          <h3>Artifact</h3>
+          <h3 title="Job output lands here: generated files, cached reveals, live calculations.">
+            Artifact
+          </h3>
           <ArtifactPanel artifact={artifact} />
         </section>
         <section className="modality-panel-section">
-          <h3>Eval</h3>
+          <h3 title="Metrics for this modality. Cached rows need infra the workshop backend does not carry.">
+            Eval
+          </h3>
           <EvalPanel results={evalResults} />
         </section>
       </div>
