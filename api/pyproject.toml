@@ -12,6 +12,17 @@ dependencies = [
     "httpx>=0.28",
 ]
 
+[project.optional-dependencies]
+# Local text-to-audio inference (musicgen-small, stable-audio-open-1.0).
+# Several GB of wheels and model downloads; install via `just install-audio`.
+audio = [
+    "torch>=2.6",
+    "transformers>=5.0",
+    "diffusers>=0.35",
+    "scipy>=1.14",
+    "soundfile>=0.13",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1",

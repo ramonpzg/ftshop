@@ -50,9 +50,7 @@ def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
 
     sans = list_legal_sans(conn, workspace_id)
-    reply = llm_client.chat(
-        build_assess_messages(sans, workspace["board_fen"]), json_response=True
-    )
+    reply = llm_client.chat(build_assess_messages(sans, workspace["board_fen"]), json_response=True)
     parsed = parse_assess_reply(reply)
     if parsed is None:
         raise ModelReplyError(f"model reply had no usable assessment: {reply[:200]}")

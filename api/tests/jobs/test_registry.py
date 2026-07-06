@@ -10,14 +10,17 @@ from euro_chess_studio.jobs.registry import (
 from euro_chess_studio.jobs.replay_runner import ReplayRunner
 
 
-def test_list_job_types_includes_all_six_job_types():
+def test_list_job_types_includes_all_job_types():
     types = list_job_types()
     assert set(types) == {
         "text.prompt_eval",
         "text.reward_eval",
         "image.show_dataset",
+        "image.generate",
         "audio.make_spectrogram",
+        "audio.generate",
         "video.sample_frames",
+        "video.generate",
         "artifact.reveal_cached",
     }
 

@@ -23,11 +23,13 @@ def run_job(
 ) -> RunJobResult:
     runner = get_runner_for_job_type(job_type)  # raises UnknownJobTypeError if invalid
 
-    job_config_row = insert_job_config(
-        conn, workspace_id=workspace_id, job_type=job_type, params=params
-    )
+    # Run first, persist after: a failed generation (missing API key,
+    # provider error) must not leave an orphaned config row behind.
     output = runner.run(
         conn, JobConfig(job_type=job_type, params=params, workspace_id=workspace_id)
+    )
+    job_config_row = insert_job_config(
+        conn, workspace_id=workspace_id, job_type=job_type, params=params
     )
     artifact_row = insert_artifact(
         conn,

@@ -1,0 +1,65 @@
+.generate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.generate-panel textarea {
+  resize: vertical;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #212529;
+}
+
+.generate-panel-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.generate-panel-row select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #212529;
+  background: white;
+}
+
+.generate-panel-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: #6741d9;
+  color: white;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.generate-panel-row button:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+}
+
+.generate-panel-note {
+  margin: 0;
+  font-size: 10px;
+  color: #6c757d;
+}
+
+.generate-panel-error {
+  margin: 0;
+  font-size: 10px;
+  color: #c92a2a;
+}

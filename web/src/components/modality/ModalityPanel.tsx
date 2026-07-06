@@ -2,8 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ConfigPanel } from "../../components/config/ConfigPanel";
 import { EvalPanel } from "../../components/eval/EvalPanel";
-import { type Artifact, type EvalResult, fetchArtifacts, fetchEvals, runJob } from "../../data/api";
+import {
+  type Artifact,
+  type EvalResult,
+  fetchArtifacts,
+  fetchEvals,
+  fetchGenerationOptions,
+  type GenerationOptions,
+  runJob,
+} from "../../data/api";
 import { JOBS_BY_MODALITY, jobParams } from "../../lib/modalityJobs";
+import { GeneratePanel } from "./GeneratePanel";
 import "./ModalityPanel.css";
 
 interface ModalityPanelProps {
@@ -11,10 +20,13 @@ interface ModalityPanelProps {
   isEditing: boolean;
 }
 
+const GENERATIVE_MODALITIES = new Set(["image", "video", "audio"]);
+
 export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [running, setRunning] = useState(false);
+  const [generationOptions, setGenerationOptions] = useState<GenerationOptions | null>(null);
 
   const refresh = useCallback(() => {
     fetchArtifacts({ modality }).then((artifacts) => setArtifact(artifacts[0] ?? null));
@@ -24,6 +36,21 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!GENERATIVE_MODALITIES.has(modality)) return;
+    let cancelled = false;
+    fetchGenerationOptions()
+      .then((options) => {
+        if (!cancelled) setGenerationOptions(options);
+      })
+      .catch(() => {
+        if (!cancelled) setGenerationOptions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modality]);
 
   async function handleRunJob(jobType: string) {
     setRunning(true);
@@ -48,6 +75,18 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
         <section className="modality-panel-section">
           <h3 title="Run jobs for this modality. The backend decides how each one runs.">Config</h3>
           <ConfigPanel jobs={jobs} onRunJob={handleRunJob} running={running} />
+          {GENERATIVE_MODALITIES.has(modality) && (
+            <GeneratePanel
+              modality={modality as "image" | "video" | "audio"}
+              options={
+                generationOptions?.[modality as "image" | "video" | "audio"] ?? null
+              }
+              onArtifact={(generated) => {
+                setArtifact(generated);
+                refresh();
+              }}
+            />
+          )}
         </section>
         <section className="modality-panel-section">
           <h3 title="Job output lands here: generated files, cached reveals, live calculations.">

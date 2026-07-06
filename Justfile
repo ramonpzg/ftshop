@@ -7,6 +7,10 @@ install:
     cd web && bun install
     cd api && uv sync
 
+# Local text-to-audio models (musicgen, stable audio). Several GB.
+install-audio:
+    cd api && uv sync --extra audio
+
 start:
     #!/usr/bin/env bash
     set -euo pipefail

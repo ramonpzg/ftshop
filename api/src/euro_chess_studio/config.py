@@ -17,6 +17,12 @@ def get_artifacts_dir() -> Path:
     return REPO_ROOT / "artifacts"
 
 
+def get_generated_dir() -> Path:
+    """Where generated job outputs (fal downloads, local audio) land."""
+    override = os.environ.get("CHESS_STUDIO_GENERATED_DIR")
+    return Path(override) if override else get_artifacts_dir() / "generated"
+
+
 def get_data_dir() -> Path:
     override = os.environ.get("CHESS_STUDIO_DATA_DIR")
     return Path(override) if override else REPO_ROOT / "data"

@@ -109,6 +109,27 @@ export interface WorkspaceState {
   dataset_rows: DatasetRow[];
 }
 
+export interface ModelOption {
+  id: string;
+  label: string;
+  available: boolean;
+}
+
+export interface ModalityGenerationOptions {
+  configured: boolean;
+  models: ModelOption[];
+}
+
+export interface GenerationOptions {
+  image: ModalityGenerationOptions;
+  video: ModalityGenerationOptions;
+  audio: ModalityGenerationOptions;
+}
+
+export function fetchGenerationOptions(): Promise<GenerationOptions> {
+  return request<GenerationOptions>("/generation/options");
+}
+
 export interface DatasetExport {
   file_name: string;
   row_count: number;

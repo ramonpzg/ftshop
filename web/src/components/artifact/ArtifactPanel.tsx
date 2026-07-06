@@ -27,6 +27,8 @@ export function ArtifactPanel({ artifact }: ArtifactPanelProps) {
     ? rows.filter((row) => pieceImageUrl(row.image) !== null)
     : [];
   const beforeImage = pieceImageUrl(artifact.payload.before_image);
+  const fileUrl =
+    typeof artifact.payload.file_url === "string" ? `/api${artifact.payload.file_url}` : null;
 
   return (
     <div className="artifact-panel" data-testid="artifact-panel">
@@ -34,6 +36,22 @@ export function ArtifactPanel({ artifact }: ArtifactPanelProps) {
         <span>{artifact.kind}</span>
         {artifact.cached && <span className="artifact-cached-badge">cached</span>}
       </div>
+      {fileUrl && artifact.kind === "generated_image" && (
+        <img
+          className="artifact-generated-image"
+          src={fileUrl}
+          alt={String(artifact.payload.prompt ?? "generated image")}
+          data-testid="generated-image"
+        />
+      )}
+      {fileUrl && artifact.kind === "generated_video" && (
+        // biome-ignore lint/a11y/useMediaCaption: generated clips have no caption track
+        <video className="artifact-generated-video" src={fileUrl} controls data-testid="generated-video" />
+      )}
+      {fileUrl && artifact.kind === "generated_audio" && (
+        // biome-ignore lint/a11y/useMediaCaption: generated clips have no caption track
+        <audio src={fileUrl} controls data-testid="generated-audio" />
+      )}
       {imageRows.length > 0 && (
         <div className="artifact-image-strip" data-testid="artifact-image-strip">
           {imageRows.map((row) => (

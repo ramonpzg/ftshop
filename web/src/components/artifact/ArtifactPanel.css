@@ -36,6 +36,16 @@
   color: #343a40;
 }
 
+.artifact-generated-image {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.artifact-generated-video {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
 .artifact-image-strip {
   display: flex;
   gap: 8px;

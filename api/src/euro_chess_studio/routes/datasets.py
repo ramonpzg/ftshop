@@ -34,5 +34,7 @@ def post_export(conn: sqlite3.Connection = Depends(get_db)) -> ExportOut:
 def get_export_file() -> FileResponse:
     path = get_text_export_path()
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="no export yet. POST /datasets/text/export first")
+        raise HTTPException(
+            status_code=404, detail="no export yet. POST /datasets/text/export first"
+        )
     return FileResponse(path, media_type="application/jsonl", filename=EXPORT_FILE_NAME)

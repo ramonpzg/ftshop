@@ -61,7 +61,9 @@ def chat(messages: list[dict], *, json_response: bool = False, timeout: float = 
                 json=body,
             )
         if response.status_code != 200:
-            raise LlmRequestError(f"llm endpoint returned {response.status_code}: {response.text[:300]}")
+            raise LlmRequestError(
+                f"llm endpoint returned {response.status_code}: {response.text[:300]}"
+            )
         data = response.json()
 
     try:
