@@ -8,8 +8,9 @@ import {
   Horse,
   Package,
   Sliders,
+  Timer,
 } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ChessBoard } from "../../components/chess/ChessBoard";
 import { DatasetPanel } from "../../components/chess/DatasetPanel";
@@ -17,6 +18,7 @@ import { ConfigPanel } from "../../components/config/ConfigPanel";
 import { EvalPanel } from "../../components/eval/EvalPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
 import {
+  ApiError,
   type Artifact,
   type Assessment,
   assessPosition,
@@ -26,16 +28,29 @@ import {
   exportTextDataset,
   fetchArtifacts,
   fetchEvals,
+  fetchGameStatus,
   fetchLlmStatus,
   fetchWorkspaceState,
+  flagTimeout,
+  type Game,
+  type GameRecord,
+  type GameStatus,
   type LlmStatus,
   makeMove,
   modelMove,
   type MoveResponse,
   runJob,
   selectSnippet,
+  startGame,
+  startOver,
 } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
+import {
+  DEFAULT_TIME_LIMIT_SECONDS,
+  describeGameEnd,
+  formatClock,
+  TIME_LIMIT_CHOICES,
+} from "../../lib/gameClock";
 import { usePresenterState } from "../../lib/presenterContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
 import "./WorkspacePanel.css";
@@ -115,7 +130,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     reward: number;
   } | null>(null);
   const [llm, setLlm] = useState<LlmStatus | null>(null);
-  const [vsModel, setVsModel] = useState(false);
+  const [game, setGame] = useState<Game | null>(null);
+  const [record, setRecord] = useState<GameRecord | null>(null);
+  const [timeLimit, setTimeLimit] = useState(DEFAULT_TIME_LIMIT_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [confirmingStartOver, setConfirmingStartOver] = useState(false);
+  const [gameNotice, setGameNotice] = useState<string | null>(null);
+  const timeoutInFlight = useRef(false);
   const [modelThinking, setModelThinking] = useState(false);
   const [analysis, setAnalysis] = useState<Assessment | null>(null);
   const [analysisState, setAnalysisState] = useState<"idle" | "loading" | "error">("idle");
@@ -137,6 +158,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     };
   }, [workspaceId, resetToken]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: applyGameStatus is recreated per render; depending on it would refetch in a loop
   useEffect(() => {
     if (!isOwnWorkspace) return;
     let cancelled = false;
@@ -147,10 +169,68 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       .catch(() => {
         if (!cancelled) setLlm(null);
       });
+    fetchGameStatus(workspaceId)
+      .then((status) => {
+        if (!cancelled) applyGameStatus(status);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [isOwnWorkspace]);
+  }, [isOwnWorkspace, workspaceId]);
+
+  function applyGameStatus(status: GameStatus, options: { board?: boolean } = {}) {
+    setGame(status.game);
+    setRecord(status.record);
+    if (options.board) {
+      setFen(status.board_fen);
+    }
+  }
+
+  // The countdown. One interval per game; when it hits zero the server
+  // gets to confirm before the loss is recorded.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the game id on purpose; refetches must not restart the clock
+  useEffect(() => {
+    if (!game || !isOwnWorkspace) {
+      setSecondsLeft(null);
+      return;
+    }
+    const deadline = Date.now() + game.seconds_left * 1000;
+    setSecondsLeft(game.seconds_left);
+    const tick = setInterval(async () => {
+      const left = (deadline - Date.now()) / 1000;
+      setSecondsLeft(left);
+      if (left > 0 || timeoutInFlight.current) return;
+      timeoutInFlight.current = true;
+      try {
+        const status = await flagTimeout(workspaceId);
+        applyGameStatus(status);
+        setGameNotice(describeGameEnd("loss_timeout"));
+      } catch {
+        // The server disagrees (clock skew) or the game already ended
+        // another way. Resync and let the next tick retry if needed.
+        const status = await fetchGameStatus(workspaceId).catch(() => null);
+        if (status) applyGameStatus(status);
+      } finally {
+        timeoutInFlight.current = false;
+      }
+    }, 500);
+    return () => clearInterval(tick);
+  }, [game?.id, isOwnWorkspace]);
+
+  // The model answers whenever it is black's turn in a running game.
+  // This one effect covers both the reply to a fresh move and resuming
+  // a match the browser was reloaded in the middle of. modelThinking
+  // guards re-entry but must not be a dependency: an illegal model
+  // reply leaves the turn unchanged, and refiring on the thinking flag
+  // would retry the model forever.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fires on turn changes only; the callbacks are stable per render
+  useEffect(() => {
+    if (!game || !isOwnWorkspace || !isEditing || modelThinking) return;
+    if (fen.split(" ")[1] === "b") {
+      void triggerModelReply();
+    }
+  }, [game?.id, fen, isOwnWorkspace, isEditing]);
 
   function applyMoveResponse(response: MoveResponse, mover: "you" | "model") {
     const move = response.move;
@@ -164,7 +244,22 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       setFen(move.fen_after);
     }
     setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
+    if (response.game_result) {
+      setGameNotice(describeGameEnd(response.game_result));
+      void refreshGameStatus();
+    }
     return move.is_legal;
+  }
+
+  async function refreshGameStatus() {
+    const status = await fetchGameStatus(workspaceId).catch(() => null);
+    if (status) applyGameStatus(status);
+  }
+
+  /** A 409 on a move means the server's clock ran out first. */
+  async function handleClockExpired() {
+    setGameNotice(describeGameEnd("loss_timeout"));
+    await refreshGameStatus();
   }
 
   async function refreshAnalysis() {
@@ -182,7 +277,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     try {
       const response = await modelMove(workspaceId);
       applyMoveResponse(response, "model");
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        await handleClockExpired();
+        return;
+      }
       setLastMove({ label: "Model: no usable reply", legal: false, reward: 0 });
     } finally {
       setModelThinking(false);
@@ -191,11 +290,21 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   }
 
   async function handleStartGame() {
-    setVsModel(true);
+    setGameNotice(null);
     setLastMove(null);
-    // If it's already the model's turn (black to move), kick it off now.
-    if (fen.split(" ")[1] === "b") {
-      await triggerModelReply();
+    setAnalysis(null);
+    const status = await startGame(workspaceId, timeLimit).catch(() => null);
+    if (status) applyGameStatus(status, { board: true });
+  }
+
+  async function handleStartOver() {
+    setConfirmingStartOver(false);
+    setLastMove(null);
+    setAnalysis(null);
+    const status = await startOver(workspaceId).catch(() => null);
+    if (status) {
+      applyGameStatus(status, { board: true });
+      setGameNotice(describeGameEnd("loss_resign"));
     }
   }
 
@@ -215,16 +324,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   async function handleMove(uci: string) {
     if (movePending || modelThinking) return;
     setMovePending(true);
-    let legal = false;
     try {
       // Illegal attempts stay visible: they earn reward -1, which is the
-      // whole point of the RL framing.
-      legal = applyMoveResponse(await makeMove(workspaceId, uci), "you");
+      // whole point of the RL framing. The model's reply is not triggered
+      // here: the turn effect above notices black to move and handles it.
+      applyMoveResponse(await makeMove(workspaceId, uci), "you");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        await handleClockExpired();
+      }
     } finally {
       setMovePending(false);
-    }
-    if (legal && vsModel) {
-      await triggerModelReply();
     }
   }
 
@@ -244,11 +354,10 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  const boardInteractive =
-    isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking;
+  const boardInteractive = isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking;
   const llmReady = llm?.configured === true;
   const llmHint = llmReady
-    ? `Play against ${llm?.model}. It answers every move.`
+    ? `A timed match against ${llm?.model} from the starting position. It answers every move.`
     : "Set OPENAI_API_KEY on the backend to enable the model opponent.";
 
   return (
@@ -274,25 +383,82 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
             <ChessBoard fen={fen} interactive={boardInteractive} onMove={handleMove} />
             {isOwnWorkspace && isEditing && (
               <div className="workspace-game-controls">
-                {vsModel ? (
-                  <button type="button" onClick={() => setVsModel(false)}>
-                    Stop game
-                  </button>
+                {game ? (
+                  confirmingStartOver ? (
+                    <>
+                      <span className="workspace-game-warning">
+                        Starting over counts as a loss.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleStartOver}
+                        data-testid="confirm-start-over"
+                      >
+                        Confirm loss
+                      </button>
+                      <button
+                        type="button"
+                        className="workspace-button-quiet"
+                        onClick={() => setConfirmingStartOver(false)}
+                      >
+                        Keep playing
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="workspace-game-timer" data-testid="game-timer">
+                        <Timer size={12} weight="bold" />
+                        {formatClock(secondsLeft ?? game.seconds_left)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingStartOver(true)}
+                        title="Ends this game as a loss and starts a fresh one on the same clock."
+                        data-testid="start-over"
+                      >
+                        Start over
+                      </button>
+                    </>
+                  )
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleStartGame}
-                    disabled={!llmReady}
-                    title={llmHint}
-                    data-testid="start-game"
-                  >
-                    Start game
-                  </button>
+                  <>
+                    <select
+                      value={timeLimit}
+                      onChange={(event) => setTimeLimit(Number(event.target.value))}
+                      title="One clock for the whole match. When it runs out, that is a loss."
+                      data-testid="time-limit"
+                    >
+                      {TIME_LIMIT_CHOICES.map((choice) => (
+                        <option key={choice.seconds} value={choice.seconds}>
+                          {choice.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleStartGame}
+                      disabled={!llmReady}
+                      title={llmHint}
+                      data-testid="start-game"
+                    >
+                      Start game
+                    </button>
+                  </>
                 )}
                 {modelThinking && (
                   <span className="workspace-model-thinking">Model is thinking</span>
                 )}
               </div>
+            )}
+            {record && record.wins + record.losses + record.draws > 0 && (
+              <p className="workspace-game-record" data-testid="game-record">
+                W {record.wins} L {record.losses} D {record.draws}
+              </p>
+            )}
+            {gameNotice && (
+              <p className="workspace-game-notice" data-testid="game-notice">
+                {gameNotice}
+              </p>
             )}
             {lastMove && (
               <p
@@ -382,7 +548,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
               {analysisState === "error" && (
                 <p className="workspace-analysis-empty">Assessment failed. Next move retries.</p>
               )}
-              {isOwnWorkspace && isEditing && llmReady && !vsModel && (
+              {isOwnWorkspace && isEditing && llmReady && !game && (
                 <button type="button" className="workspace-assess-button" onClick={refreshAnalysis}>
                   Assess position
                 </button>

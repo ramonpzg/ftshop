@@ -34,7 +34,10 @@ export function GeneratePanel({ modality, options, onArtifact }: GeneratePanelPr
     setBusy(true);
     setError(null);
     try {
-      const response = await runJob(`${modality}.generate`, { prompt: prompt.trim(), model: selected });
+      const response = await runJob(`${modality}.generate`, {
+        prompt: prompt.trim(),
+        model: selected,
+      });
       onArtifact(response.artifact);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 503) {

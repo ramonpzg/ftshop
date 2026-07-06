@@ -104,7 +104,9 @@ export function NotebookPanel({ pageSlug, isEditing }: NotebookPanelProps) {
         <iframe className="notebook-panel-frame" src={src} title={`${pageSlug} notebook`} />
       ) : (
         <div className="notebook-panel-missing">
-          {wasmBuilt === null ? "Checking for the notebook build" : "Notebook not built. Run: just notebooks"}
+          {wasmBuilt === null
+            ? "Checking for the notebook build"
+            : "Notebook not built. Run: just notebooks"}
         </div>
       )}
     </div>

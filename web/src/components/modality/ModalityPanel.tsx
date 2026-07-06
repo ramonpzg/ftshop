@@ -78,9 +78,7 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
           {GENERATIVE_MODALITIES.has(modality) && (
             <GeneratePanel
               modality={modality as "image" | "video" | "audio"}
-              options={
-                generationOptions?.[modality as "image" | "video" | "audio"] ?? null
-              }
+              options={generationOptions?.[modality as "image" | "video" | "audio"] ?? null}
               onArtifact={(generated) => {
                 setArtifact(generated);
                 refresh();

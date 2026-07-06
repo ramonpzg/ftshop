@@ -72,11 +72,13 @@ function explainerRow(slides: { name: string; prompt: string }[]): SeedFrame[] {
 const PRESENTATION_SLIDES = slideRow([
   {
     name: "Slide 01 Title",
-    prompt: "Same Recipe, Different Results.\nFine-tuning across text, image, audio, video.\nOne domain: chess.",
+    prompt:
+      "Same Recipe, Different Results.\nFine-tuning across text, image, audio, video.\nOne domain: chess.",
   },
   {
     name: "Slide 02 The chess story",
-    prompt: "Played as a kid. Duolingo chess pathway in April.\n2 matches a day, then 30, then 50.\nOver 1000 matches. Elo past 1000.",
+    prompt:
+      "Played as a kid. Duolingo chess pathway in April.\n2 matches a day, then 30, then 50.\nOver 1000 matches. Elo past 1000.",
   },
   {
     name: "Slide 03 Elo, briefly",
@@ -84,31 +86,38 @@ const PRESENTATION_SLIDES = slideRow([
   },
   {
     name: "Slide 04 Rules refresher",
-    prompt: "The board, the pieces, the goal.\nQueen's Gambit check: not seen it? Leave, watch it, come back.",
+    prompt:
+      "The board, the pieces, the goal.\nQueen's Gambit check: not seen it? Leave, watch it, come back.",
   },
   {
     name: "Slide 05 Chess today",
-    prompt: "AI beat grandmasters years ago. Chess is more popular than ever.\nTournaments, big and small. What a pro earns.",
+    prompt:
+      "AI beat grandmasters years ago. Chess is more popular than ever.\nTournaments, big and small. What a pro earns.",
   },
   {
     name: "Slide 06 Fine-tuning is moulding intelligence",
-    prompt: "The stages that got us to transformers and diffusion.\nWhy adapt a model instead of training one.",
+    prompt:
+      "The stages that got us to transformers and diffusion.\nWhy adapt a model instead of training one.",
   },
   {
     name: "Slide 07 The plan",
-    prompt: "Four modalities, one recipe.\nText is the deep tutorial. Image, audio, video run faster.",
+    prompt:
+      "Four modalities, one recipe.\nText is the deep tutorial. Image, audio, video run faster.",
   },
   {
     name: "Slide 08 How to follow along",
-    prompt: "Open the app. Enter your name.\nMove pieces, watch the dataset build.\nRun a job, check the evals.",
+    prompt:
+      "Open the app. Enter your name.\nMove pieces, watch the dataset build.\nRun a job, check the evals.",
   },
   {
     name: "Slide 09 Your personalised instructor",
-    prompt: "The point of all this: your own instructor.\nMine: win while capturing as few pieces as possible.",
+    prompt:
+      "The point of all this: your own instructor.\nMine: win while capturing as few pieces as possible.",
   },
   {
     name: "Slide 10 Closing thoughts",
-    prompt: "Training is expensive. Open models match closed ones from two years ago.\nThe barrier keeps dropping: microchat trains a GPT in a few hundred lines.\nMerging combines fine-tunes without retraining. Know when it wrecks quality.\nSpecialisation may soon matter more than a ten point benchmark gap.",
+    prompt:
+      "Training is expensive. Open models match closed ones from two years ago.\nThe barrier keeps dropping: microchat trains a GPT in a few hundred lines.\nMerging combines fine-tunes without retraining. Know when it wrecks quality.\nSpecialisation may soon matter more than a ten point benchmark gap.",
   },
   {
     name: "Slide 11 Resources",
@@ -196,11 +205,13 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     ...explainerRow([
       {
         name: "Explainer 01 From moves to a model",
-        prompt: "Play a game. Every move becomes rows.\nExport the rows to a file.\nPoint the trainer at the file. That is the whole pipeline.",
+        prompt:
+          "Play a game. Every move becomes rows.\nExport the rows to a file.\nPoint the trainer at the file. That is the whole pipeline.",
       },
       {
         name: "Explainer 02 SFT vs RL",
-        prompt: "SFT: show the model good answers.\nRL: let the model act, price every action.\nChess prices actions for free: legal +1, check +2, mate +10, illegal -1.",
+        prompt:
+          "SFT: show the model good answers.\nRL: let the model act, price every action.\nChess prices actions for free: legal +1, check +2, mate +10, illegal -1.",
       },
     ]),
   ],
@@ -233,11 +244,13 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     ...explainerRow([
       {
         name: "Explainer 01 Diffusion in one picture",
-        prompt: "Noise in, image out, guided by your caption.\nFine-tuning teaches the guide new words: a trigger word becomes a style.",
+        prompt:
+          "Noise in, image out, guided by your caption.\nFine-tuning teaches the guide new words: a trigger word becomes a style.",
       },
       {
         name: "Explainer 02 Data prep is the whole game",
-        prompt: "Captions, trigger words, aspect ratios, composition.\nImage adaptation is far more sensitive to dataset size than text.",
+        prompt:
+          "Captions, trigger words, aspect ratios, composition.\nImage adaptation is far more sensitive to dataset size than text.",
       },
     ]),
   ],
@@ -259,11 +272,13 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     ...explainerRow([
       {
         name: "Explainer 01 Sound as image",
-        prompt: "Sound is vibration. Audio is its recording.\nA spectrogram turns the recording into a picture, and pictures we know how to model.",
+        prompt:
+          "Sound is vibration. Audio is its recording.\nA spectrogram turns the recording into a picture, and pictures we know how to model.",
       },
       {
         name: "Explainer 02 Tokens vs diffusion for audio",
-        prompt: "MusicGen predicts audio tokens like an LLM predicts words.\nStable Audio denoises like an image model. Same recipe, different substrate.",
+        prompt:
+          "MusicGen predicts audio tokens like an LLM predicts words.\nStable Audio denoises like an image model. Same recipe, different substrate.",
       },
     ]),
   ],
@@ -290,11 +305,13 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     ...explainerRow([
       {
         name: "Explainer 01 Why video is hard",
-        prompt: "Every frame must agree with the last one.\nTemporal consistency is the failure mode; compute escalates faster than you expect.",
+        prompt:
+          "Every frame must agree with the last one.\nTemporal consistency is the failure mode; compute escalates faster than you expect.",
       },
       {
         name: "Explainer 02 From prompts to LTX",
-        prompt: "Take the 100 scenario prompts from the text page.\nGenerate short clips with a top model. Fine-tune LTX on the result.",
+        prompt:
+          "Take the 100 scenario prompts from the text page.\nGenerate short clips with a top model. Fine-tune LTX on the result.",
       },
     ]),
   ],

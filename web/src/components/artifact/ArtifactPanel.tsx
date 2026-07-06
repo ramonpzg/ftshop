@@ -46,7 +46,12 @@ export function ArtifactPanel({ artifact }: ArtifactPanelProps) {
       )}
       {fileUrl && artifact.kind === "generated_video" && (
         // biome-ignore lint/a11y/useMediaCaption: generated clips have no caption track
-        <video className="artifact-generated-video" src={fileUrl} controls data-testid="generated-video" />
+        <video
+          className="artifact-generated-video"
+          src={fileUrl}
+          controls
+          data-testid="generated-video"
+        />
       )}
       {fileUrl && artifact.kind === "generated_audio" && (
         // biome-ignore lint/a11y/useMediaCaption: generated clips have no caption track

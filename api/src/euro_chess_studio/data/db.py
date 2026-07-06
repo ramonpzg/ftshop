@@ -32,9 +32,20 @@ CREATE TABLE IF NOT EXISTS workspaces (
     UNIQUE (user_id, page_id)
 );
 
+CREATE TABLE IF NOT EXISTS games (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    time_limit_seconds INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS moves (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
     ply INTEGER NOT NULL,
     uci TEXT NOT NULL,
     san TEXT,
@@ -110,4 +121,10 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    # CREATE TABLE IF NOT EXISTS never alters an existing table, so a
+    # database created before the games feature is missing moves.game_id.
+    # Patch it in place instead of forcing a reset-db mid-workshop.
+    move_columns = {row[1] for row in conn.execute("PRAGMA table_info(moves)")}
+    if "game_id" not in move_columns:
+        conn.execute("ALTER TABLE moves ADD COLUMN game_id TEXT REFERENCES games(id)")
     conn.commit()

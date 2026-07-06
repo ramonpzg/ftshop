@@ -94,6 +94,8 @@ export interface DatasetRow {
 export interface MoveResponse {
   move: Move;
   dataset_rows: DatasetRow[];
+  /** Set when this move ended a timed game: "win", "loss", "draw". */
+  game_result: string | null;
 }
 
 export function makeMove(workspaceId: string, uci: string): Promise<MoveResponse> {
@@ -151,6 +153,49 @@ export function fetchLlmStatus(): Promise<LlmStatus> {
 
 export function modelMove(workspaceId: string): Promise<MoveResponse> {
   return request<MoveResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
+}
+
+export interface Game {
+  id: string;
+  workspace_id: string;
+  time_limit_seconds: number;
+  started_at: string;
+  ended_at: string | null;
+  result: string | null;
+  seconds_left: number;
+}
+
+export interface GameRecord {
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export interface GameStatus {
+  game: Game | null;
+  record: GameRecord;
+  board_fen: string;
+}
+
+export function fetchGameStatus(workspaceId: string): Promise<GameStatus> {
+  return request<GameStatus>(`/workspaces/${workspaceId}/game`);
+}
+
+export function startGame(workspaceId: string, timeLimitSeconds: number): Promise<GameStatus> {
+  return request<GameStatus>(`/workspaces/${workspaceId}/game/start`, {
+    method: "POST",
+    body: JSON.stringify({ time_limit_seconds: timeLimitSeconds }),
+  });
+}
+
+/** Ends the running game as a loss and starts a fresh one. The Duolingo rule. */
+export function startOver(workspaceId: string): Promise<GameStatus> {
+  return request<GameStatus>(`/workspaces/${workspaceId}/game/start-over`, { method: "POST" });
+}
+
+/** The client clock hit zero; the server verifies before recording the loss. */
+export function flagTimeout(workspaceId: string): Promise<GameStatus> {
+  return request<GameStatus>(`/workspaces/${workspaceId}/game/timeout`, { method: "POST" });
 }
 
 export interface Assessment {

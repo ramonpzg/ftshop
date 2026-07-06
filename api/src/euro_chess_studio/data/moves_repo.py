@@ -25,24 +25,30 @@ def insert_move(
     is_check: bool,
     is_checkmate: bool,
     reward: int,
+    game_id: str | None = None,
 ) -> sqlite3.Row:
     # ply is allocated inside the INSERT (count of legal moves so far)
-    # so two in-flight requests can never claim the same ply.
+    # so two in-flight requests can never claim the same ply. It is
+    # scoped to the game (IS handles the NULL of free play) so a fresh
+    # match starts its PGN at move one instead of inheriting history.
     move_id = generate_id("move")
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
         """
         INSERT INTO moves
-            (id, workspace_id, ply, uci, san, fen_before, fen_after,
+            (id, workspace_id, game_id, ply, uci, san, fen_before, fen_after,
              is_legal, is_check, is_checkmate, reward, created_at)
-        VALUES (?, ?,
-                (SELECT COUNT(*) FROM moves WHERE workspace_id = ? AND is_legal = 1),
+        VALUES (?, ?, ?,
+                (SELECT COUNT(*) FROM moves
+                 WHERE workspace_id = ? AND is_legal = 1 AND game_id IS ?),
                 ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             move_id,
             workspace_id,
+            game_id,
             workspace_id,
+            game_id,
             uci,
             san,
             fen_before,
@@ -70,14 +76,18 @@ def list_moves(conn: sqlite3.Connection, workspace_id: str) -> list[sqlite3.Row]
     ).fetchall()
 
 
-def list_legal_sans(conn: sqlite3.Connection, workspace_id: str) -> list[str]:
+def list_legal_sans(
+    conn: sqlite3.Connection, workspace_id: str, game_id: str | None = None
+) -> list[str]:
+    """Legal SANs in order, scoped to one game (or to free play when
+    game_id is None) so PGN prefixes never leak across matches."""
     rows = conn.execute(
         """
         SELECT san FROM moves
-        WHERE workspace_id = ? AND is_legal = 1
+        WHERE workspace_id = ? AND is_legal = 1 AND game_id IS ?
         ORDER BY ply, created_at
         """,
-        (workspace_id,),
+        (workspace_id, game_id),
     ).fetchall()
     return [row["san"] for row in rows]
 

@@ -5,9 +5,7 @@ const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 describe("assetFileName", () => {
   test("uses the asset id and the original extension", () => {
-    expect(assetFileName("asset:abc123", "board photo.PNG", "image/png")).toBe(
-      "asset-abc123.png",
-    );
+    expect(assetFileName("asset:abc123", "board photo.PNG", "image/png")).toBe("asset-abc123.png");
   });
 
   test("falls back to the mime type when the file name has no usable extension", () => {

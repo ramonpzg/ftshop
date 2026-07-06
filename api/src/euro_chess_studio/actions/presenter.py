@@ -6,6 +6,7 @@ import chess
 
 from euro_chess_studio.actions.errors import PageNotFoundError
 from euro_chess_studio.data.dataset_rows_repo import delete_dataset_rows_for_workspace
+from euro_chess_studio.data.games_repo import delete_games_for_workspace
 from euro_chess_studio.data.moves_repo import delete_moves_for_workspace
 from euro_chess_studio.data.pages_repo import get_page_by_slug
 from euro_chess_studio.data.presenter_state_repo import (
@@ -44,8 +45,10 @@ def reset_page(conn: sqlite3.Connection, page_slug: str) -> int:
 
     workspaces = list_workspaces(conn, page["id"])
     for workspace in workspaces:
-        # dataset_rows.move_id references moves(id), so it must go first.
+        # dataset_rows.move_id references moves(id), and moves.game_id
+        # references games(id), so deletion runs leaf to root.
         delete_dataset_rows_for_workspace(conn, workspace["id"])
         delete_moves_for_workspace(conn, workspace["id"])
+        delete_games_for_workspace(conn, workspace["id"])
         update_board_fen(conn, workspace["id"], chess.STARTING_FEN)
     return len(workspaces)

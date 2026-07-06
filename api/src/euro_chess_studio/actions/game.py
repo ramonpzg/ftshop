@@ -12,6 +12,7 @@ from euro_chess_studio.calculations.llm_prompts import (
 )
 from euro_chess_studio.chess.board import get_legal_moves
 from euro_chess_studio.data import llm_client
+from euro_chess_studio.data.games_repo import get_active_game
 from euro_chess_studio.data.moves_repo import list_legal_sans
 from euro_chess_studio.data.workspaces_repo import get_workspace
 
@@ -39,7 +40,7 @@ def model_move(conn: sqlite3.Connection, workspace_id: str) -> MakeMoveResult:
     if uci is None:
         raise ModelReplyError(f"model reply had no usable move: {reply[:200]}")
 
-    return make_move(conn, workspace_id, uci)
+    return make_move(conn, workspace_id, uci, mover="model")
 
 
 def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:
@@ -49,7 +50,8 @@ def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
 
-    sans = list_legal_sans(conn, workspace_id)
+    active = get_active_game(conn, workspace_id)
+    sans = list_legal_sans(conn, workspace_id, active["id"] if active else None)
     reply = llm_client.chat(build_assess_messages(sans, workspace["board_fen"]), json_response=True)
     parsed = parse_assess_reply(reply)
     if parsed is None:

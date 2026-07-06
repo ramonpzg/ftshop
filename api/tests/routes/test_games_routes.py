@@ -1,0 +1,131 @@
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from euro_chess_studio.data.db import get_connection
+from euro_chess_studio.main import app
+
+
+@pytest.fixture
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CHESS_STUDIO_DB_PATH", str(tmp_path / "test.db"))
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def make_workspace(client: TestClient) -> str:
+    user = client.post("/users", json={"name": "Ada"}).json()
+    workspace = client.post(
+        "/workspaces", json={"user_id": user["id"], "page_slug": "chess-machine"}
+    ).json()
+    return workspace["id"]
+
+
+def expire_active_game(tmp_path: Path, workspace_id: str) -> None:
+    conn = get_connection(tmp_path / "test.db")
+    stale = (datetime.now(UTC) - timedelta(seconds=9000)).isoformat()
+    conn.execute(
+        "UPDATE games SET started_at = ? WHERE workspace_id = ? AND result IS NULL",
+        (stale, workspace_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_game_status_starts_empty(client: TestClient):
+    workspace_id = make_workspace(client)
+    body = client.get(f"/workspaces/{workspace_id}/game").json()
+    assert body["game"] is None
+    assert body["record"] == {"wins": 0, "losses": 0, "draws": 0}
+    assert body["board_fen"].startswith("rnbqkbnr")
+
+
+def test_start_game_defaults_to_five_minutes(client: TestClient):
+    workspace_id = make_workspace(client)
+    response = client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["game"]["time_limit_seconds"] == 300
+    assert 299 <= body["game"]["seconds_left"] <= 300
+
+
+def test_start_game_rejects_a_clock_beyond_thirty_minutes(client: TestClient):
+    workspace_id = make_workspace(client)
+    response = client.post(
+        f"/workspaces/{workspace_id}/game/start", json={"time_limit_seconds": 2400}
+    )
+    assert response.status_code == 422
+
+
+def test_start_while_running_conflicts(client: TestClient):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    response = client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    assert response.status_code == 409
+
+
+def test_start_over_counts_the_loss(client: TestClient):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={"time_limit_seconds": 600})
+    response = client.post(f"/workspaces/{workspace_id}/game/start-over")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["record"]["losses"] == 1
+    assert body["game"]["time_limit_seconds"] == 600
+    assert body["board_fen"].startswith("rnbqkbnr")
+
+
+def test_start_over_without_a_game_conflicts(client: TestClient):
+    workspace_id = make_workspace(client)
+    response = client.post(f"/workspaces/{workspace_id}/game/start-over")
+    assert response.status_code == 409
+
+
+def test_timeout_needs_a_really_expired_clock(client: TestClient, tmp_path: Path):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+
+    early = client.post(f"/workspaces/{workspace_id}/game/timeout")
+    assert early.status_code == 409
+
+    expire_active_game(tmp_path, workspace_id)
+    flagged = client.post(f"/workspaces/{workspace_id}/game/timeout")
+    assert flagged.status_code == 200
+    assert flagged.json()["record"]["losses"] == 1
+    assert flagged.json()["game"] is None
+
+
+def test_a_move_on_an_expired_clock_returns_409_and_the_loss_sticks(
+    client: TestClient, tmp_path: Path
+):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    expire_active_game(tmp_path, workspace_id)
+
+    response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    assert response.status_code == 409
+
+    status = client.get(f"/workspaces/{workspace_id}/game").json()
+    assert status["record"]["losses"] == 1
+
+
+def test_a_checkmating_move_reports_the_game_result(client: TestClient):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    for uci in ["e2e4", "f7f6", "d2d4", "g7g5"]:
+        client.post(f"/workspaces/{workspace_id}/moves", json={"uci": uci})
+    response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "d1h5"})
+    body = response.json()
+    # Both sides came through the same endpoint here, so the mover is
+    # "player" and the mate counts as a win.
+    assert body["game_result"] == "win"
+    status = client.get(f"/workspaces/{workspace_id}/game").json()
+    assert status["record"]["wins"] == 1
+    assert status["game"] is None
+
+
+def test_game_status_on_unknown_workspace_is_404(client: TestClient):
+    response = client.get("/workspaces/nope/game")
+    assert response.status_code == 404

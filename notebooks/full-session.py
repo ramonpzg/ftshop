@@ -306,7 +306,18 @@ def _(CAPS, PROMPT_TEMPLATE, chess, compute_reward, llm_chat, mo, parse_move_rep
         _out = mo.md(f"**The model plays itself for four plies:**\n\n{_body}")
     else:
         _out = mo.md("*Skipped: no OPENAI_API_KEY. The model would play here, and every illegal choice would earn -1 live.*")
-    _out
+    mo.vstack(
+        [
+            _out,
+            mo.md(
+                "In the whiteboard app this is a timed match: five minutes on "
+                "the clock by default, thirty at most. Starting over counts as "
+                "a loss, and so does the flag falling. The Duolingo rule: "
+                "quitting has a price, so people stop quitting, so the dataset "
+                "keeps growing."
+            ),
+        ]
+    )
     return
 
 

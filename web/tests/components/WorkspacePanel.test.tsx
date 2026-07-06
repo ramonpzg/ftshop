@@ -34,8 +34,39 @@ function makeShape(overrides: Partial<WorkspaceShape["props"]> = {}): WorkspaceS
 
 function routedFetch() {
   let lastArtifact: Record<string, unknown> | null = null;
+  let activeGame: Record<string, unknown> | null = null;
+  let losses = 0;
+  const gameStatus = () => ({
+    game: activeGame,
+    record: { wins: 0, losses, draws: 0 },
+    board_fen: STARTING_FEN,
+  });
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith("/llm/status")) {
+      return new Response(JSON.stringify({ configured: true, model: "gpt-5.5-mini" }));
+    }
+    if (url.endsWith("/game/start")) {
+      const body = JSON.parse(String(init?.body));
+      activeGame = {
+        id: "game_1",
+        workspace_id: "workspace_1",
+        time_limit_seconds: body.time_limit_seconds,
+        started_at: "2026-07-06T10:00:00+00:00",
+        ended_at: null,
+        result: null,
+        seconds_left: body.time_limit_seconds,
+      };
+      return new Response(JSON.stringify(gameStatus()));
+    }
+    if (url.endsWith("/game/start-over")) {
+      losses += 1;
+      activeGame = { ...(activeGame as Record<string, unknown>), id: "game_2" };
+      return new Response(JSON.stringify(gameStatus()));
+    }
+    if (url.endsWith("/game")) {
+      return new Response(JSON.stringify(gameStatus()));
+    }
     if (url.endsWith("/state")) {
       return new Response(
         JSON.stringify({
@@ -92,6 +123,7 @@ function routedFetch() {
                 },
               ]
             : [],
+          game_result: null,
         }),
       );
     }
@@ -206,6 +238,91 @@ describe("WorkspacePanel", () => {
     await waitFor(() => screen.getByTestId("chess-board"));
     expect(screen.getByText("locked")).toBeTruthy();
     expect(screen.getByTestId("square-e2").hasAttribute("disabled")).toBe(true);
+  });
+
+  test("starting a game shows the countdown and the start over button", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    expect((screen.getByTestId("time-limit") as HTMLSelectElement).value).toBe("300");
+    fireEvent.click(screen.getByTestId("start-game"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("game-timer").textContent).toContain("5:00");
+    });
+    expect(screen.getByTestId("start-over")).toBeTruthy();
+    expect(screen.queryByTestId("start-game")).toBeNull();
+  });
+
+  test("a longer clock can be picked before starting", async () => {
+    const fetchMock = routedFetch();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.change(screen.getByTestId("time-limit"), { target: { value: "1800" } });
+    fireEvent.click(screen.getByTestId("start-game"));
+
+    await waitFor(() => screen.getByTestId("game-timer"));
+    const startCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith("/game/start"));
+    expect(JSON.parse(String((startCall?.[1] as RequestInit).body)).time_limit_seconds).toBe(1800);
+    expect(screen.getByTestId("game-timer").textContent).toContain("30:00");
+  });
+
+  test("start over demands confirmation and records the loss", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("start-over"));
+
+    fireEvent.click(screen.getByTestId("start-over"));
+    expect(screen.getByText("Starting over counts as a loss.")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("confirm-start-over"));
+    await waitFor(() => {
+      expect(screen.getByTestId("game-record").textContent).toBe("W 0 L 1 D 0");
+    });
+    expect(screen.getByTestId("game-notice").textContent).toContain("loss");
+    // The fresh game is already running.
+    expect(screen.getByTestId("game-timer")).toBeTruthy();
+  });
+
+  test("keep playing backs out of the start over confirmation", async () => {
+    const fetchMock = routedFetch();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("start-over"));
+
+    fireEvent.click(screen.getByTestId("start-over"));
+    fireEvent.click(screen.getByText("Keep playing"));
+
+    expect(screen.getByTestId("game-timer")).toBeTruthy();
+    const startOverCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith("/game/start-over"),
+    );
+    expect(startOverCall).toBeUndefined();
   });
 
   test("running a job shows the resulting artifact", async () => {

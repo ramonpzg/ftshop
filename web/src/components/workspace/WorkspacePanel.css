@@ -156,7 +156,8 @@
 .workspace-game-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   margin-top: 6px;
 }
 
@@ -170,11 +171,61 @@
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .workspace-game-controls button:disabled {
   background: #ced4da;
   cursor: not-allowed;
+}
+
+.workspace-game-controls select {
+  border: 1px solid #adb5bd;
+  background: white;
+  color: #212529;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.workspace-game-controls .workspace-button-quiet {
+  background: white;
+  color: #212529;
+  border: 1px solid #adb5bd;
+}
+
+.workspace-game-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "tldraw_mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #212529;
+  min-width: 52px;
+}
+
+.workspace-game-warning {
+  flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.workspace-game-record {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #495057;
+  letter-spacing: 0.04em;
+}
+
+.workspace-game-notice {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #212529;
 }
 
 .workspace-model-thinking {

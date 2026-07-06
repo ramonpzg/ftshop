@@ -53,12 +53,18 @@ workspace here automatically.
   couple of moves. Point at the dataset panel updating live. This is
   the PGN-prefix, FEN-to-move, FEN+legal-moves, board-tensor, and
   policy/value rows building from *their* game, not a canned example.
-- Click **Start game**: the configured model answers every move, its
-  moves feed the same dataset rows, and the Analysis section refreshes
-  after each exchange with a position read plus the real-world scenario
-  mapping. If the model picks an illegal move, celebrate: the
-  environment caught it, reward -1, that is the RL slide happening
-  live.
+- Click **Start game**: a timed match from the starting position (five
+  minutes by default, up to thirty in the picker). The configured model
+  answers every move, its moves feed the same dataset rows, and the
+  Analysis section refreshes after each exchange with a position read
+  plus the real-world scenario mapping. If the model picks an illegal
+  move, celebrate: the environment caught it, reward -1, that is the
+  RL slide happening live.
+- Point at the clock and the **Start over** button. Quitting a match
+  costs a loss, and so does the flag falling; the W/L/D record under
+  the board keeps score. Say it out loud: rage-quitting against the
+  bot is a labeled data point now. Checkmates end the game on their
+  own, either direction.
 - Click **Export dataset**: the room's games become
   `data/processed/text/chess_sft.jsonl`. Open the notebook panel: it
   loads that exact file in the browser. The Unsloth and Axolotl
