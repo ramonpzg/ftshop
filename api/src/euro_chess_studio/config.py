@@ -33,3 +33,21 @@ def get_assets_dir() -> Path:
     """Where uploaded canvas assets (images, video, audio) live."""
     override = os.environ.get("CHESS_STUDIO_ASSETS_DIR")
     return Path(override) if override else get_data_dir() / "assets"
+
+
+def load_dotenv(path: Path | None = None) -> None:
+    """Loads KEY=VALUE lines from the repo-root .env into the process
+    environment without overriding anything already set. Keeps API keys
+    out of shell profiles without adding a dependency."""
+    env_path = path or (REPO_ROOT / ".env")
+    if not env_path.is_file():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value

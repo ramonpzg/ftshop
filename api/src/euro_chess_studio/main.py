@@ -7,10 +7,12 @@ from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.seed import seed_cached_evals
+from euro_chess_studio.config import load_dotenv
 from euro_chess_studio.routes import (
     artifacts,
     canvas,
     evals,
+    game,
     jobs,
     moves,
     pages,
@@ -18,6 +20,8 @@ from euro_chess_studio.routes import (
     users,
     workspaces,
 )
+
+load_dotenv()
 
 
 @asynccontextmanager
@@ -51,6 +55,7 @@ app.include_router(jobs.router)
 app.include_router(artifacts.router)
 app.include_router(evals.router)
 app.include_router(canvas.router)
+app.include_router(game.router)
 
 
 @app.get("/health")

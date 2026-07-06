@@ -109,6 +109,29 @@ export interface WorkspaceState {
   dataset_rows: DatasetRow[];
 }
 
+export interface LlmStatus {
+  configured: boolean;
+  model: string;
+}
+
+export function fetchLlmStatus(): Promise<LlmStatus> {
+  return request<LlmStatus>("/llm/status");
+}
+
+export function modelMove(workspaceId: string): Promise<MoveResponse> {
+  return request<MoveResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
+}
+
+export interface Assessment {
+  assessment: string;
+  real_world: string;
+  model: string;
+}
+
+export function assessPosition(workspaceId: string): Promise<Assessment> {
+  return request<Assessment>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
+}
+
 export function fetchWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
   return request<WorkspaceState>(`/workspaces/${workspaceId}/state`);
 }
