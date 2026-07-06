@@ -68,7 +68,7 @@ export function PresenterPanel({
   }
 
   return (
-    <div className="presenter-panel" aria-label="Presenter controls">
+    <section className="presenter-panel" aria-label="Presenter controls">
       <h2>Presenter</h2>
       <button type="button" onClick={handleBringToPresenterView}>
         Bring everyone to presenter view
@@ -82,6 +82,6 @@ export function PresenterPanel({
       <button type="button" onClick={handleResetPage}>
         Reset page
       </button>
-    </div>
+    </section>
   );
 }

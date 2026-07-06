@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ConfigPanel } from "../../components/config/ConfigPanel";
 import { EvalPanel } from "../../components/eval/EvalPanel";
@@ -16,14 +16,14 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [running, setRunning] = useState(false);
 
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  function refresh() {
+  const refresh = useCallback(() => {
     fetchArtifacts({ modality }).then((artifacts) => setArtifact(artifacts[0] ?? null));
     fetchEvals({ modality }).then(setEvalResults);
-  }
+  }, [modality]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   async function handleRunJob(jobType: string) {
     setRunning(true);

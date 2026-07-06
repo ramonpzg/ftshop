@@ -13,7 +13,8 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["bun", "vite/client"]
   },
   "include": ["src", "tests", "e2e"]
 }
