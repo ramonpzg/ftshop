@@ -40,6 +40,8 @@ startup and is idempotent.
 | `just reset-db` | Delete and recreate the local SQLite database (empty) |
 | `just reset-canvas` | Delete the authored canvas snapshot (slides, shapes). Keeps uploaded assets |
 | `just seed` | Re-populate pages and cached eval fixtures |
+| `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
+| `just notebooks` | Export the marimo notebooks to in-browser WASM |
 
 `just reset-db` followed by `just seed` is the fastest way back to a
 clean demo state without restarting the backend. It never touches the
@@ -61,6 +63,41 @@ over the venue network: the deck is the same, because the file is the
 source of truth. The status badge (top left) shows saving / saved /
 save failed at all times. If the badge says save failed, the backend is
 down; edits keep retrying until it comes back.
+
+## Environment variables
+
+Set these in your shell or in a repo-root `.env` file (loaded at backend
+startup, never overriding the shell, never committed):
+
+| Variable | For | Default |
+|---|---|---|
+| `OPENAI_API_KEY` | Model opponent and live analysis | unset (features disabled) |
+| `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | Which model plays and comments | `gpt-5.5-mini` |
+| `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
+| `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
+
+Swapping the opponent to a Hugging Face router later is a two-line .env
+change: point `OPENAI_BASE_URL` at the router, set `OPENAI_MODEL`.
+
+Everything degrades cleanly when unset: buttons disable with a hint,
+nothing errors.
+
+## Notebooks
+
+Each technical page embeds a marimo notebook. Attendees run the WASM
+export in their own browser; `just notebooks` builds those exports into
+`web/public/notebooks/` (gitignored; sources live in `notebooks/`).
+Rerun it after editing a notebook. Pyodide loads from its CDN on first
+open, so warm it once before the session.
+
+As the presenter you get a Browser / Live toggle on the panel: Live
+embeds a locally running marimo server (`marimo edit notebooks/`,
+default URL `http://localhost:2718`) with your real GPU behind it. If
+the embed lags, the Open link pops it into its own tab.
+
+Unsloth Studio: the mini IDE links to `http://localhost:8888`. Launch
+it with `unsloth studio -p 8888`.
 
 ## tldraw license note
 

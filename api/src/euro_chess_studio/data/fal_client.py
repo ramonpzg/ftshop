@@ -11,6 +11,7 @@ import time
 
 import httpx
 
+
 def _queue_base() -> str:
     # Overridable for tests and proxies.
     return os.environ.get("FAL_QUEUE_BASE", "https://queue.fal.run").rstrip("/")

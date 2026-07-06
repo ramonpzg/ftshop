@@ -53,6 +53,17 @@ workspace here automatically.
   couple of moves. Point at the dataset panel updating live. This is
   the PGN-prefix, FEN-to-move, FEN+legal-moves, board-tensor, and
   policy/value rows building from *their* game, not a canned example.
+- Click **Start game**: the configured model answers every move, its
+  moves feed the same dataset rows, and the Analysis section refreshes
+  after each exchange with a position read plus the real-world scenario
+  mapping. If the model picks an illegal move, celebrate: the
+  environment caught it, reward -1, that is the RL slide happening
+  live.
+- Click **Export dataset**: the room's games become
+  `data/processed/text/chess_sft.jsonl`. Open the notebook panel: it
+  loads that exact file in the browser. The Unsloth and Axolotl
+  snippets in the mini IDE point at the same path. One file, three
+  consumers, zero hand-waving.
 - Open the mini IDE. Walk through the snippets: the prompt template,
   the chat template, the legal-move validator, the dataset row builder,
   the reward function, and the LoRA training run. These are real code.
@@ -85,6 +96,13 @@ Point at the eval panel: piece identity, style consistency, prompt
 adherence, caption sensitivity, human preference, all cached, all
 labeled as such.
 
+With FAL_KEY set, type a prompt in the generate block and hit
+Generate: FLUX.2 Klein 4B renders it in a few seconds, swap the picker
+to schnell to compare. The result downloads to the backend, so it
+stays after fal's URL expires. Have attendees draw their favourite
+piece with the draw tool first, then generate the styled version from
+their caption. That is the page's whole argument in one beat.
+
 ### 4. Giving the Board Sound, audio (15 min)
 
 Same pattern. Run "Make spectrogram", this one's a real (if toy)
@@ -94,6 +112,12 @@ artifact panel. "Reveal cached artifact" shows the illustrative capture
 sound example. Eval panel: tag similarity, duration error, clipping,
 event recognisability, human preference.
 
+With `just install-audio` done, generate a capture sound with
+musicgen-small running on your own machine, then swap the picker to
+stable-audio-open for the diffusion take on the same prompt. The
+notebook panel synthesizes a click from scratch and shows it as a
+spectrogram, which is the page's one-line thesis.
+
 ### 5. Video of the Real-World Use Case, video (15 min)
 
 Same pattern again, so the parallel across all four modalities is
@@ -102,6 +126,11 @@ uniform frame sampling over a virtual clip length. "Reveal cached
 artifact" shows the knight-fork clip example. Eval panel: action
 success, piece identity consistency, temporal flicker, caption
 adherence, human preference.
+
+Generate is wired to LTX 2.3 fast (about a minute for six seconds,
+keep talking; the panel says so) with Veo 3.1 fast in the picker for
+the frontier comparison. Costs are real here: cents per second, not
+fractions of a cent per image. Say that out loud, it is the lesson.
 
 ### Wrap-up (5 min)
 
