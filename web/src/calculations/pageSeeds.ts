@@ -15,7 +15,78 @@ export interface SeedHeading {
   y: number;
 }
 
-export type SeedShape = SeedHeading | SeedNote;
+/**
+ * A slide for the presenter to fill in. Rendered as a tldraw frame with
+ * one prompt note inside, so the deck outline ships with the app and the
+ * content gets authored on the canvas.
+ */
+export interface SeedFrame {
+  kind: "frame";
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  prompt: string;
+}
+
+export type SeedShape = SeedHeading | SeedNote | SeedFrame;
+
+const SLIDE_W = 1600;
+const SLIDE_H = 900;
+const SLIDE_GAP = 200;
+const SLIDE_ROW_Y = 1400;
+
+function slideRow(slides: { name: string; prompt: string }[]): SeedFrame[] {
+  return slides.map((slide, index) => ({
+    kind: "frame",
+    name: slide.name,
+    x: index * (SLIDE_W + SLIDE_GAP),
+    y: SLIDE_ROW_Y,
+    w: SLIDE_W,
+    h: SLIDE_H,
+    prompt: slide.prompt,
+  }));
+}
+
+const PRESENTATION_SLIDES = slideRow([
+  {
+    name: "Slide 01 Title",
+    prompt: "Same Recipe, Different Results.\nFine-tuning across text, image, audio, video.\nOne domain: chess.",
+  },
+  {
+    name: "Slide 02 The chess story",
+    prompt: "Played as a kid. Duolingo chess pathway in April.\n2 matches a day, then 30, then 50.\nOver 1000 matches. Elo past 1000.",
+  },
+  {
+    name: "Slide 03 Elo, briefly",
+    prompt: "What elo measures.\nWhy a 200 point gap matters.\nWhere 1000 sits.",
+  },
+  {
+    name: "Slide 04 Rules refresher",
+    prompt: "The board, the pieces, the goal.\nQueen's Gambit check: not seen it? Leave, watch it, come back.",
+  },
+  {
+    name: "Slide 05 Chess today",
+    prompt: "AI beat grandmasters years ago. Chess is more popular than ever.\nTournaments, big and small. What a pro earns.",
+  },
+  {
+    name: "Slide 06 Fine-tuning is moulding intelligence",
+    prompt: "The stages that got us to transformers and diffusion.\nWhy adapt a model instead of training one.",
+  },
+  {
+    name: "Slide 07 The plan",
+    prompt: "Four modalities, one recipe.\nText is the deep tutorial. Image, audio, video run faster.",
+  },
+  {
+    name: "Slide 08 How to follow along",
+    prompt: "Open the app. Enter your name.\nMove pieces, watch the dataset build.\nRun a job, check the evals.",
+  },
+  {
+    name: "Slide 09 Your personalised instructor",
+    prompt: "The point of all this: your own instructor.\nMine: win while capturing as few pieces as possible.",
+  },
+]);
 
 const ROW_Y = 260;
 const NOTE_GAP = 260;
@@ -59,6 +130,13 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       560,
       "light-green",
     ),
+    {
+      kind: "heading",
+      text: "Slides. Fill each frame, use Prev / Next to present.",
+      x: 0,
+      y: SLIDE_ROW_Y - 120,
+    },
+    ...PRESENTATION_SLIDES,
   ],
   "chess-machine": [
     { kind: "heading", text: "Building a Chess Machine", x: 0, y: 0 },
