@@ -88,6 +88,30 @@ print(row)
 # every move for you.
 `,
   },
+  {
+    id: "fine_tune",
+    label: "Train with LoRA",
+    code: `from datasets import load_dataset
+from peft import LoraConfig
+from trl import SFTConfig, SFTTrainer
+
+# rows: {"prompt": "<FEN + legal moves>", "completion": '{"move": "e2e4"}'}
+dataset = load_dataset("json", data_files="chess_sft.jsonl", split="train")
+
+lora = LoraConfig(r=16, lora_alpha=32, target_modules="all-linear")
+
+trainer = SFTTrainer(
+    model="Qwen/Qwen3-4B",
+    train_dataset=dataset,
+    peft_config=lora,
+    args=SFTConfig(num_train_epochs=1, learning_rate=2e-4, output_dir="chess-lora"),
+)
+trainer.train()
+
+# Same recipe, different results: swap the dataset and the base model,
+# keep the shape. The image, audio, and video runs read the same way.
+`,
+  },
 ];
 
 export function getSnippetById(id: string): Snippet {

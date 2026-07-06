@@ -1,7 +1,9 @@
 # Demo plan
 
 For running the EuroSciPy 2026 session with this app. 90 minutes,
-one shared chess domain, four modalities.
+one shared chess domain, four modalities. The narrative and topic plan
+for the session itself lives in [session-plan.md](session-plan.md);
+this file is the app walkthrough.
 
 ## Before the room fills up
 

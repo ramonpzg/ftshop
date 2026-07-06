@@ -29,13 +29,21 @@ export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
           </button>
         ))}
       </div>
-      <CodeMirror
-        key={activeId}
-        value={snippet.code}
-        extensions={pythonLang}
-        height="100%"
-        basicSetup={{ lineNumbers: true, foldGutter: false }}
-      />
+      <div className="mini-ide-window">
+        <div className="mini-ide-window-bar" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <CodeMirror
+          key={activeId}
+          value={snippet.code}
+          extensions={pythonLang}
+          theme="dark"
+          height="100%"
+          basicSetup={{ lineNumbers: true, foldGutter: false }}
+        />
+      </div>
     </div>
   );
 }

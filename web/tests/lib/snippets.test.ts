@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { getSnippetById, SNIPPETS } from "../../src/lib/snippets";
 
 describe("SNIPPETS", () => {
-  test("has exactly the four required snippets", () => {
+  test("has exactly the five required snippets", () => {
     expect(SNIPPETS.map((s) => s.id).sort()).toEqual(
-      ["dataset_row_builder", "legal_move_validation", "prompt_template", "reward_function"].sort(),
+      [
+        "dataset_row_builder",
+        "fine_tune",
+        "legal_move_validation",
+        "prompt_template",
+        "reward_function",
+      ].sort(),
     );
   });
 

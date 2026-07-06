@@ -23,6 +23,7 @@ See `Justfile` for the full list: `install`, `start`, `test`, `lint`,
 ## Docs
 
 - `docs/architecture.md` - how the pieces fit together
+- `docs/session-plan.md` - the session itself: narrative, topics, page by page
 - `docs/demo-plan.md` - how to run the workshop
 - `docs/local-dev.md` - day to day development
 - `docs/licenses.md` - third party assets and their licenses
