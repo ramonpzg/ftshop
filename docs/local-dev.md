@@ -42,6 +42,7 @@ startup and is idempotent.
 | `just seed` | Re-populate pages and cached eval fixtures |
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
 | `just notebooks` | Export the marimo notebooks to in-browser WASM |
+| `just session-notebook` | Open the end-to-end fallback notebook in a sandboxed marimo |
 
 `just reset-db` followed by `just seed` is the fastest way back to a
 clean demo state without restarting the backend. It never touches the
@@ -98,6 +99,26 @@ the embed lags, the Open link pops it into its own tab.
 
 Unsloth Studio: the mini IDE links to `http://localhost:8888`. Launch
 it with `unsloth studio -p 8888`.
+
+## The fallback notebook
+
+`notebooks/full-session.py` is the whole session as one standalone
+notebook: the scripted game, all six dataset shapes, prompt and chat
+templates, the model opponent, evals, the training ladder (Unsloth,
+axolotl, live JAX), image, audio, and video generation, merging, and
+the closing argument. It maps one to one to the whiteboard pages. If
+the app fails on stage, teach from this instead.
+
+`just session-notebook` opens it. It carries its own dependencies as
+PEP 723 inline metadata, so `uvx marimo edit --sandbox` resolves
+everything without touching the api venv. It runs end to end with no
+API keys: gated cells (OpenAI, fal, local audio, Modal) detect what is
+available and print how to enable themselves. If the app has exported
+`data/processed/text/chess_sft.jsonl`, the notebook trains on that;
+otherwise it writes its own copy to the system temp dir.
+
+It is deliberately not in the `just notebooks` WASM export list: it
+trains with JAX and loads local models, which pyodide cannot do.
 
 ## tldraw license note
 

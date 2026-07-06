@@ -11,6 +11,12 @@ install:
 install-audio:
     cd api && uv sync --extra audio
 
+# The whole session as one notebook. The fallback if the app dies on
+# stage. Not in the WASM export list on purpose: it trains with JAX and
+# calls local models, which pyodide cannot do.
+session-notebook:
+    uvx marimo edit --sandbox notebooks/full-session.py
+
 # Exports the marimo notebooks to in-browser WASM under web/public/notebooks.
 # Rerun after editing anything in notebooks/.
 notebooks:

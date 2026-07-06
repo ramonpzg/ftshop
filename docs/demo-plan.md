@@ -153,3 +153,9 @@ before Q&A or a second run.
 - Deck damaged mid-session (accidental mass delete): stop the server,
   copy `data/canvas/snapshot.prev.json` over `snapshot.json`, start
   again. That backup holds the state from just before the last save.
+- App unusable, projector hates you, wifi died: `just session-notebook`
+  opens `notebooks/full-session.py`, the entire session as one marimo
+  notebook. Same narrative, same code, same evals, no whiteboard. It
+  runs without any API keys and picks up the exported dataset if the
+  app got that far. Teaching from the notebook loses the shared canvas
+  but none of the content.
