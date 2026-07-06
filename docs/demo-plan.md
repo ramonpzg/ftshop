@@ -21,10 +21,12 @@ live before anyone else joins.
 
 ### 1. Presentation (5 min)
 
-Land here by default. Walk through the seeded content: the four
-modalities, the shared chess framing, how attendees will interact
-(join, workspace, move pieces, watch the dataset build, run a job,
-check the evals).
+Land here by default. The page carries an eleven-frame slide deck
+seeded from the session plan; fill the frames with your content and
+assets before the session. Use the Prev / Next controls (bottom right)
+or PageUp / PageDown from a clicker to step through frames. Everything
+you author is saved to the backend as you edit; the badge top left
+should read "Canvas: saved".
 
 Tell attendees to open the app and enter their name now, so workspace
 creation isn't blocking the room later.
@@ -105,4 +107,8 @@ before Q&A or a second run.
   on chess-machine without restarting anything.
 - Need a truly clean slate: `just reset-db && just seed` on the
   backend (attendees will need to rejoin — that's a full data wipe,
-  not a per-page reset).
+  not a per-page reset). Your authored slides are untouched: the canvas
+  lives in `data/canvas/snapshot.json`, not in the database.
+- Deck damaged mid-session (accidental mass delete): stop the server,
+  copy `data/canvas/snapshot.prev.json` over `snapshot.json`, start
+  again. That backup holds the state from just before the last save.

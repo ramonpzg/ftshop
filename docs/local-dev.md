@@ -37,10 +37,36 @@ startup and is idempotent.
 | `just typecheck` | `ty check` + `tsc --noEmit` |
 | `just format` | `ruff format` + Biome format |
 | `just reset-db` | Delete and recreate the local SQLite database (empty) |
+| `just reset-canvas` | Delete the authored canvas snapshot (slides, shapes). Keeps uploaded assets |
 | `just seed` | Re-populate pages and cached eval fixtures |
 
 `just reset-db` followed by `just seed` is the fastest way back to a
-clean demo state without restarting the backend.
+clean demo state without restarting the backend. It never touches the
+canvas: workshop state and authored slides reset independently.
+
+## Canvas persistence
+
+The tldraw document is not stored in the browser. It loads from the
+backend on mount and saves back on every change, debounced. On disk:
+
+- `data/canvas/snapshot.json` is the document. Commit it to version
+  your slide deck. `snapshot.prev.json` is an automatic one-step
+  backup and is gitignored.
+- `data/assets/` holds files dropped onto the canvas (images, video,
+  audio). Commit the ones you want to keep.
+
+Stop the server, come back tomorrow, switch browsers, or serve the app
+over the venue network: the deck is the same, because the file is the
+source of truth. The status badge (top left) shows saving / saved /
+save failed at all times. If the badge says save failed, the backend is
+down; edits keep retrying until it comes back.
+
+## tldraw license note
+
+tldraw 4+ requires a license key for production domains only.
+localhost and LAN serving (how this app runs at the workshop) need
+nothing. If a copy ever goes up on a public domain, request tldraw's
+free hobby license and keep the watermark, or buy a commercial key.
 
 ## Where things live
 
