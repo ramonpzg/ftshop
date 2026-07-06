@@ -4,15 +4,20 @@
   display: flex;
   flex-direction: column;
   background: white;
-  border: 1px solid #ccc;
+  border: 1px solid #adb5bd;
   border-radius: 8px;
   overflow: hidden;
   font-size: 13px;
   color: #212529;
+  font-family: "tldraw_draw", sans-serif;
+}
+
+.workspace-panel pre {
+  font-family: "tldraw_mono", monospace;
 }
 
 .workspace-panel-own {
-  border-color: #4263eb;
+  border: 1.5px solid #212529;
 }
 
 .workspace-panel-header {
@@ -23,12 +28,11 @@
   background: #f1f3f5;
   font-weight: 600;
   color: #1a1c20;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #dee2e6;
 }
 
 .workspace-panel-own .workspace-panel-header {
-  background: #edf2ff;
-  color: #364fc7;
+  background: #e9ecef;
 }
 
 .workspace-panel-readonly {
@@ -44,96 +48,103 @@
   font-size: 11px;
 }
 
-.workspace-panel-grid {
+.workspace-panel-columns {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.15fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 0.85fr) minmax(0, 0.7fr);
-  grid-template-areas:
-    "board dataset ide"
-    "board analysis ide"
-    "config artifact ide"
-    "eval eval ide";
+  display: flex;
   gap: 8px;
   padding: 8px;
-  overflow: auto;
+  min-height: 0;
 }
 
-.workspace-panel-section[data-section="board"] {
-  grid-area: board;
+.workspace-panel-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.workspace-panel-section[data-section="dataset"] {
-  grid-area: dataset;
-}
-.workspace-panel-section[data-section="analysis"] {
-  grid-area: analysis;
-}
-.workspace-panel-section[data-section="ide"] {
-  grid-area: ide;
-}
-.workspace-panel-section[data-section="config"] {
-  grid-area: config;
-}
-.workspace-panel-section[data-section="artifact"] {
-  grid-area: artifact;
-}
-.workspace-panel-section[data-section="eval"] {
-  grid-area: eval;
+
+.workspace-panel-col-ide {
+  flex: 1.15;
 }
 
 .workspace-panel-section {
-  border: 1px dashed #ced4da;
+  border: 1px dashed #adb5bd;
   border-radius: 6px;
-  padding: 8px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+}
+
+.workspace-panel-section[data-open="true"] {
+  flex: 1;
+}
+
+.workspace-panel-section[data-open="false"] {
+  flex: 0 0 auto;
+}
+
+/* The board and dataset carry the most content; give them more room
+ * when everything in their column is open. */
+.workspace-panel-section[data-section="board"][data-open="true"] {
+  flex: 1.8;
+}
+.workspace-panel-section[data-section="dataset"][data-open="true"] {
+  flex: 1.4;
+}
+
+.workspace-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
 }
 
 .workspace-panel-section h3 {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 12px;
-  color: #343a40;
+  color: #212529;
   cursor: help;
   width: fit-content;
+  /* Hover must work outside edit mode too, or the tooltips never show:
+   * the shape container is pointer-events: none until double-clicked. */
+  pointer-events: auto;
 }
 
-/* One accent per section so the grid reads at a glance. */
-.workspace-panel-section[data-section="board"] h3 svg {
-  color: #2b8a3e;
-}
-.workspace-panel-section[data-section="dataset"] h3 svg {
-  color: #1971c2;
-}
-.workspace-panel-section[data-section="analysis"] h3 svg {
-  color: #e8590c;
-}
-.workspace-panel-section[data-section="ide"] h3 svg {
-  color: #6741d9;
-}
-.workspace-panel-section[data-section="config"] h3 svg {
+.workspace-section-toggle {
+  border: none;
+  background: none;
   color: #495057;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
 }
-.workspace-panel-section[data-section="artifact"] h3 svg {
-  color: #d9480f;
-}
-.workspace-panel-section[data-section="eval"] h3 svg {
-  color: #0b7285;
+
+.workspace-section-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .workspace-move-status {
   margin: 4px 0 0;
   font-size: 11px;
   font-weight: 600;
-  color: #2b8a3e;
+  color: #212529;
 }
 
 .workspace-move-status.move-illegal {
-  color: #c92a2a;
+  border-left: 3px solid #212529;
+  padding-left: 6px;
 }
 
 .workspace-analysis-empty {
@@ -151,24 +162,25 @@
 
 .workspace-game-controls button {
   border: none;
-  background: #2b8a3e;
+  background: #212529;
   color: white;
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .workspace-game-controls button:disabled {
-  background: #adb5bd;
+  background: #ced4da;
   cursor: not-allowed;
 }
 
 .workspace-model-thinking {
   font-size: 11px;
-  color: #e8590c;
-  font-weight: 600;
+  color: #495057;
+  font-style: italic;
 }
 
 .workspace-analysis {
@@ -188,7 +200,8 @@
 .workspace-analysis-real-world {
   margin: 0;
   font-size: 11px;
-  color: #e8590c;
+  color: #495057;
+  font-style: italic;
 }
 
 .workspace-analysis-model {
@@ -199,25 +212,27 @@
 
 .workspace-assess-button {
   align-self: flex-start;
-  border: 1px solid #d0d0d0;
-  background: #f5f5f5;
+  border: 1px solid #adb5bd;
+  background: white;
   border-radius: 6px;
   padding: 3px 8px;
   font-size: 11px;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .workspace-export-button {
   margin-top: 6px;
   align-self: flex-start;
   border: none;
-  background: #1971c2;
+  background: #212529;
   color: white;
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .workspace-export-status {
@@ -227,5 +242,5 @@
 }
 
 .workspace-export-status a {
-  color: #1971c2;
+  color: #212529;
 }

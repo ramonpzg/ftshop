@@ -52,5 +52,10 @@
 .modality-panel-section h3 {
   margin: 0 0 6px;
   font-size: 12px;
-  color: #495057;
+  color: #212529;
+  cursor: help;
+  width: fit-content;
+  /* Hover must work outside edit mode too, or the tooltips never show:
+   * the shape container is pointer-events: none until double-clicked. */
+  pointer-events: auto;
 }

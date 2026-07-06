@@ -3,10 +3,11 @@
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
   width: 100%;
-  height: 100%;
+  max-width: 280px;
+  height: auto;
   aspect-ratio: 1 / 1;
-  max-width: 220px;
-  border: 1px solid #999;
+  border: 1px solid #495057;
+  flex-shrink: 0;
 }
 
 .chess-square {
@@ -18,15 +19,15 @@
 }
 
 .chess-square-light {
-  background: #f0d9b5;
+  background: #f1f3f5;
 }
 
 .chess-square-dark {
-  background: #b58863;
+  background: #adb5bd;
 }
 
 .chess-square-selected {
-  outline: 2px solid #4263eb;
+  outline: 2px solid #212529;
   outline-offset: -2px;
 }
 

@@ -16,7 +16,7 @@
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  color: #d9480f;
+  color: #212529;
 }
 
 .artifact-cached-badge {
@@ -88,5 +88,5 @@
 .spectrogram-cell {
   width: 10px;
   height: 10px;
-  background: #4dabf7;
+  background: #f8f9fa;
 }

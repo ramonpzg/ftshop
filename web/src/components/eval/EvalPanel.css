@@ -25,12 +25,12 @@
 
 .eval-metric {
   flex: 1;
-  color: #1c2733;
+  color: #212529;
 }
 
 .eval-value {
   font-weight: 700;
-  color: #0b7285;
+  color: #212529;
 }
 
 .eval-source {
@@ -46,5 +46,5 @@
 }
 
 .eval-source-computed {
-  background: #2f9e44;
+  background: #212529;
 }

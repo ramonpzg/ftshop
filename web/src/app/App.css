@@ -9,6 +9,17 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* App chrome outside the canvas follows the canvas: tldraw's hand-drawn
+ * face, loaded globally by tldraw.css. */
+.presenter-panel,
+.attendee-panel,
+.slide-controls,
+.join-form,
+.modality-panel,
+.notebook-panel {
+  font-family: "tldraw_draw", sans-serif;
+}
+
 .app-shell {
   position: fixed;
   inset: 0;
@@ -45,6 +56,12 @@ body {
   gap: 4px;
   padding: 6px;
   pointer-events: all;
+  /* Tabs keep their natural width; a narrow window scrolls instead of
+   * squeezing the titles into confetti. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: min(56vw, 760px);
+  scrollbar-width: thin;
 }
 
 .page-tab {
@@ -56,9 +73,12 @@ body {
   font-size: 12px;
   cursor: pointer;
   box-shadow: var(--shadow-2, 0 1px 2px rgba(0, 0, 0, 0.2));
+  white-space: nowrap;
+  flex: 0 0 auto;
+  font-family: "tldraw_draw", sans-serif;
 }
 
 .page-tab-active {
-  background: var(--color-selected, #4263eb);
+  background: #212529;
   color: white;
 }
