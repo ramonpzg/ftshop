@@ -10,6 +10,12 @@ export class WorkspaceShapeUtil extends BaseBoxShapeUtil<WorkspaceShape> {
     return true;
   }
 
+  // Wheel events inside an opened workspace scroll its dataset list and
+  // code editor instead of zooming the canvas.
+  override canScroll() {
+    return true;
+  }
+
   override isAspectRatioLocked() {
     return false;
   }

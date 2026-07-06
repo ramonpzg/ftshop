@@ -25,17 +25,21 @@ def insert_workspace(
     user_id: str,
     page_id: str,
     shape_id: str,
-    position_index: int,
     board_fen: str,
 ) -> sqlite3.Row:
+    # position_index is allocated inside the INSERT so two simultaneous
+    # joins can never read the same count and stack their workspaces on
+    # top of each other. A single statement is atomic in SQLite.
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
         """
         INSERT INTO workspaces
             (id, user_id, page_id, shape_id, position_index, board_fen, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?,
+                (SELECT COUNT(*) FROM workspaces WHERE page_id = ?),
+                ?, ?)
         """,
-        (workspace_id, user_id, page_id, shape_id, position_index, board_fen, created_at),
+        (workspace_id, user_id, page_id, shape_id, page_id, board_fen, created_at),
     )
     conn.commit()
     row = get_workspace(conn, workspace_id)

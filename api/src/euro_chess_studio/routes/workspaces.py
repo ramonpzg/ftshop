@@ -3,7 +3,11 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from euro_chess_studio.actions.errors import InvalidSnippetError, WorkspaceNotFoundError
+from euro_chess_studio.actions.errors import (
+    InvalidSnippetError,
+    UserNotFoundError,
+    WorkspaceNotFoundError,
+)
 from euro_chess_studio.actions.workspaces import (
     PageNotFoundError,
     create_or_get_workspace,
@@ -42,7 +46,7 @@ def create_workspace(
 ) -> WorkspaceOut:
     try:
         row = create_or_get_workspace(conn, body.user_id, body.page_slug)
-    except PageNotFoundError as exc:
+    except (PageNotFoundError, UserNotFoundError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return WorkspaceOut(**dict(row))
 

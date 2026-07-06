@@ -17,8 +17,9 @@ Frontend runs at http://localhost:5173, backend at http://localhost:8000.
 
 ## Commands
 
-See `Justfile` for the full list: `install`, `start`, `test`, `lint`,
-`typecheck`, `format`, `reset-db`, `seed`.
+The main ones: `just install`, `just start`, `just test`, `just lint`,
+`just typecheck`, `just format`, `just reset-db`, `just reset-canvas`,
+`just seed`. Run `just` alone to list everything.
 
 ## Docs
 

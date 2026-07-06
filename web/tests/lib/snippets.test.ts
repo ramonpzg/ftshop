@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { getSnippetById, SNIPPETS } from "../../src/lib/snippets";
 
 describe("SNIPPETS", () => {
-  test("has exactly the five required snippets", () => {
+  test("has exactly the six required snippets", () => {
     expect(SNIPPETS.map((s) => s.id).sort()).toEqual(
       [
+        "chat_template",
         "dataset_row_builder",
         "fine_tune",
         "legal_move_validation",

@@ -30,6 +30,7 @@ export function ModalityPanel({ modality, isEditing }: ModalityPanelProps) {
     try {
       const response = await runJob(jobType, jobParams(modality, jobType));
       setArtifact(response.artifact);
+      refresh();
     } finally {
       setRunning(false);
     }

@@ -5,6 +5,10 @@ class WorkspaceNotFoundError(ValueError):
     pass
 
 
+class UserNotFoundError(ValueError):
+    pass
+
+
 class PageNotFoundError(ValueError):
     pass
 

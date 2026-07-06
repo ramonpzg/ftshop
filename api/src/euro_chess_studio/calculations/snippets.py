@@ -9,6 +9,7 @@ VALID_SNIPPET_IDS = frozenset(
         "legal_move_validation",
         "dataset_row_builder",
         "reward_function",
+        "chat_template",
         "fine_tune",
     }
 )

@@ -7,7 +7,6 @@ from euro_chess_studio.data.artifacts_repo import insert_artifact
 from euro_chess_studio.data.job_configs_repo import insert_job_config
 from euro_chess_studio.jobs.base import JobConfig
 from euro_chess_studio.jobs.registry import get_runner_for_job_type
-from euro_chess_studio.jobs.replay_runner import ReplayRunner
 
 
 @dataclass(frozen=True)
@@ -36,6 +35,6 @@ def run_job(
         modality=output.modality,
         kind=output.kind,
         payload=output.payload,
-        cached=isinstance(runner, ReplayRunner),
+        cached=output.cached,
     )
     return RunJobResult(job_config=job_config_row, artifact=artifact_row)

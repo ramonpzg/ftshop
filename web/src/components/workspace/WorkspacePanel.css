@@ -65,3 +65,13 @@
   font-size: 12px;
   color: #495057;
 }
+
+.workspace-move-status {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #2b8a3e;
+}
+
+.workspace-move-status.move-illegal {
+  color: #c92a2a;
+}

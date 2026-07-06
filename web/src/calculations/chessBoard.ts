@@ -50,3 +50,9 @@ export function pieceAtSquare(board: BoardGrid, square: string): PieceCode | nul
   const row = 8 - Number(square[1]);
   return board[row]?.[col] ?? null;
 }
+
+export function isSameColor(a: PieceCode, b: PieceCode): boolean {
+  const aWhite = a === a.toUpperCase();
+  const bWhite = b === b.toUpperCase();
+  return aWhite === bWhite;
+}

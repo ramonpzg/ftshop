@@ -32,6 +32,7 @@ startup and is idempotent.
 | `just start` | Run backend + frontend together |
 | `just start-backend` / `just start-frontend` | Run just one side |
 | `just test` | Backend `pytest` + frontend `bun test` (fast, no real browser) |
+| `just test-backend` / `just test-frontend` | Run just one suite |
 | `just test-e2e` | Playwright smoke tests against real backend + frontend processes |
 | `just lint` | `ruff check` + Biome lint |
 | `just typecheck` | `ty check` + `tsc --noEmit` |
@@ -83,12 +84,12 @@ how the tldraw canvas and backend state relate. In short:
 ## Testing notes
 
 - Backend tests use a temporary SQLite file per test (`tmp_path`
-  fixture) — never the real `euro_chess_studio.db`.
+  fixture), never the real `euro_chess_studio.db`.
 - Frontend component tests run under Bun's test runner with
   `@happy-dom/global-registrator` for a DOM. They mock `fetch` at the
   network boundary rather than mocking application modules, so the
   real fetch-wrapper and action code always runs.
-- Full tldraw `Editor` instances aren't created in component tests —
+- Full tldraw `Editor` instances aren't created in component tests.
   happy-dom doesn't implement enough browser API surface (canvas
   contexts, ResizeObserver, IndexedDB) for that to work reliably. Real
   canvas interaction is covered by the Playwright e2e suite instead
@@ -103,7 +104,7 @@ how the tldraw canvas and backend state relate. In short:
 ## Interacting with workspace shapes
 
 Workspace and modality panels are custom tldraw shapes that only
-accept pointer events while in **edit mode** — the same convention
+accept pointer events while in **edit mode**, the same convention
 tldraw's own video and embed shapes use. Double-click a panel to open
 it, click elsewhere to close it. This is why `web/e2e/smoke.spec.ts`
 double-clicks with `{ force: true }`: Playwright's default
@@ -119,12 +120,14 @@ double-click would.
   boundary (see `docs/architecture.md`).
 - No live multi-client sync. Two browsers both talking to the same
   backend will see each other's users and workspaces (real, not
-  simulated), but there's no push channel — each client only sees
+  simulated), but there's no push channel, each client only sees
   updates when it re-fetches.
 - Several eval metrics (centipawn loss, image/audio/video quality
   scores) are seeded from cached fixtures, not computed live, because
   they need infrastructure (Stockfish, a trained judge model) that's
-  out of scope for v0. This is surfaced in the UI via each row's
-  `source: cached` badge and the fixture's own `note` field.
-- `CloudRunner` is a stub (`NotImplementedError`) — no cloud job
+  out of scope for v0. The UI marks these rows with a `cached` badge.
+  Each fixture file also carries a `note` explaining why it's
+  illustrative; the note stays in the fixture and is not shown in the
+  UI yet.
+- `CloudRunner` is a stub (`NotImplementedError`), no cloud job
   execution exists yet.

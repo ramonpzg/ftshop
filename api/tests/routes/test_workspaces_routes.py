@@ -78,3 +78,12 @@ def test_list_workspaces_includes_details(client: TestClient):
     assert len(body) == 1
     assert body[0]["user_name"] == "Ada"
     assert body[0]["page_slug"] == "chess-machine"
+
+
+def test_create_workspace_with_stale_user_returns_404(client: TestClient):
+    # A browser remembering a user id from before `just reset-db` must get
+    # a clean 404 it can recover from, not a foreign-key 500.
+    response = client.post(
+        "/workspaces", json={"user_id": "user_gone", "page_slug": "chess-machine"}
+    )
+    assert response.status_code == 404

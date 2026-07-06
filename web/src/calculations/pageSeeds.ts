@@ -88,7 +88,7 @@ const PRESENTATION_SLIDES = slideRow([
   },
   {
     name: "Slide 10 Closing thoughts",
-    prompt: "Training is expensive. Open models match closed ones from two years ago.\nThe barrier keeps dropping: microchat trains a GPT in a few hundred lines.\nSpecialisation may soon matter more than a ten point benchmark gap.",
+    prompt: "Training is expensive. Open models match closed ones from two years ago.\nThe barrier keeps dropping: microchat trains a GPT in a few hundred lines.\nMerging combines fine-tunes without retraining. Know when it wrecks quality.\nSpecialisation may soon matter more than a ten point benchmark gap.",
   },
   {
     name: "Slide 11 Resources",

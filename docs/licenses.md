@@ -18,3 +18,17 @@
 
 If this project is redistributed, keep this attribution alongside the
 SVG files.
+
+## tldraw SDK
+
+`web/` uses the tldraw SDK (v5). tldraw ships under its own
+business-source-style license, not a classic OSS license. Development
+and localhost or LAN serving need no key. A production deployment on a
+public domain needs a license key from tldraw: a free hobby license
+(with watermark) for non-commercial use, or a commercial key. See
+https://tldraw.dev/community/license.
+
+## Icons
+
+UI icons come from Phosphor Icons (`@phosphor-icons/react`), MIT
+licensed.

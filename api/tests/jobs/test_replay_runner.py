@@ -64,3 +64,18 @@ def test_replay_runner_rejects_missing_fixture_file(tmp_path: Path):
                 workspace_id=None,
             ),
         )
+
+
+def test_replay_runner_rejects_path_traversal_segments(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    runner = ReplayRunner()
+    for modality, key in [("..", "secrets"), ("text", "../../pyproject"), ("a/b", "x")]:
+        with pytest.raises(FixtureNotFoundError):
+            runner.run(
+                conn,
+                JobConfig(
+                    job_type="artifact.reveal_cached",
+                    params={"modality": modality, "key": key},
+                    workspace_id=None,
+                ),
+            )

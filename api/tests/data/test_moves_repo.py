@@ -24,122 +24,64 @@ def make_workspace(tmp_path: Path):
     page = conn.execute("SELECT * FROM pages WHERE slug = 'chess-machine'").fetchone()
     user = insert_user(conn, "Ada")
     workspace = insert_workspace(
-        conn, "workspace_1", user["id"], page["id"], "shape:1", 0, chess.STARTING_FEN
+        conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
     return conn, workspace
 
 
-def test_insert_and_list_moves(tmp_path: Path):
-    conn, workspace = make_workspace(tmp_path)
-    insert_move(
+def record_move(conn, workspace_id: str, *, uci: str, san: str | None, legal: bool, reward: int):
+    return insert_move(
         conn,
-        workspace_id=workspace["id"],
-        ply=0,
-        uci="e2e4",
-        san="e4",
+        workspace_id=workspace_id,
+        uci=uci,
+        san=san,
         fen_before=chess.STARTING_FEN,
         fen_after="irrelevant",
-        is_legal=True,
+        is_legal=legal,
         is_check=False,
         is_checkmate=False,
-        reward=1,
+        reward=reward,
     )
+
+
+def test_insert_and_list_moves(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    record_move(conn, workspace["id"], uci="e2e4", san="e4", legal=True, reward=1)
     moves = list_moves(conn, workspace["id"])
     assert len(moves) == 1
     assert moves[0]["san"] == "e4"
     assert moves[0]["is_legal"] == 1
 
 
+def test_ply_is_allocated_from_legal_move_count(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    first = record_move(conn, workspace["id"], uci="e2e4", san="e4", legal=True, reward=1)
+    illegal = record_move(conn, workspace["id"], uci="e7e6", san=None, legal=False, reward=-1)
+    second = record_move(conn, workspace["id"], uci="e7e5", san="e5", legal=True, reward=1)
+    assert first["ply"] == 0
+    # An illegal attempt does not consume a ply; it happens "at" the next one.
+    assert illegal["ply"] == 1
+    assert second["ply"] == 1
+
+
 def test_count_legal_moves_ignores_illegal_attempts(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=0,
-        uci="e2e5",
-        san=None,
-        fen_before=chess.STARTING_FEN,
-        fen_after=chess.STARTING_FEN,
-        is_legal=False,
-        is_check=False,
-        is_checkmate=False,
-        reward=-1,
-    )
+    record_move(conn, workspace["id"], uci="e2e5", san=None, legal=False, reward=-1)
     assert count_legal_moves(conn, workspace["id"]) == 0
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=0,
-        uci="e2e4",
-        san="e4",
-        fen_before=chess.STARTING_FEN,
-        fen_after="irrelevant",
-        is_legal=True,
-        is_check=False,
-        is_checkmate=False,
-        reward=1,
-    )
+    record_move(conn, workspace["id"], uci="e2e4", san="e4", legal=True, reward=1)
     assert count_legal_moves(conn, workspace["id"]) == 1
 
 
 def test_list_legal_sans_excludes_illegal_attempts(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=0,
-        uci="e2e4",
-        san="e4",
-        fen_before=chess.STARTING_FEN,
-        fen_after="fen-1",
-        is_legal=True,
-        is_check=False,
-        is_checkmate=False,
-        reward=1,
-    )
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=1,
-        uci="e7e6",
-        san=None,
-        fen_before="fen-1",
-        fen_after="fen-1",
-        is_legal=False,
-        is_check=False,
-        is_checkmate=False,
-        reward=-1,
-    )
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=1,
-        uci="e7e5",
-        san="e5",
-        fen_before="fen-1",
-        fen_after="fen-2",
-        is_legal=True,
-        is_check=False,
-        is_checkmate=False,
-        reward=1,
-    )
+    record_move(conn, workspace["id"], uci="e2e4", san="e4", legal=True, reward=1)
+    record_move(conn, workspace["id"], uci="e7e6", san=None, legal=False, reward=-1)
+    record_move(conn, workspace["id"], uci="e7e5", san="e5", legal=True, reward=1)
     assert list_legal_sans(conn, workspace["id"]) == ["e4", "e5"]
 
 
 def test_delete_moves_for_workspace(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
-    insert_move(
-        conn,
-        workspace_id=workspace["id"],
-        ply=0,
-        uci="e2e4",
-        san="e4",
-        fen_before=chess.STARTING_FEN,
-        fen_after="fen-1",
-        is_legal=True,
-        is_check=False,
-        is_checkmate=False,
-        reward=1,
-    )
+    record_move(conn, workspace["id"], uci="e2e4", san="e4", legal=True, reward=1)
     delete_moves_for_workspace(conn, workspace["id"])
     assert list_moves(conn, workspace["id"]) == []

@@ -14,14 +14,25 @@ interface AttendeePanelProps {
 export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeePanelProps) {
   const [workspaces, setWorkspaces] = useState<WorkspaceWithDetails[]>([]);
 
+  // Polls so the presenter can watch the room fill up and late joiners
+  // appear without anyone reloading.
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken is a manual refetch trigger, not read in the body
   useEffect(() => {
     let cancelled = false;
-    fetchWorkspaces().then((rows) => {
-      if (!cancelled) setWorkspaces(rows);
-    });
+    function refresh() {
+      fetchWorkspaces()
+        .then((rows) => {
+          if (!cancelled) setWorkspaces(rows);
+        })
+        .catch(() => {
+          // backend blip; next poll retries
+        });
+    }
+    refresh();
+    const timer = setInterval(refresh, 5000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [refreshToken]);
 

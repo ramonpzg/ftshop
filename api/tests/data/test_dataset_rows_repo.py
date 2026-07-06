@@ -22,7 +22,7 @@ def make_workspace(tmp_path: Path):
     page = conn.execute("SELECT * FROM pages WHERE slug = 'chess-machine'").fetchone()
     user = insert_user(conn, "Ada")
     workspace = insert_workspace(
-        conn, "workspace_1", user["id"], page["id"], "shape:1", 0, chess.STARTING_FEN
+        conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
     return conn, workspace
 

@@ -4,7 +4,11 @@ import chess
 
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
-from euro_chess_studio.data.eval_results_repo import insert_eval_result, list_eval_results
+from euro_chess_studio.data.eval_results_repo import (
+    insert_eval_result,
+    list_eval_results,
+    replace_eval_result,
+)
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.users_repo import insert_user
 from euro_chess_studio.data.workspaces_repo import insert_workspace
@@ -40,10 +44,10 @@ def test_list_eval_results_filters_by_modality_and_workspace(tmp_path: Path):
     ada = insert_user(conn, "Ada")
     grace = insert_user(conn, "Grace")
     workspace_1 = insert_workspace(
-        conn, "workspace_1", ada["id"], page["id"], "shape:1", 0, chess.STARTING_FEN
+        conn, "workspace_1", ada["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
     workspace_2 = insert_workspace(
-        conn, "workspace_2", grace["id"], page["id"], "shape:2", 1, chess.STARTING_FEN
+        conn, "workspace_2", grace["id"], page["id"], "shape:2", chess.STARTING_FEN
     )
 
     insert_eval_result(
@@ -65,3 +69,37 @@ def test_list_eval_results_filters_by_modality_and_workspace(tmp_path: Path):
     assert len(list_eval_results(conn, modality="text")) == 1
     assert len(list_eval_results(conn, workspace_id=workspace_2["id"])) == 1
     assert len(list_eval_results(conn)) == 2
+
+
+def test_replace_eval_result_updates_instead_of_stacking(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    replace_eval_result(
+        conn,
+        modality="text",
+        metric="legal_move_rate",
+        value=0.5,
+        workspace_id=None,
+        source="computed",
+    )
+    replace_eval_result(
+        conn,
+        modality="text",
+        metric="legal_move_rate",
+        value=0.75,
+        workspace_id=None,
+        source="computed",
+    )
+    rows = list_eval_results(conn, modality="text")
+    assert len(rows) == 1
+    assert rows[0]["value"] == 0.75
+
+
+def test_replace_eval_result_scopes_by_workspace_and_source(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    replace_eval_result(
+        conn, modality="text", metric="m", value=0.1, workspace_id=None, source="computed"
+    )
+    replace_eval_result(
+        conn, modality="text", metric="m", value=0.2, workspace_id=None, source="cached"
+    )
+    assert len(list_eval_results(conn, modality="text")) == 2

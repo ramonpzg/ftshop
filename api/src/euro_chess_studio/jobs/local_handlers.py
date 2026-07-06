@@ -10,7 +10,7 @@ from euro_chess_studio.calculations.audio import synthesize_spectrogram
 from euro_chess_studio.calculations.evals import compute_legal_move_rate, compute_valid_json_rate
 from euro_chess_studio.calculations.video import uniform_frame_indices
 from euro_chess_studio.data.dataset_rows_repo import list_dataset_rows
-from euro_chess_studio.data.eval_results_repo import insert_eval_result
+from euro_chess_studio.data.eval_results_repo import replace_eval_result
 from euro_chess_studio.data.moves_repo import list_moves
 from euro_chess_studio.jobs.base import JobConfig, JobOutput
 
@@ -23,7 +23,7 @@ def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
     valid_json_rate = compute_valid_json_rate(dataset_rows)
 
     if legal_move_rate is not None:
-        insert_eval_result(
+        replace_eval_result(
             conn,
             modality="text",
             metric="legal_move_rate",
@@ -32,7 +32,7 @@ def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
             source="computed",
         )
     if valid_json_rate is not None:
-        insert_eval_result(
+        replace_eval_result(
             conn,
             modality="text",
             metric="valid_json_rate",

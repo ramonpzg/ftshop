@@ -1,3 +1,4 @@
+import { getAssetUrlsByImport } from "@tldraw/assets/imports.vite";
 import { useEffect, useMemo, useState } from "react";
 import type { Editor, TLStoreSnapshot } from "tldraw";
 import {
@@ -18,6 +19,11 @@ import { ModalityPanelShapeUtil } from "./shapes/ModalityPanelShapeUtil";
 import { WorkspaceShapeUtil } from "./shapes/WorkspaceShapeUtil";
 
 const shapeUtils = [WorkspaceShapeUtil, ModalityPanelShapeUtil];
+
+// Fonts, icons, and translations bundled through Vite instead of fetched
+// from cdn.tldraw.com at runtime. The app has to work when the venue
+// internet does not.
+const assetUrls = getAssetUrlsByImport();
 
 type CanvasLoadState = "loading" | "ready" | "error";
 
@@ -110,6 +116,7 @@ export function ChessStudioCanvas({ onEditorMount, onSaveStatusChange }: ChessSt
       <Tldraw
         store={store}
         shapeUtils={shapeUtils}
+        assetUrls={assetUrls}
         onMount={(editor) => {
           ensurePagesSeeded(editor);
           onEditorMount?.(editor);

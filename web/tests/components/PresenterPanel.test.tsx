@@ -4,6 +4,7 @@ import { PresenterPanel } from "../../src/components/presenter/PresenterPanel";
 
 function makeEditor() {
   return {
+    getCurrentPageId: mock(() => "page:board-sound"),
     setCurrentPage: mock(() => {}),
     getShape: mock(() => undefined),
     createShape: mock(() => {}),
@@ -15,19 +16,10 @@ function makeEditor() {
 
 function routedFetch(initialLocked: boolean) {
   let locked = initialLocked;
-  return mock(async (input: RequestInfo | URL) => {
+  const calls: string[] = [];
+  const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.endsWith("/presenter") && !url.includes("bring") && !url.includes("send")) {
-      return new Response(
-        JSON.stringify({
-          mode: "idle",
-          locked,
-          active_page_slug: null,
-          focused_user_id: null,
-          updated_at: "now",
-        }),
-      );
-    }
+    calls.push(`${init?.method ?? "GET"} ${url}${init?.body ? ` ${init.body}` : ""}`);
     if (url.endsWith("/presenter/lock") || url.endsWith("/presenter/unlock")) {
       locked = url.endsWith("/lock");
       return new Response(
@@ -45,7 +37,7 @@ function routedFetch(initialLocked: boolean) {
         JSON.stringify({
           mode: "presenter",
           locked,
-          active_page_slug: "presentation",
+          active_page_slug: "board-sound",
           focused_user_id: null,
           updated_at: "now",
         }),
@@ -79,7 +71,8 @@ function routedFetch(initialLocked: boolean) {
       );
     }
     return new Response("not found", { status: 404 });
-  }) as unknown as typeof fetch;
+  }) as unknown as typeof fetch & { mock: { calls: unknown[] } };
+  return { fetchMock, calls };
 }
 
 afterEach(() => {
@@ -87,82 +80,100 @@ afterEach(() => {
 });
 
 describe("PresenterPanel", () => {
-  test("loads the lock state on mount", async () => {
-    globalThis.fetch = routedFetch(false);
-    const onLockedChange = mock((_locked: boolean) => {});
+  test("shows the lock action matching the locked prop", () => {
+    const { fetchMock } = routedFetch(false);
+    globalThis.fetch = fetchMock;
     render(
       <PresenterPanel
         editor={null}
         currentUser={null}
-        onLockedChange={onLockedChange}
+        locked={false}
+        onLockedChange={() => {}}
         onPageReset={() => {}}
       />,
     );
-
-    await waitFor(() => {
-      expect(onLockedChange).toHaveBeenCalledWith(false);
-    });
     expect(screen.getByText("Lock editing")).toBeTruthy();
+    cleanup();
+    render(
+      <PresenterPanel
+        editor={null}
+        currentUser={null}
+        locked={true}
+        onLockedChange={() => {}}
+        onPageReset={() => {}}
+      />,
+    );
+    expect(screen.getByText("Unlock editing")).toBeTruthy();
   });
 
   test("toggling lock calls the backend and notifies the parent", async () => {
-    globalThis.fetch = routedFetch(false);
+    const { fetchMock } = routedFetch(false);
+    globalThis.fetch = fetchMock;
     const onLockedChange = mock((_locked: boolean) => {});
     render(
       <PresenterPanel
         editor={null}
         currentUser={null}
+        locked={false}
         onLockedChange={onLockedChange}
         onPageReset={() => {}}
       />,
     );
 
-    await waitFor(() => screen.getByText("Lock editing"));
     fireEvent.click(screen.getByText("Lock editing"));
 
     await waitFor(() => {
-      expect(screen.getByText("Unlock editing")).toBeTruthy();
+      expect(onLockedChange).toHaveBeenCalledWith(true);
     });
-    expect(onLockedChange).toHaveBeenCalledWith(true);
   });
 
-  test("bring to presenter view switches the editor's page", async () => {
-    globalThis.fetch = routedFetch(false);
+  test("bring to presenter view broadcasts the presenter's current page", async () => {
+    const { fetchMock, calls } = routedFetch(false);
+    globalThis.fetch = fetchMock;
     const editor = makeEditor();
     render(
       <PresenterPanel
         editor={editor as never}
         currentUser={null}
+        locked={false}
         onLockedChange={() => {}}
         onPageReset={() => {}}
       />,
     );
 
-    await waitFor(() => screen.getByText("Bring everyone to presenter view"));
     fireEvent.click(screen.getByText("Bring everyone to presenter view"));
 
     await waitFor(() => {
       expect(editor.setCurrentPage).toHaveBeenCalledTimes(1);
     });
+    const bringCall = calls.find((c) => c.includes("bring-to-presenter-view"));
+    expect(bringCall).toContain("board-sound");
   });
 
-  test("reset page calls onPageReset", async () => {
-    globalThis.fetch = routedFetch(false);
+  test("reset page asks for confirmation before wiping games", async () => {
+    const { fetchMock } = routedFetch(false);
+    globalThis.fetch = fetchMock;
     const onPageReset = mock(() => {});
+
+    const originalConfirm = window.confirm;
+    window.confirm = mock(() => false) as typeof window.confirm;
     render(
       <PresenterPanel
         editor={null}
         currentUser={null}
+        locked={false}
         onLockedChange={() => {}}
         onPageReset={onPageReset}
       />,
     );
-
-    await waitFor(() => screen.getByText("Reset page"));
     fireEvent.click(screen.getByText("Reset page"));
+    expect(onPageReset).toHaveBeenCalledTimes(0);
 
+    window.confirm = mock(() => true) as typeof window.confirm;
+    fireEvent.click(screen.getByText("Reset page"));
     await waitFor(() => {
       expect(onPageReset).toHaveBeenCalledTimes(1);
     });
+    window.confirm = originalConfirm;
   });
 });

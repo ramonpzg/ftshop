@@ -17,7 +17,6 @@ def insert_move(
     conn: sqlite3.Connection,
     *,
     workspace_id: str,
-    ply: int,
     uci: str,
     san: str | None,
     fen_before: str,
@@ -27,6 +26,8 @@ def insert_move(
     is_checkmate: bool,
     reward: int,
 ) -> sqlite3.Row:
+    # ply is allocated inside the INSERT (count of legal moves so far)
+    # so two in-flight requests can never claim the same ply.
     move_id = generate_id("move")
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
@@ -34,12 +35,14 @@ def insert_move(
         INSERT INTO moves
             (id, workspace_id, ply, uci, san, fen_before, fen_after,
              is_legal, is_check, is_checkmate, reward, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?,
+                (SELECT COUNT(*) FROM moves WHERE workspace_id = ? AND is_legal = 1),
+                ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             move_id,
             workspace_id,
-            ply,
+            workspace_id,
             uci,
             san,
             fen_before,

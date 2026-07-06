@@ -9,6 +9,11 @@ describe("metricLabel", () => {
   test("handles a single word", () => {
     expect(metricLabel("clipping")).toBe("Clipping");
   });
+
+  test("keeps acronyms uppercase", () => {
+    expect(metricLabel("valid_json_rate")).toBe("Valid JSON Rate");
+    expect(metricLabel("fen_accuracy")).toBe("FEN Accuracy");
+  });
 });
 
 describe("formatMetricValue", () => {

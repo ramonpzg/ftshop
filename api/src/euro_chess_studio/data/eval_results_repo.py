@@ -30,6 +30,36 @@ def insert_eval_result(
     return row
 
 
+def replace_eval_result(
+    conn: sqlite3.Connection,
+    *,
+    modality: str,
+    metric: str,
+    value: float,
+    workspace_id: str | None,
+    source: str,
+) -> sqlite3.Row:
+    """Insert an eval result, replacing any previous row for the same
+    (modality, metric, workspace, source). Re-running an eval updates the
+    number instead of stacking duplicates in the panel."""
+    conn.execute(
+        """
+        DELETE FROM eval_results
+        WHERE modality = ? AND metric = ? AND source = ?
+          AND workspace_id IS ?
+        """,
+        (modality, metric, source, workspace_id),
+    )
+    return insert_eval_result(
+        conn,
+        modality=modality,
+        metric=metric,
+        value=value,
+        workspace_id=workspace_id,
+        source=source,
+    )
+
+
 def list_eval_results(
     conn: sqlite3.Connection,
     *,

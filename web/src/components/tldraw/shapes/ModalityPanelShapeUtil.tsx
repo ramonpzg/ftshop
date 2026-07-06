@@ -10,6 +10,12 @@ export class ModalityPanelShapeUtil extends BaseBoxShapeUtil<ModalityPanelShape>
     return true;
   }
 
+  // Wheel events inside an opened panel scroll its content instead of
+  // zooming the canvas.
+  override canScroll() {
+    return true;
+  }
+
   override isAspectRatioLocked() {
     return false;
   }

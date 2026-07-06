@@ -83,9 +83,31 @@ print(row)
 
 
 # SFT teaches the model what good answers look like.
-# RL teaches the model what good actions do -- this reward is what RL needs,
+# RL teaches the model what good actions do. This reward is what RL needs,
 # and chess is a good RL environment because the environment can validate
 # every move for you.
+`,
+  },
+  {
+    id: "chat_template",
+    label: "Chat template (Jinja)",
+    code: `# What the tokenizer actually renders before training or inference.
+# Same Jinja engine as HTML templating, applied to a message list.
+CHAT_TEMPLATE = """{% for message in messages %}
+<|{{ message.role }}|>
+{{ message.content }}
+{% endfor %}
+<|assistant|>
+"""
+
+messages = [
+    {"role": "system", "content": "You are a chess engine assistant."},
+    {"role": "user", "content": "Position (FEN): ... Legal moves: ..."},
+]
+
+# tokenizer.apply_chat_template(messages, tokenize=False)
+# Every model family ships its own template. Mismatch it during
+# fine-tuning and the model learns to answer a format nobody sends.
 `,
   },
   {

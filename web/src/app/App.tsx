@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Editor } from "tldraw";
 import type { SaveStatus } from "../actions/canvasSaveScheduler";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import type { JoinResult } from "../actions/joinWorkshop";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "../actions/joinWorkshop";
 import { navigateToWorkspace } from "../actions/navigateToWorkspace";
+import { startPresenterSync } from "../actions/presenterSync";
 import { AttendeePanel } from "../components/AttendeePanel";
 import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { SlideControls } from "../components/tldraw/SlideControls";
-import { createOrGetWorkspace, fetchHealth } from "../data/api";
-import { type LocalUser, loadLocalUser } from "../data/localUser";
+import { ApiError, createOrGetWorkspace, fetchHealth } from "../data/api";
+import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
 import "./App.css";
@@ -25,6 +26,13 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
   error: "Canvas: save failed",
 };
 
+// The presenter opens the app with ?presenter=1. This gates the presenter
+// panel and exempts that client from remote camera moves and the editing
+// lock. It is a v0 convenience, not a security boundary.
+function detectPresenter(): boolean {
+  return new URLSearchParams(window.location.search).has("presenter");
+}
+
 export function App() {
   const [status, setStatus] = useState<BackendStatus>("checking");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -33,6 +41,9 @@ export function App() {
   const [attendeeRefreshToken, setAttendeeRefreshToken] = useState(0);
   const [locked, setLocked] = useState(false);
   const [resetToken, setResetToken] = useState(0);
+  const [isPresenter] = useState(detectPresenter);
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
 
   useEffect(() => {
     let cancelled = false;
@@ -49,23 +60,41 @@ export function App() {
   }, []);
 
   // Re-materializes the returning user's workspace shape once the canvas is
-  // ready, covering reloads where tldraw's local store was cleared but the
-  // backend still remembers the workspace. Also returns the camera to their
-  // workspace, since ensurePagesSeeded always lands a fresh mount on the
-  // Presentation page.
+  // ready and returns the camera to it. If the backend no longer knows the
+  // remembered user (someone ran just reset-db), drop the stale identity so
+  // the join form comes back instead of silently failing on every reload.
   useEffect(() => {
     if (!editor || !currentUser) return;
     let cancelled = false;
-    createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG).then((workspace) => {
-      if (cancelled) return;
-      ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
-      navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
-      setAttendeeRefreshToken((token) => token + 1);
-    });
+    createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG)
+      .then((workspace) => {
+        if (cancelled) return;
+        ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
+        navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
+        setAttendeeRefreshToken((token) => token + 1);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (error instanceof ApiError && error.status === 404) {
+          clearLocalUser();
+          setCurrentUser(null);
+        }
+      });
     return () => {
       cancelled = true;
     };
   }, [editor, currentUser]);
+
+  // Presenter actions reach every client through this poll loop.
+  useEffect(() => {
+    if (!editor) return;
+    return startPresenterSync({
+      editor,
+      isPresenter,
+      getCurrentUserId: () => currentUserRef.current?.id ?? null,
+      onLockedChange: setLocked,
+    });
+  }, [editor, isPresenter]);
 
   function handleJoined({ user }: JoinResult) {
     setCurrentUser({ id: user.id, name: user.name });
@@ -86,12 +115,15 @@ export function App() {
             )}
           </div>
           <ChessStudioCanvas onEditorMount={setEditor} onSaveStatusChange={setSaveStatus} />
-          <PresenterPanel
-            editor={editor}
-            currentUser={currentUser}
-            onLockedChange={setLocked}
-            onPageReset={() => setResetToken((token) => token + 1)}
-          />
+          {isPresenter && (
+            <PresenterPanel
+              editor={editor}
+              currentUser={currentUser}
+              locked={locked}
+              onLockedChange={setLocked}
+              onPageReset={() => setResetToken((token) => token + 1)}
+            />
+          )}
           <AttendeePanel
             editor={editor}
             currentUserId={currentUser?.id ?? null}

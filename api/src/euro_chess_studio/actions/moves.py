@@ -8,7 +8,7 @@ from euro_chess_studio.calculations.dataset import build_dataset_rows
 from euro_chess_studio.calculations.reward import compute_reward
 from euro_chess_studio.chess.board import apply_move, get_legal_moves
 from euro_chess_studio.data.dataset_rows_repo import insert_dataset_row
-from euro_chess_studio.data.moves_repo import count_legal_moves, insert_move, list_legal_sans
+from euro_chess_studio.data.moves_repo import insert_move, list_legal_sans
 from euro_chess_studio.data.workspaces_repo import get_workspace, update_board_fen
 
 
@@ -29,12 +29,10 @@ def make_move(conn: sqlite3.Connection, workspace_id: str, uci: str) -> MakeMove
     reward = compute_reward(
         legal=result.legal, is_check=result.is_check, is_checkmate=result.is_checkmate
     )
-    ply = count_legal_moves(conn, workspace_id)
 
     move_row = insert_move(
         conn,
         workspace_id=workspace_id,
-        ply=ply,
         uci=result.uci,
         san=result.san,
         fen_before=result.fen_before,

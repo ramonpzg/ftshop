@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   buildUciMove,
   isLightSquare,
+  isSameColor,
   parseFenBoard,
   pieceAssetPath,
   pieceAtSquare,
@@ -29,6 +30,13 @@ export function ChessBoard({ fen, interactive, onMove }: ChessBoardProps) {
     }
     if (selected === square) {
       setSelected(null);
+      return;
+    }
+    // Clicking another of your own pieces re-selects it rather than
+    // firing a capture-your-own-piece request the server would reject.
+    const selectedPiece = pieceAtSquare(board, selected);
+    if (piece && selectedPiece && isSameColor(piece, selectedPiece)) {
+      setSelected(square);
       return;
     }
     onMove(buildUciMove(selected, square, board));

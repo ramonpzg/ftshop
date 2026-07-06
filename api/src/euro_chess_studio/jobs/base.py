@@ -19,6 +19,10 @@ class JobOutput:
     modality: str
     kind: str
     payload: dict
+    # True when the output came from a cached fixture rather than a live
+    # calculation. Carried on the output so callers never need to know
+    # which runner produced it.
+    cached: bool = field(default=False)
 
 
 class JobRunner(Protocol):

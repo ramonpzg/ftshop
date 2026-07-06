@@ -46,6 +46,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [evalResults, setEvalResults] = useState<EvalResult[]>([]);
   const [runningJob, setRunningJob] = useState(false);
+  const [movePending, setMovePending] = useState(false);
+  const [lastMove, setLastMove] = useState<{
+    label: string;
+    legal: boolean;
+    reward: number;
+  } | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
   useEffect(() => {
@@ -77,10 +83,24 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   }
 
   async function handleMove(uci: string) {
-    const response = await makeMove(workspaceId, uci);
-    if (response.move.is_legal) {
-      setFen(response.move.fen_after);
+    if (movePending) return;
+    setMovePending(true);
+    try {
+      const response = await makeMove(workspaceId, uci);
+      const move = response.move;
+      // Illegal attempts stay visible: they earn reward -1, which is the
+      // whole point of the RL framing.
+      setLastMove({
+        label: move.san ?? move.uci,
+        legal: move.is_legal,
+        reward: move.reward,
+      });
+      if (move.is_legal) {
+        setFen(move.fen_after);
+      }
       setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
+    } finally {
+      setMovePending(false);
     }
   }
 
@@ -100,7 +120,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  const boardInteractive = isEditing && isOwnWorkspace && !locked;
+  const boardInteractive = isEditing && isOwnWorkspace && !locked && !movePending;
 
   return (
     <div
@@ -119,6 +139,18 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
             <Horse size={12} weight="bold" /> Board
           </h3>
           <ChessBoard fen={fen} interactive={boardInteractive} onMove={handleMove} />
+          {lastMove && (
+            <p
+              className={
+                lastMove.legal ? "workspace-move-status" : "workspace-move-status move-illegal"
+              }
+              data-testid="move-status"
+            >
+              {lastMove.legal
+                ? `${lastMove.label}. Reward ${lastMove.reward > 0 ? "+" : ""}${lastMove.reward}`
+                : `Illegal: ${lastMove.label}. Reward ${lastMove.reward}`}
+            </p>
+          )}
         </section>
         <section className="workspace-panel-section" data-section="dataset">
           <h3>
