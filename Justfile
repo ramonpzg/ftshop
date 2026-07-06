@@ -49,5 +49,10 @@ format:
 reset-db:
     cd api && uv run python -m euro_chess_studio.data.reset_db
 
+# Deletes the authored canvas (slides, shapes). Keeps uploaded assets.
+reset-canvas:
+    rm -f data/canvas/snapshot.json data/canvas/snapshot.prev.json
+    @echo "canvas reset. uploaded assets in data/assets/ were kept."
+
 seed:
     cd api && uv run python -m euro_chess_studio.data.seed

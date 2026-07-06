@@ -9,6 +9,7 @@ from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.seed import seed_cached_evals
 from euro_chess_studio.routes import (
     artifacts,
+    canvas,
     evals,
     jobs,
     moves,
@@ -49,6 +50,7 @@ app.include_router(presenter.router)
 app.include_router(jobs.router)
 app.include_router(artifacts.router)
 app.include_router(evals.router)
+app.include_router(canvas.router)
 
 
 @app.get("/health")

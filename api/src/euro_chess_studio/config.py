@@ -19,3 +19,17 @@ def get_artifacts_dir() -> Path:
 
 def get_data_dir() -> Path:
     return REPO_ROOT / "data"
+
+
+def get_canvas_dir() -> Path:
+    """Where the tldraw document snapshot lives. On disk, not in SQLite,
+    so `just reset-db` can wipe workshop state without touching authored
+    slides, and so the snapshot can be committed to git."""
+    override = os.environ.get("CHESS_STUDIO_CANVAS_DIR")
+    return Path(override) if override else get_data_dir() / "canvas"
+
+
+def get_assets_dir() -> Path:
+    """Where uploaded canvas assets (images, video, audio) live."""
+    override = os.environ.get("CHESS_STUDIO_ASSETS_DIR")
+    return Path(override) if override else get_data_dir() / "assets"

@@ -4,18 +4,19 @@ version = "0.1.0"
 description = "Backend for the EuroSciPy 2026 chess fine-tuning workshop studio"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "fastapi>=0.139",
+    "uvicorn[standard]>=0.50",
     "python-chess>=1.999",
-    "pydantic>=2.9",
+    "pydantic>=2.13",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
-    "httpx>=0.27",
-    "ruff>=0.7",
-    "ty>=0.0.1a1",
+    "pytest>=9.1",
+    "httpx>=0.28",
+    "ruff>=0.15",
+    "ty>=0.0.56",
 ]
 
 [build-system]

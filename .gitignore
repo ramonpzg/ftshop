@@ -7,6 +7,9 @@ api/.ruff_cache/
 *.pyc
 euro_chess_studio.db
 euro_chess_studio.db-journal
+data/canvas/snapshot.prev.json
+data/canvas/*.tmp
+data/assets/*.tmp
 web/test-results/
 web/playwright-report/
 .env
