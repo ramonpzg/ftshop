@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
+import type { SaveStatus } from "../actions/canvasSaveScheduler";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import type { JoinResult } from "../actions/joinWorkshop";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "../actions/joinWorkshop";
@@ -8,6 +9,7 @@ import { AttendeePanel } from "../components/AttendeePanel";
 import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
+import { SlideControls } from "../components/tldraw/SlideControls";
 import { createOrGetWorkspace, fetchHealth } from "../data/api";
 import { type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
@@ -16,8 +18,16 @@ import "./App.css";
 
 type BackendStatus = "checking" | "connected" | "unreachable";
 
+const SAVE_LABELS: Record<SaveStatus, string> = {
+  idle: "",
+  saving: "Canvas: saving",
+  saved: "Canvas: saved",
+  error: "Canvas: save failed",
+};
+
 export function App() {
   const [status, setStatus] = useState<BackendStatus>("checking");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [currentUser, setCurrentUser] = useState<LocalUser | null>(() => loadLocalUser());
   const [attendeeRefreshToken, setAttendeeRefreshToken] = useState(0);
@@ -68,8 +78,14 @@ export function App() {
         <div className="app-shell">
           <div className="status-badge" data-testid="backend-status">
             Backend: {status}
+            {saveStatus !== "idle" && (
+              <span data-testid="save-status" data-save-status={saveStatus}>
+                {" "}
+                | {SAVE_LABELS[saveStatus]}
+              </span>
+            )}
           </div>
-          <ChessStudioCanvas onEditorMount={setEditor} />
+          <ChessStudioCanvas onEditorMount={setEditor} onSaveStatusChange={setSaveStatus} />
           <PresenterPanel
             editor={editor}
             currentUser={currentUser}
@@ -81,6 +97,7 @@ export function App() {
             currentUserId={currentUser?.id ?? null}
             refreshToken={attendeeRefreshToken}
           />
+          <SlideControls editor={editor} />
           {!currentUser && <JoinForm editor={editor} onJoined={handleJoined} />}
         </div>
       </PresenterContext.Provider>

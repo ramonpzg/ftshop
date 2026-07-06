@@ -19,6 +19,14 @@ body {
   inset: 0;
 }
 
+.canvas-area-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #444;
+}
+
 .status-badge {
   position: fixed;
   top: 8px;

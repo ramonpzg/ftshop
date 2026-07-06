@@ -206,6 +206,34 @@ export function fetchArtifacts(
   return request<Artifact[]>(`/artifacts${suffix}`);
 }
 
+/** Opaque tldraw document snapshot. The backend stores it without inspecting it. */
+export type CanvasSnapshot = Record<string, unknown>;
+
+export function fetchCanvasSnapshot(): Promise<CanvasSnapshot | null> {
+  return request<{ snapshot: CanvasSnapshot | null }>("/canvas").then((body) => body.snapshot);
+}
+
+export function saveCanvasSnapshot(snapshot: CanvasSnapshot): Promise<{ saved: boolean }> {
+  return request<{ saved: boolean }>("/canvas", {
+    method: "PUT",
+    body: JSON.stringify({ snapshot }),
+  });
+}
+
+export async function uploadCanvasAsset(name: string, file: File): Promise<{ name: string }> {
+  const form = new FormData();
+  form.append("file", file, name);
+  const response = await fetch(`${BASE_URL}/canvas/assets`, { method: "POST", body: form });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<{ name: string }>;
+}
+
+export function canvasAssetUrl(name: string): string {
+  return `${BASE_URL}/canvas/assets/${name}`;
+}
+
 export interface EvalResult {
   id: string;
   modality: string;
