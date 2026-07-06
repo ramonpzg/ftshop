@@ -26,6 +26,15 @@
   color: white;
 }
 
+.mini-ide-studio-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  color: #12683c;
+  background: #d3f9d8;
+}
+
 .mini-ide-window {
   display: flex;
   flex-direction: column;

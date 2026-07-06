@@ -37,6 +37,15 @@ def list_dataset_rows(conn: sqlite3.Connection, workspace_id: str) -> list[sqlit
     ).fetchall()
 
 
+def list_dataset_rows_by_shape(conn: sqlite3.Connection, shape: str) -> list[sqlite3.Row]:
+    """Every workspace's rows of one shape, oldest first. Used to export
+    the room's combined training set."""
+    return conn.execute(
+        "SELECT * FROM dataset_rows WHERE shape = ? ORDER BY created_at",
+        (shape,),
+    ).fetchall()
+
+
 def delete_dataset_rows_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM dataset_rows WHERE workspace_id = ?", (workspace_id,))
     conn.commit()

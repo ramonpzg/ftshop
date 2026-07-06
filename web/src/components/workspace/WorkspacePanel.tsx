@@ -10,8 +10,10 @@ import {
   type Artifact,
   type Assessment,
   assessPosition,
+  type DatasetExport,
   type DatasetRow,
   type EvalResult,
+  exportTextDataset,
   fetchArtifacts,
   fetchEvals,
   fetchLlmStatus,
@@ -63,6 +65,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [modelThinking, setModelThinking] = useState(false);
   const [analysis, setAnalysis] = useState<Assessment | null>(null);
   const [analysisState, setAnalysisState] = useState<"idle" | "loading" | "error">("idle");
+  const [lastExport, setLastExport] = useState<DatasetExport | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
   useEffect(() => {
@@ -294,6 +297,23 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
             <Sliders size={12} weight="bold" /> Config
           </h3>
           <ConfigPanel jobs={TEXT_JOBS} onRunJob={handleRunJob} running={runningJob} />
+          <button
+            type="button"
+            className="workspace-export-button"
+            data-testid="export-dataset"
+            title="Writes every game's rows to data/processed/text/chess_sft.jsonl. The training snippets and the notebook load that exact file."
+            onClick={async () => setLastExport(await exportTextDataset())}
+          >
+            Export dataset
+          </button>
+          {lastExport && (
+            <p className="workspace-export-status" data-testid="export-status">
+              {lastExport.file_name}. {lastExport.row_count} rows.{" "}
+              <a href={`/api${lastExport.url}`} target="_blank" rel="noreferrer">
+                Open
+              </a>
+            </p>
+          )}
         </section>
         <section className="workspace-panel-section" data-section="artifact">
           <h3 title="Job output lands here: eval payloads, generated files, cached reveals.">

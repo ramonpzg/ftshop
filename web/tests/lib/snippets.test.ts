@@ -2,17 +2,30 @@ import { describe, expect, test } from "bun:test";
 import { getSnippetById, SNIPPETS } from "../../src/lib/snippets";
 
 describe("SNIPPETS", () => {
-  test("has exactly the six required snippets", () => {
+  test("has exactly the eight required snippets", () => {
     expect(SNIPPETS.map((s) => s.id).sort()).toEqual(
       [
+        "axolotl_config",
         "chat_template",
         "dataset_row_builder",
         "fine_tune",
+        "jax_train",
         "legal_move_validation",
         "prompt_template",
         "reward_function",
       ].sort(),
     );
+  });
+
+  test("training snippets load the exported dataset file", () => {
+    for (const id of ["fine_tune", "axolotl_config"]) {
+      expect(getSnippetById(id).code).toContain("data/processed/text/chess_sft.jsonl");
+    }
+  });
+
+  test("the axolotl snippet is yaml, the rest are python", () => {
+    expect(getSnippetById("axolotl_config").language).toBe("yaml");
+    expect(getSnippetById("fine_tune").language).toBe("python");
   });
 
   test("every snippet has real, non-empty code", () => {

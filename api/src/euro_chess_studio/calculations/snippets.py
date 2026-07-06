@@ -11,5 +11,7 @@ VALID_SNIPPET_IDS = frozenset(
         "reward_function",
         "chat_template",
         "fine_tune",
+        "axolotl_config",
+        "jax_train",
     }
 )

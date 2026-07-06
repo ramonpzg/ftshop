@@ -1,4 +1,6 @@
+import { ArrowSquareOut } from "@phosphor-icons/react";
 import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
 import CodeMirror from "@uiw/react-codemirror";
 import { getSnippetById, SNIPPETS } from "../../lib/snippets";
 import "./MiniIde.css";
@@ -9,6 +11,10 @@ interface MiniIdeProps {
 }
 
 const pythonLang = [python()];
+const yamlLang = [yaml()];
+
+// unsloth studio -p 8888, run on the presenter's machine.
+const UNSLOTH_STUDIO_URL = "http://localhost:8888";
 
 export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
   const activeId = selectedSnippetId ?? SNIPPETS[0].id;
@@ -28,6 +34,15 @@ export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
             {s.label}
           </button>
         ))}
+        <a
+          className="mini-ide-tab mini-ide-studio-link"
+          href={UNSLOTH_STUDIO_URL}
+          target="_blank"
+          rel="noreferrer"
+          title="Opens your local Unsloth Studio. Launch it with: unsloth studio -p 8888"
+        >
+          Unsloth Studio <ArrowSquareOut size={10} />
+        </a>
       </div>
       <div className="mini-ide-window">
         <div className="mini-ide-window-bar" aria-hidden="true">
@@ -38,7 +53,7 @@ export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
         <CodeMirror
           key={activeId}
           value={snippet.code}
-          extensions={pythonLang}
+          extensions={snippet.language === "yaml" ? yamlLang : pythonLang}
           theme="dark"
           height="100%"
           basicSetup={{ lineNumbers: true, foldGutter: false }}

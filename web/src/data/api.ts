@@ -109,6 +109,16 @@ export interface WorkspaceState {
   dataset_rows: DatasetRow[];
 }
 
+export interface DatasetExport {
+  file_name: string;
+  row_count: number;
+  url: string;
+}
+
+export function exportTextDataset(): Promise<DatasetExport> {
+  return request<DatasetExport>("/datasets/text/export", { method: "POST" });
+}
+
 export interface LlmStatus {
   configured: boolean;
   model: string;

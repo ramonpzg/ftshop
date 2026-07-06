@@ -206,3 +206,26 @@
   font-size: 11px;
   cursor: pointer;
 }
+
+.workspace-export-button {
+  margin-top: 6px;
+  align-self: flex-start;
+  border: none;
+  background: #1971c2;
+  color: white;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workspace-export-status {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #212529;
+}
+
+.workspace-export-status a {
+  color: #1971c2;
+}

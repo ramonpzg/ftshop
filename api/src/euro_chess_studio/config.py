@@ -18,7 +18,8 @@ def get_artifacts_dir() -> Path:
 
 
 def get_data_dir() -> Path:
-    return REPO_ROOT / "data"
+    override = os.environ.get("CHESS_STUDIO_DATA_DIR")
+    return Path(override) if override else REPO_ROOT / "data"
 
 
 def get_canvas_dir() -> Path:

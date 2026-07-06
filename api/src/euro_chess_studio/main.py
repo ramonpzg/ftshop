@@ -11,6 +11,7 @@ from euro_chess_studio.config import load_dotenv
 from euro_chess_studio.routes import (
     artifacts,
     canvas,
+    datasets,
     evals,
     game,
     jobs,
@@ -56,6 +57,7 @@ app.include_router(artifacts.router)
 app.include_router(evals.router)
 app.include_router(canvas.router)
 app.include_router(game.router)
+app.include_router(datasets.router)
 
 
 @app.get("/health")
