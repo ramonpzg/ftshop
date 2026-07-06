@@ -5,12 +5,28 @@ interface ArtifactPanelProps {
   artifact: Artifact | null;
 }
 
+const PIECE_FILE = /^[wb][KQRBNP]\.svg$/;
+
+function pieceImageUrl(name: unknown): string | null {
+  return typeof name === "string" && PIECE_FILE.test(name) ? `/pieces/${name}` : null;
+}
+
+interface ImageRow {
+  image?: string;
+  caption?: string;
+}
+
 export function ArtifactPanel({ artifact }: ArtifactPanelProps) {
   if (!artifact) {
     return <p className="artifact-panel-empty">Run a job or reveal a cached artifact.</p>;
   }
 
   const spectrogram = artifact.payload.spectrogram as number[][] | undefined;
+  const rows = artifact.payload.rows as ImageRow[] | undefined;
+  const imageRows = Array.isArray(rows)
+    ? rows.filter((row) => pieceImageUrl(row.image) !== null)
+    : [];
+  const beforeImage = pieceImageUrl(artifact.payload.before_image);
 
   return (
     <div className="artifact-panel" data-testid="artifact-panel">
@@ -18,6 +34,24 @@ export function ArtifactPanel({ artifact }: ArtifactPanelProps) {
         <span>{artifact.kind}</span>
         {artifact.cached && <span className="artifact-cached-badge">cached</span>}
       </div>
+      {imageRows.length > 0 && (
+        <div className="artifact-image-strip" data-testid="artifact-image-strip">
+          {imageRows.map((row) => (
+            <figure key={row.image}>
+              <img src={pieceImageUrl(row.image) ?? ""} alt={row.caption ?? row.image} />
+              <figcaption>{row.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+      {beforeImage && (
+        <div className="artifact-image-strip" data-testid="artifact-before-image">
+          <figure>
+            <img src={beforeImage} alt="before" />
+            <figcaption>before</figcaption>
+          </figure>
+        </div>
+      )}
       {Array.isArray(spectrogram) && <SpectrogramGrid grid={spectrogram} />}
       <pre>{JSON.stringify(artifact.payload, null, 2)}</pre>
     </div>
