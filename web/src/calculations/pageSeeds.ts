@@ -86,6 +86,14 @@ const PRESENTATION_SLIDES = slideRow([
     name: "Slide 09 Your personalised instructor",
     prompt: "The point of all this: your own instructor.\nMine: win while capturing as few pieces as possible.",
   },
+  {
+    name: "Slide 10 Closing thoughts",
+    prompt: "Training is expensive. Open models match closed ones from two years ago.\nThe barrier keeps dropping: microchat trains a GPT in a few hundred lines.\nSpecialisation may soon matter more than a ten point benchmark gap.",
+  },
+  {
+    name: "Slide 11 Resources",
+    prompt: "Repo, datasets, models, further reading.\nFill before the session.",
+  },
 ]);
 
 const ROW_Y = 260;
@@ -146,24 +154,68 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       x: 0,
       y: 90,
     },
+    {
+      kind: "note",
+      text: "Play first. Your moves become the dataset next to your board.",
+      x: 880,
+      y: 0,
+      color: "light-green",
+    },
     ...noteRow(["Prompt template", "Chess dataset", "SFT", "LoRA / QLoRA"], 260, "violet"),
     ...noteRow(["RL environment", "Stockfish", "Legality checking", "Evals"], 560, "orange"),
+    ...noteRow(
+      [
+        "Real-world mapping\nEach game relates to a scenario at work, home, sports",
+        "Training ladder\nUI, API, config, code, JAX",
+        "One player model\nor player plus analyst",
+        "Hardware\nwhich GPU, from where",
+      ],
+      860,
+      "light-blue",
+    ),
   ],
   "painting-pieces": [
     { kind: "heading", text: "Painting Our Pieces", x: 0, y: 0 },
     { kind: "heading", text: "Image fine-tuning. Chess piece style adaptation.", x: 0, y: 90 },
+    {
+      kind: "note",
+      text: "Exercise: draw your favourite piece with the draw tool. The drawings become the training set.",
+      x: 880,
+      y: 0,
+      color: "light-green",
+    },
     ...noteRow(
       ["Image-caption pairs", "Trigger words", "Aspect ratios", "Captions"],
       260,
       "yellow",
     ),
-    ...noteRow(["Image evals"], 560, "orange"),
+    ...noteRow(
+      [
+        "Diffusion vs transformers\nand text diffusion transformers",
+        "Providers rewrite\nyour prompts before generation",
+        "Approaches\ntext to image, image to image,\ntext to svg, editing, layering",
+        "Code ladder\nUI, stablediffusion.cpp, diffusers",
+      ],
+      560,
+      "yellow",
+    ),
+    ...noteRow(["Image evals"], 860, "orange"),
   ],
   "board-sound": [
     { kind: "heading", text: "Giving the Board Sound", x: 0, y: 0 },
     { kind: "heading", text: "Audio fine-tuning. Chess sound effects.", x: 0, y: 90 },
     ...noteRow(["Audio-caption pairs", "Spectrograms", "Audio latents"], 260, "light-blue"),
-    ...noteRow(["Audio evals"], 560, "orange"),
+    ...noteRow(
+      [
+        "Capture sounds\nand an illegal move sound",
+        "Music that intensifies\nas the game sharpens",
+        "The narrator\nlet's get ready to rumble",
+        "Sound as image\nspectrograms make audio visual",
+      ],
+      560,
+      "light-blue",
+    ),
+    ...noteRow(["Audio evals"], 860, "orange"),
   ],
   "real-world-video": [
     { kind: "heading", text: "Video of the Real-World Use Case", x: 0, y: 0 },
@@ -174,7 +226,17 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       y: 90,
     },
     ...noteRow(["Video-caption pairs", "Frame sampling", "Temporal consistency"], 260, "grey"),
-    ...noteRow(["Video evals"], 560, "orange"),
+    ...noteRow(
+      [
+        "The 100 scenario prompts\nfrom the text page",
+        "Generate 10 to 15 second clips\nwith top video models",
+        "Fine-tune a recent LTX model\nsame recipe, heavier compute",
+        "Compute escalates\nfaster than you expect",
+      ],
+      560,
+      "grey",
+    ),
+    ...noteRow(["Video evals"], 860, "orange"),
   ],
 };
 

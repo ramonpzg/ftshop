@@ -57,6 +57,14 @@ Practical. No emojis. No em dashes. No marketing fluff. No fake
 enthusiasm. Short labels with clear verbs: "Train", "Evaluate",
 "Show dataset", "Reveal artifact".
 
+## Content source of truth
+
+When the original build prompt and `docs/session-plan.md` disagree,
+the session plan wins. It captures Ramon's mental model of the session;
+the prompt was scaffolding instructions.
+
+Icons, when needed, come from Phosphor (`@phosphor-icons/react`).
+
 ## Git
 
 Work in phases, one branch per phase, detailed commit messages written

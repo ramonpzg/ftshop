@@ -58,6 +58,9 @@
 }
 
 .workspace-panel-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin: 0;
   font-size: 12px;
   color: #495057;

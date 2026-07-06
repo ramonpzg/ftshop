@@ -1,6 +1,7 @@
 .presenter-panel {
   position: fixed;
-  top: 8px;
+  /* Below the status badge, which owns the very top-left corner. */
+  top: 40px;
   left: 8px;
   z-index: 900;
   background: white;
@@ -20,6 +21,9 @@
 }
 
 .presenter-panel button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border: none;
   background: #f1f3f5;
   border-radius: 6px;

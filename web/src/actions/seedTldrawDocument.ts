@@ -114,8 +114,9 @@ export function ensurePagesSeeded(editor: Editor): boolean {
           id: modalityPanelShapeId(page.slug),
           type: "modality-panel" as const,
           parentId: pageId,
+          // Below the seeded note rows, which now reach to roughly y=1060.
           x: 0,
-          y: 900,
+          y: 1200,
           props: { modality: page.modality, pageSlug: page.slug },
         });
       }

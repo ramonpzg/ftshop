@@ -1,3 +1,4 @@
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor, TLShapeId } from "tldraw";
 import { track } from "tldraw";
@@ -89,6 +90,7 @@ export const SlideControls = track(function SlideControls({ editor }: SlideContr
   return (
     <div className="slide-controls" data-testid="slide-controls">
       <button type="button" onClick={() => step(-1)}>
+        <CaretLeft size={12} weight="bold" />
         Prev
       </button>
       <span className="slide-controls-label" data-testid="slide-controls-label">
@@ -96,6 +98,7 @@ export const SlideControls = track(function SlideControls({ editor }: SlideContr
       </span>
       <button type="button" onClick={() => step(1)}>
         Next
+        <CaretRight size={12} weight="bold" />
       </button>
     </div>
   );

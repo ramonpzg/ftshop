@@ -1,3 +1,4 @@
+import { ChartBar, Code, Database, Horse, Package, Sliders } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ChessBoard } from "../../components/chess/ChessBoard";
@@ -114,27 +115,39 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       </header>
       <div className="workspace-panel-grid">
         <section className="workspace-panel-section" data-section="board">
-          <h3>Board</h3>
+          <h3>
+            <Horse size={12} weight="bold" /> Board
+          </h3>
           <ChessBoard fen={fen} interactive={boardInteractive} onMove={handleMove} />
         </section>
         <section className="workspace-panel-section" data-section="dataset">
-          <h3>Dataset</h3>
+          <h3>
+            <Database size={12} weight="bold" /> Dataset
+          </h3>
           <DatasetPanel rows={datasetRows} />
         </section>
         <section className="workspace-panel-section" data-section="ide">
-          <h3>Mini IDE</h3>
+          <h3>
+            <Code size={12} weight="bold" /> Mini IDE
+          </h3>
           <MiniIde selectedSnippetId={selectedSnippetId} onSelectSnippet={handleSelectSnippet} />
         </section>
         <section className="workspace-panel-section" data-section="config">
-          <h3>Config</h3>
+          <h3>
+            <Sliders size={12} weight="bold" /> Config
+          </h3>
           <ConfigPanel jobs={TEXT_JOBS} onRunJob={handleRunJob} running={runningJob} />
         </section>
         <section className="workspace-panel-section" data-section="artifact">
-          <h3>Artifact</h3>
+          <h3>
+            <Package size={12} weight="bold" /> Artifact
+          </h3>
           <ArtifactPanel artifact={artifact} />
         </section>
         <section className="workspace-panel-section" data-section="eval">
-          <h3>Eval</h3>
+          <h3>
+            <ChartBar size={12} weight="bold" /> Eval
+          </h3>
           <EvalPanel results={evalResults} />
         </section>
       </div>

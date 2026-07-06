@@ -32,14 +32,32 @@ other. `just start` runs both.
 
 ## The tldraw canvas vs. backend state
 
-tldraw owns the canvas: shape positions, the five pages, and their
-seeded starter content. All of that is persisted client-side via
-tldraw's own `persistenceKey` (IndexedDB) — the backend never sees a
-tldraw shape.
+The canvas document (pages, shapes, authored slides) is persisted
+through the backend. On mount the frontend fetches the saved snapshot
+from `GET /canvas`, loads it into a store it creates itself, and then
+saves every document change back with a debounced `PUT /canvas`. The
+snapshot lives at `data/canvas/snapshot.json`, written atomically with
+a one-step rolling backup. Assets dropped onto the canvas (images,
+video, audio) upload through a `TLAssetStore` to `POST /canvas/assets`
+and land in `data/assets/`.
 
-The backend owns everything that needs to survive a canvas reset or be
-shared across a real multi-client future: users, workspaces, moves,
-dataset rows, job configs, artifacts, eval results, presenter state.
+Files, not SQLite, on purpose: `just reset-db` wipes workshop state
+between rehearsals without touching the deck, `just reset-canvas`
+does the reverse, and both the snapshot and the assets can be
+committed to git alongside the code. Because the source of truth is on
+the server, the presenter's authored content survives dev-server
+restarts and browser or machine changes, and attendees connecting over
+the venue network see the same document.
+
+If the initial snapshot fetch fails, the canvas refuses to mount and
+saving stays disabled, so a freshly seeded fallback document can never
+overwrite the real one. The status badge shows saving / saved / save
+failed at all times.
+
+The backend also owns everything that needs to survive a canvas reset
+or be shared across a real multi-client future: users, workspaces,
+moves, dataset rows, job configs, artifacts, eval results, presenter
+state.
 
 The two are linked by one convention: a workspace's tldraw shape id is
 generated identically on both sides
@@ -126,6 +144,8 @@ v0 is local single-user, but the domain model doesn't assume it:
 - Presenter state (`presenter_state` table) is a single source of
   truth already separate from any one client's local state, ready to
   be broadcast over a sync channel instead of just polled.
-- The tldraw canvas is a swappable persistence layer: today it's
-  `persistenceKey` + IndexedDB; tldraw sync would replace that one
-  prop without touching any shape, action, or component.
+- The tldraw canvas is a swappable persistence layer: today the app
+  creates its own store, loads the server snapshot, and saves changes
+  back over HTTP. tldraw sync replaces exactly that store-creation
+  and save loop with a synced store; shapes, actions, and components
+  stay untouched. The asset store is already the shape sync expects.

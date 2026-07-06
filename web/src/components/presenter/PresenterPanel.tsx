@@ -1,3 +1,10 @@
+import {
+  ArrowCounterClockwise,
+  Lock,
+  LockOpen,
+  ProjectorScreen,
+  UsersThree,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
 import { navigateToWorkspace } from "../../actions/navigateToWorkspace";
@@ -71,16 +78,17 @@ export function PresenterPanel({
     <section className="presenter-panel" aria-label="Presenter controls">
       <h2>Presenter</h2>
       <button type="button" onClick={handleBringToPresenterView}>
-        Bring everyone to presenter view
+        <ProjectorScreen size={13} /> Bring everyone to presenter view
       </button>
       <button type="button" onClick={handleSendToWorkspaces}>
-        Send users to their workspace
+        <UsersThree size={13} /> Send users to their workspace
       </button>
       <button type="button" onClick={handleToggleLock}>
-        {state?.locked ? "Unlock editing" : "Lock editing"}
+        {state?.locked ? <LockOpen size={13} /> : <Lock size={13} />}
+        {state?.locked ? " Unlock editing" : " Lock editing"}
       </button>
       <button type="button" onClick={handleResetPage}>
-        Reset page
+        <ArrowCounterClockwise size={13} /> Reset page
       </button>
     </section>
   );
