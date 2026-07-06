@@ -10,6 +10,10 @@ euro_chess_studio.db-journal
 data/canvas/snapshot.prev.json
 data/canvas/*.tmp
 data/assets/*.tmp
+web/public/notebooks/
+artifacts/generated/*
+!artifacts/generated/.gitkeep
+data/processed/text/chess_sft.jsonl
 web/test-results/
 web/playwright-report/
 .env

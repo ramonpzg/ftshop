@@ -197,7 +197,7 @@ describe("WorkspacePanel", () => {
     globalThis.fetch = routedFetch() as unknown as typeof fetch;
     render(
       <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
-        <PresenterContext.Provider value={{ locked: true, resetToken: 0 }}>
+        <PresenterContext.Provider value={{ locked: true, resetToken: 0, isPresenter: false }}>
           <WorkspacePanel shape={makeShape()} isEditing={true} />
         </PresenterContext.Provider>
       </CurrentUserContext.Provider>,

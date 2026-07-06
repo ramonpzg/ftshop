@@ -103,7 +103,7 @@ export function App() {
 
   return (
     <CurrentUserContext.Provider value={currentUser}>
-      <PresenterContext.Provider value={{ locked, resetToken }}>
+      <PresenterContext.Provider value={{ locked, resetToken, isPresenter }}>
         <div className="app-shell">
           <div className="status-badge" data-testid="backend-status">
             Backend: {status}

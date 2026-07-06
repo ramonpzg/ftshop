@@ -11,6 +11,16 @@ install:
 install-audio:
     cd api && uv sync --extra audio
 
+# Exports the marimo notebooks to in-browser WASM under web/public/notebooks.
+# Rerun after editing anything in notebooks/.
+notebooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for nb in chess-machine painting-pieces board-sound real-world-video; do
+        (cd api && uv run marimo export html-wasm "../notebooks/$nb.py" -o "../web/public/notebooks/$nb" --mode edit -f)
+    done
+    echo "notebooks exported. pyodide still loads from its CDN on first open."
+
 start:
     #!/usr/bin/env bash
     set -euo pipefail
