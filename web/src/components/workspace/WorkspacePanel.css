@@ -228,6 +228,23 @@
   color: #212529;
 }
 
+.workspace-game-banter {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-style: italic;
+  color: #495057;
+}
+
+.workspace-match-history {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 10px;
+  color: #495057;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .workspace-model-thinking {
   font-size: 11px;
   color: #495057;

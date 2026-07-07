@@ -171,10 +171,23 @@ export interface GameRecord {
   draws: number;
 }
 
+export interface FinishedGame {
+  id: string;
+  result: string;
+  time_limit_seconds: number;
+  ended_at: string;
+  legal_moves: number;
+}
+
 export interface GameStatus {
   game: Game | null;
   record: GameRecord;
   board_fen: string;
+  /** Finished matches, newest first. */
+  history: FinishedGame[];
+  /** True when this response is the first news of a timeout that
+   * happened while the player was away (reload, server restart). */
+  expired_while_away: boolean;
 }
 
 export function fetchGameStatus(workspaceId: string): Promise<GameStatus> {

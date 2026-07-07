@@ -31,6 +31,7 @@ import {
   fetchGameStatus,
   fetchLlmStatus,
   fetchWorkspaceState,
+  type FinishedGame,
   flagTimeout,
   type Game,
   type GameRecord,
@@ -45,9 +46,12 @@ import {
   startOver,
 } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
+import { type BanterKind, pickBanter } from "../../lib/gameBanter";
 import {
   DEFAULT_TIME_LIMIT_SECONDS,
   describeGameEnd,
+  describeMatch,
+  EXPIRED_AWAY_NOTICE,
   formatClock,
   TIME_LIMIT_CHOICES,
 } from "../../lib/gameClock";
@@ -132,10 +136,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [llm, setLlm] = useState<LlmStatus | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const [record, setRecord] = useState<GameRecord | null>(null);
+  const [history, setHistory] = useState<FinishedGame[]>([]);
   const [timeLimit, setTimeLimit] = useState(DEFAULT_TIME_LIMIT_SECONDS);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [confirmingStartOver, setConfirmingStartOver] = useState(false);
   const [gameNotice, setGameNotice] = useState<string | null>(null);
+  const [banter, setBanter] = useState<string | null>(null);
+  const banterIndex = useRef(0);
   const timeoutInFlight = useRef(false);
   const [modelThinking, setModelThinking] = useState(false);
   const [analysis, setAnalysis] = useState<Assessment | null>(null);
@@ -171,7 +178,19 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       });
     fetchGameStatus(workspaceId)
       .then((status) => {
-        if (!cancelled) applyGameStatus(status);
+        if (cancelled) return;
+        // The server flags the read that lazily expired the game, but
+        // StrictMode's throwaway mount can eat that one-shot flag, so
+        // also compare against the game this browser knows it was in.
+        const wasInGame = localStorage.getItem(activeGameKey) !== null;
+        applyGameStatus(status);
+        const timedOutWhileAway =
+          status.expired_while_away ||
+          (wasInGame && status.game === null && status.history[0]?.result === "loss_timeout");
+        if (timedOutWhileAway) {
+          setGameNotice(EXPIRED_AWAY_NOTICE);
+          dropBanter("loss");
+        }
       })
       .catch(() => {});
     return () => {
@@ -179,12 +198,30 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     };
   }, [isOwnWorkspace, workspaceId]);
 
+  const activeGameKey = `euro-chess-studio:active-game:${workspaceId}`;
+
   function applyGameStatus(status: GameStatus, options: { board?: boolean } = {}) {
     setGame(status.game);
     setRecord(status.record);
+    setHistory(status.history);
+    // Seed the pun rotation from games played, so it keeps rotating
+    // across reloads instead of restarting at the same line.
+    banterIndex.current = status.record.wins + status.record.losses + status.record.draws;
+    // Remember the match this browser is in, so a later mount can
+    // tell "no game" apart from "your game died while you were gone".
+    if (status.game) {
+      localStorage.setItem(activeGameKey, status.game.id);
+    } else {
+      localStorage.removeItem(activeGameKey);
+    }
     if (options.board) {
       setFen(status.board_fen);
     }
+  }
+
+  function dropBanter(kind: BanterKind) {
+    setBanter(pickBanter(kind, banterIndex.current));
+    banterIndex.current += 1;
   }
 
   // The countdown. One interval per game; when it hits zero the server
@@ -206,6 +243,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
         const status = await flagTimeout(workspaceId);
         applyGameStatus(status);
         setGameNotice(describeGameEnd("loss_timeout"));
+        dropBanter("loss");
       } catch {
         // The server disagrees (clock skew) or the game already ended
         // another way. Resync and let the next tick retry if needed.
@@ -240,8 +278,15 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       legal: move.is_legal,
       reward: move.reward,
     });
+    setGameNotice(null);
+    setBanter(null);
     if (move.is_legal) {
       setFen(move.fen_after);
+      if (move.is_checkmate) {
+        dropBanter(mover === "you" ? "win" : "checkmate");
+      } else if (move.is_check) {
+        dropBanter("check");
+      }
     }
     setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
     if (response.game_result) {
@@ -259,6 +304,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   /** A 409 on a move means the server's clock ran out first. */
   async function handleClockExpired() {
     setGameNotice(describeGameEnd("loss_timeout"));
+    dropBanter("loss");
     await refreshGameStatus();
   }
 
@@ -291,6 +337,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
 
   async function handleStartGame() {
     setGameNotice(null);
+    setBanter(null);
     setLastMove(null);
     setAnalysis(null);
     const status = await startGame(workspaceId, timeLimit).catch(() => null);
@@ -305,6 +352,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     if (status) {
       applyGameStatus(status, { board: true });
       setGameNotice(describeGameEnd("loss_resign"));
+      dropBanter("loss");
     }
   }
 
@@ -332,6 +380,10 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         await handleClockExpired();
+      } else {
+        // Network down or backend gone: say so instead of eating the
+        // click. The board did not change, the clock keeps running.
+        setGameNotice("That move never reached the server. Is the backend running?");
       }
     } finally {
       setMovePending(false);
@@ -459,6 +511,18 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
               <p className="workspace-game-notice" data-testid="game-notice">
                 {gameNotice}
               </p>
+            )}
+            {banter && (
+              <p className="workspace-game-banter" data-testid="game-banter">
+                {banter}
+              </p>
+            )}
+            {history.length > 0 && (
+              <ol className="workspace-match-history" data-testid="match-history">
+                {history.slice(0, 5).map((match) => (
+                  <li key={match.id}>{describeMatch(match)}</li>
+                ))}
+              </ol>
             )}
             {lastMove && (
               <p

@@ -32,14 +32,27 @@ function makeShape(overrides: Partial<WorkspaceShape["props"]> = {}): WorkspaceS
   };
 }
 
-function routedFetch() {
+function routedFetch(opts: { expiredAway?: boolean; checkOnMove?: boolean } = {}) {
   let lastArtifact: Record<string, unknown> | null = null;
   let activeGame: Record<string, unknown> | null = null;
   let losses = 0;
-  const gameStatus = () => ({
+  const history: Record<string, unknown>[] = [];
+  if (opts.expiredAway) {
+    losses = 1;
+    history.push({
+      id: "game_expired",
+      result: "loss_timeout",
+      time_limit_seconds: 300,
+      ended_at: "now",
+      legal_moves: 3,
+    });
+  }
+  const gameStatus = (expiredAway = false) => ({
     game: activeGame,
     record: { wins: 0, losses, draws: 0 },
     board_fen: STARTING_FEN,
+    history,
+    expired_while_away: expiredAway,
   });
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -61,11 +74,19 @@ function routedFetch() {
     }
     if (url.endsWith("/game/start-over")) {
       losses += 1;
-      activeGame = { ...(activeGame as Record<string, unknown>), id: "game_2" };
+      const previous = activeGame as Record<string, unknown>;
+      history.unshift({
+        id: `finished_${losses}`,
+        result: "loss_resign",
+        time_limit_seconds: previous.time_limit_seconds,
+        ended_at: "now",
+        legal_moves: 0,
+      });
+      activeGame = { ...previous, id: "game_2" };
       return new Response(JSON.stringify(gameStatus()));
     }
     if (url.endsWith("/game")) {
-      return new Response(JSON.stringify(gameStatus()));
+      return new Response(JSON.stringify(gameStatus(opts.expiredAway === true)));
     }
     if (url.endsWith("/state")) {
       return new Response(
@@ -93,6 +114,7 @@ function routedFetch() {
     if (url.endsWith("/moves")) {
       const body = JSON.parse(String(init?.body));
       const legal = body.uci === "e2e4";
+      const isCheck = legal && opts.checkOnMove === true;
       return new Response(
         JSON.stringify({
           move: {
@@ -106,7 +128,7 @@ function routedFetch() {
               ? "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
               : STARTING_FEN,
             is_legal: legal,
-            is_check: false,
+            is_check: isCheck,
             is_checkmate: false,
             reward: legal ? 1 : -1,
             created_at: "now",
@@ -323,6 +345,56 @@ describe("WorkspacePanel", () => {
       String(call[0]).endsWith("/game/start-over"),
     );
     expect(startOverCall).toBeUndefined();
+  });
+
+  test("a timeout that happened while away is announced on load", async () => {
+    globalThis.fetch = routedFetch({ expiredAway: true }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("game-notice"));
+    expect(screen.getByTestId("game-notice").textContent).toContain("while you were away");
+    expect(screen.getByTestId("game-record").textContent).toBe("W 0 L 1 D 0");
+    expect(screen.getByTestId("game-banter")).toBeTruthy();
+  });
+
+  test("finished matches show up in the history list", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("start-over"));
+    fireEvent.click(screen.getByTestId("start-over"));
+    fireEvent.click(screen.getByTestId("confirm-start-over"));
+
+    await waitFor(() => screen.getByTestId("match-history"));
+    const items = screen.getByTestId("match-history").querySelectorAll("li");
+    expect(items.length).toBe(1);
+    expect(items[0].textContent).toContain("Loss, started over");
+  });
+
+  test("a checking move earns a pun", async () => {
+    globalThis.fetch = routedFetch({ checkOnMove: true }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("chess-board"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => screen.getByTestId("game-banter"));
+    expect(screen.getByTestId("game-banter").textContent).toContain("Check");
   });
 
   test("running a job shows the resulting artifact", async () => {

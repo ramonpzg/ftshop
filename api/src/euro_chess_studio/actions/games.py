@@ -28,7 +28,7 @@ from euro_chess_studio.data.games_repo import (
     end_game,
     get_active_game,
     insert_game,
-    list_finished_results,
+    list_finished_games,
 )
 from euro_chess_studio.data.workspaces_repo import get_workspace, update_board_fen
 
@@ -38,6 +38,10 @@ class GameStatus:
     workspace: sqlite3.Row
     game: sqlite3.Row | None
     record: dict
+    history: list[sqlite3.Row]
+    # True when this very read converted a stale game into a timeout
+    # loss: the player was away and deserves to be told what happened.
+    expired_while_away: bool = False
 
 
 def expire_if_over(conn: sqlite3.Connection, game: sqlite3.Row | None) -> sqlite3.Row | None:
@@ -59,16 +63,30 @@ def _require_workspace(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.R
     return workspace
 
 
-def _status(conn: sqlite3.Connection, workspace_id: str, game: sqlite3.Row | None) -> GameStatus:
+def _status(
+    conn: sqlite3.Connection,
+    workspace_id: str,
+    game: sqlite3.Row | None,
+    expired_while_away: bool = False,
+) -> GameStatus:
     workspace = _require_workspace(conn, workspace_id)
-    record = summarize_results(list_finished_results(conn, workspace_id))
-    return GameStatus(workspace=workspace, game=game, record=record)
+    history = list_finished_games(conn, workspace_id)
+    record = summarize_results(row["result"] for row in history)
+    return GameStatus(
+        workspace=workspace,
+        game=game,
+        record=record,
+        history=history,
+        expired_while_away=expired_while_away,
+    )
 
 
 def game_status(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
     _require_workspace(conn, workspace_id)
-    game = expire_if_over(conn, get_active_game(conn, workspace_id))
-    return _status(conn, workspace_id, game)
+    active = get_active_game(conn, workspace_id)
+    game = expire_if_over(conn, active)
+    expired_while_away = active is not None and game is None
+    return _status(conn, workspace_id, game, expired_while_away=expired_while_away)
 
 
 def start_game(conn: sqlite3.Connection, workspace_id: str, time_limit_seconds: int) -> GameStatus:

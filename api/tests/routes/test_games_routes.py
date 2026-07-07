@@ -129,3 +129,19 @@ def test_a_checkmating_move_reports_the_game_result(client: TestClient):
 def test_game_status_on_unknown_workspace_is_404(client: TestClient):
     response = client.get("/workspaces/nope/game")
     assert response.status_code == 404
+
+
+def test_status_breaks_the_news_of_an_expiry_and_lists_history(client: TestClient, tmp_path: Path):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    expire_active_game(tmp_path, workspace_id)
+
+    first = client.get(f"/workspaces/{workspace_id}/game").json()
+    assert first["expired_while_away"] is True
+    assert first["game"] is None
+    assert first["history"][0]["result"] == "loss_timeout"
+    assert first["history"][0]["legal_moves"] == 1
+
+    second = client.get(f"/workspaces/{workspace_id}/game").json()
+    assert second["expired_while_away"] is False

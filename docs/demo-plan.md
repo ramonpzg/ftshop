@@ -61,10 +61,14 @@ workspace here automatically.
   move, celebrate: the environment caught it, reward -1, that is the
   RL slide happening live.
 - Point at the clock and the **Start over** button. Quitting a match
-  costs a loss, and so does the flag falling; the W/L/D record under
-  the board keeps score. Say it out loud: rage-quitting against the
-  bot is a labeled data point now. Checkmates end the game on their
-  own, either direction.
+  costs a loss, and so does the flag falling; the W/L/D record and
+  the match log under the board keep score. Say it out loud:
+  rage-quitting against the bot is a labeled data point now.
+  Checkmates end the game on their own, either direction, and every
+  check, mate, and loss comes with a rotating one-liner.
+- Open one of the dataset tabs before playing. It stays open while
+  moves land, so the room watches the newest row replace the old one
+  in place. That is the aha moment; do not rush past it.
 - Click **Export dataset**: the room's games become
   `data/processed/text/chess_sft.jsonl`. Open the notebook panel: it
   loads that exact file in the browser. The Unsloth and Axolotl

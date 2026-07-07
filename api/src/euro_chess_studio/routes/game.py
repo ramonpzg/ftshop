@@ -54,10 +54,23 @@ class GameRecordOut(BaseModel):
     draws: int
 
 
+class FinishedGameOut(BaseModel):
+    id: str
+    result: str
+    time_limit_seconds: int
+    ended_at: str
+    legal_moves: int
+
+
 class GameStatusOut(BaseModel):
     game: GameOut | None
     record: GameRecordOut
     board_fen: str
+    # Newest first: the match log for "how did today go".
+    history: list[FinishedGameOut]
+    # True when this response is the first news of a timeout that
+    # happened while the player was away (reload, server restart).
+    expired_while_away: bool
 
 
 class StartGameRequest(BaseModel):
@@ -83,6 +96,8 @@ def _game_status_out(status: GameStatus) -> GameStatusOut:
         game=game,
         record=GameRecordOut(**status.record),
         board_fen=status.workspace["board_fen"],
+        history=[FinishedGameOut(**dict(row)) for row in status.history],
+        expired_while_away=status.expired_while_away,
     )
 
 

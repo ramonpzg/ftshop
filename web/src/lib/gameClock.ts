@@ -18,6 +18,28 @@ export function formatClock(secondsLeft: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+/** Breaking the news after a reload or server restart found the
+ * clock already dead. */
+export const EXPIRED_AWAY_NOTICE = "The clock ran out while you were away. That counts as a loss.";
+
+/** One terse line per finished match, for the history list. */
+export function describeMatch(game: {
+  result: string;
+  legal_moves: number;
+  time_limit_seconds: number;
+}): string {
+  const labels: Record<string, string> = {
+    loss_resign: "Loss, started over",
+    loss_timeout: "Loss, time",
+    loss: "Loss, checkmate",
+    win: "Win, checkmate",
+    draw: "Draw",
+  };
+  const label = labels[game.result] ?? game.result;
+  const moves = game.legal_moves === 1 ? "1 move" : `${game.legal_moves} moves`;
+  return `${label}. ${moves} on a ${Math.round(game.time_limit_seconds / 60)} min clock.`;
+}
+
 /** One line per way a game can end. Shown under the board. */
 export function describeGameEnd(result: string): string {
   switch (result) {

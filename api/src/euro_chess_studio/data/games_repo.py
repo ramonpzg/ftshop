@@ -51,12 +51,19 @@ def end_game(conn: sqlite3.Connection, game_id: str, result: str) -> sqlite3.Row
     return row
 
 
-def list_finished_results(conn: sqlite3.Connection, workspace_id: str) -> list[str]:
-    rows = conn.execute(
-        "SELECT result FROM games WHERE workspace_id = ? AND result IS NOT NULL",
+def list_finished_games(conn: sqlite3.Connection, workspace_id: str) -> list[sqlite3.Row]:
+    """Finished games, newest first, each with its legal move count."""
+    return conn.execute(
+        """
+        SELECT games.*,
+               (SELECT COUNT(*) FROM moves
+                WHERE moves.game_id = games.id AND moves.is_legal = 1) AS legal_moves
+        FROM games
+        WHERE workspace_id = ? AND result IS NOT NULL
+        ORDER BY ended_at DESC, created_at DESC
+        """,
         (workspace_id,),
     ).fetchall()
-    return [row["result"] for row in rows]
 
 
 def delete_games_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:

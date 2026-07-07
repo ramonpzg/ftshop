@@ -242,3 +242,30 @@ def test_insert_game_accepts_a_backdated_start_for_tests(tmp_path: Path):
     stale = (datetime.now(UTC) - timedelta(seconds=9000)).isoformat()
     game = insert_game(conn, workspace_id=workspace["id"], time_limit_seconds=300, started_at=stale)
     assert game["started_at"] == stale
+
+
+def test_game_status_reports_a_timeout_that_happened_while_away(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    expire_active_game(conn, workspace["id"])
+
+    first_look = game_status(conn, workspace["id"])
+    second_look = game_status(conn, workspace["id"])
+
+    # Only the read that discovered the timeout breaks the news.
+    assert first_look.expired_while_away is True
+    assert second_look.expired_while_away is False
+
+
+def test_history_lists_finished_games_newest_first_with_move_counts(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    make_move(conn, workspace["id"], "e2e4")
+    make_move(conn, workspace["id"], "e7e5")
+    start_over(conn, workspace["id"])
+    make_move(conn, workspace["id"], "d2d4")
+    status = start_over(conn, workspace["id"])
+
+    assert [row["result"] for row in status.history] == ["loss_resign", "loss_resign"]
+    assert [row["legal_moves"] for row in status.history] == [1, 2]
+    assert status.record["losses"] == 2
