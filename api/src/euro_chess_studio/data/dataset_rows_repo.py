@@ -46,6 +46,17 @@ def list_dataset_rows_by_shape(conn: sqlite3.Connection, shape: str) -> list[sql
     ).fetchall()
 
 
+def list_all_dataset_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """The whole room's rows, every shape, oldest first. Used for the
+    instructor's full-archive export."""
+    return conn.execute("SELECT * FROM dataset_rows ORDER BY created_at").fetchall()
+
+
+def count_dataset_rows(conn: sqlite3.Connection) -> int:
+    (count,) = conn.execute("SELECT COUNT(*) FROM dataset_rows").fetchone()
+    return count
+
+
 def delete_dataset_rows_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM dataset_rows WHERE workspace_id = ?", (workspace_id,))
     conn.commit()

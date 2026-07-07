@@ -113,9 +113,15 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     # by default (check_same_thread=True), so disable that check here; each
     # request still gets its own connection, opened and closed within that
     # request's handling, never shared concurrently.
-    conn = sqlite3.connect(db_path or get_db_path(), check_same_thread=False)
+    conn = sqlite3.connect(db_path or get_db_path(), check_same_thread=False, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # A room of 40 attendees means 40 threads committing at once. WAL
+    # lets readers proceed during writes, and the busy timeout queues
+    # colliding writers instead of throwing "database is locked".
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 10000")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 

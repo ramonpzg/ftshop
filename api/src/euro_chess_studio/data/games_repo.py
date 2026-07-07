@@ -66,6 +66,30 @@ def list_finished_games(conn: sqlite3.Connection, workspace_id: str) -> list[sql
     ).fetchall()
 
 
+def list_games_with_details(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every game in the room, active first, with the player's name and
+    per-game move and dataset-row counts. Feeds the presenter dashboard."""
+    return conn.execute(
+        """
+        SELECT games.*,
+               users.name AS user_name,
+               (SELECT COUNT(*) FROM moves
+                WHERE moves.game_id = games.id AND moves.is_legal = 1) AS legal_moves,
+               (SELECT COUNT(*) FROM dataset_rows
+                JOIN moves ON moves.id = dataset_rows.move_id
+                WHERE moves.game_id = games.id) AS dataset_rows
+        FROM games
+        JOIN workspaces ON workspaces.id = games.workspace_id
+        JOIN users ON users.id = workspaces.user_id
+        ORDER BY (games.result IS NULL) DESC, games.started_at DESC
+        """
+    ).fetchall()
+
+
+def list_active_games(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute("SELECT * FROM games WHERE result IS NULL").fetchall()
+
+
 def delete_games_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM games WHERE workspace_id = ?", (workspace_id,))
     conn.commit()

@@ -145,3 +145,56 @@ def test_status_breaks_the_news_of_an_expiry_and_lists_history(client: TestClien
 
     second = client.get(f"/workspaces/{workspace_id}/game").json()
     assert second["expired_while_away"] is False
+
+
+def test_presenter_dashboard_lists_the_room_and_expires_stale_clocks(
+    client: TestClient, tmp_path: Path
+):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+
+    body = client.get("/presenter/games").json()
+    assert body["playing"] == 1
+    assert body["finished"] == 0
+    assert body["games"][0]["user_name"] == "Ada"
+    assert body["games"][0]["legal_moves"] == 1
+    assert body["games"][0]["dataset_rows"] == 6
+    assert body["games"][0]["seconds_left"] is not None
+    # Free-play rows would also count here; this game produced all six.
+    assert body["total_dataset_rows"] == 6
+
+    expire_active_game(tmp_path, workspace_id)
+    after = client.get("/presenter/games").json()
+    assert after["playing"] == 0
+    assert after["finished"] == 1
+    assert after["games"][0]["result"] == "loss_timeout"
+    assert after["games"][0]["seconds_left"] is None
+
+
+def test_full_export_carries_every_shape_with_provenance(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("CHESS_STUDIO_DATA_DIR", str(tmp_path / "data"))
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+
+    response = client.post("/datasets/text/export-full")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["row_count"] == 6
+
+    download = client.get(body["url"])
+    assert download.status_code == 200
+    import json as _json
+
+    lines = [_json.loads(line) for line in download.text.strip().split("\n")]
+    assert {line["shape"] for line in lines} == {
+        "pgn_prefix_to_move",
+        "fen_to_move",
+        "fen_legal_moves_to_move",
+        "board_tensor_to_move_class",
+        "policy_value_to_move",
+        "rl_trajectory",
+    }
+    assert all(line["workspace_id"] == workspace_id for line in lines)

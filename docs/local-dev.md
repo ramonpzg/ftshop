@@ -43,6 +43,8 @@ startup and is idempotent.
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
 | `just notebooks` | Export the marimo notebooks to in-browser WASM |
 | `just session-notebook` | Open the end-to-end fallback notebook in a sandboxed marimo |
+| `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
+| `just load-test` | Simulate a room of attendees against a running backend |
 
 `just reset-db` followed by `just seed` is the fastest way back to a
 clean demo state without restarting the backend. It never touches the
@@ -99,6 +101,49 @@ the embed lags, the Open link pops it into its own tab.
 
 Unsloth Studio: the mini IDE links to `http://localhost:8888`. Launch
 it with `unsloth studio -p 8888`.
+
+## Load testing the room
+
+Before trusting the laptop with 40 people, make it survive 40 fake
+ones. Three terminals:
+
+```
+just mock-llm                 # OpenAI-shaped endpoint, 1.2s per reply
+OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:9999 just start-backend
+just load-test 40 60          # 40 attendees for 60 seconds
+```
+
+Each simulated attendee behaves like the real UI: joins, starts a
+timed match, plays legal moves with think time, triggers the model
+reply and the per-exchange assessment, and polls presenter state
+every three seconds. The report at the end shows per-endpoint latency
+percentiles and error counts. On a 4-core container, 40 attendees run
+error free: board moves at ~20ms p50, model-bound calls at the mock's
+latency plus about a second of queueing. Numbers on a real laptop
+should be better.
+
+Two notes on what makes this hold up: SQLite runs in WAL mode with a
+busy timeout (readers do not block on writers, and colliding writers
+queue instead of throwing), and the sync-route thread pool is raised
+to 120 because every in-flight model call holds a worker thread for
+its whole round trip.
+
+## The presenter dashboard
+
+The presenter panel (open the app with `?presenter=1`) has a Games
+section: every match in the room, active first, with the player's
+name, a countdown or a result, and the move count, refreshed every
+three seconds. Below it, two buttons:
+
+- **Download SFT dataset**: prompt/completion pairs
+  (`chess_sft.jsonl`), what the training snippets load.
+- **Download all shapes**: the instructor's archive
+  (`chess_all_shapes.jsonl`), every sample from every game across all
+  six dataset shapes, each line tagged with its shape and workspace.
+  This is the file to take to the GPU.
+
+Both export on click and open the file in a new tab. Attendees can
+still export their own view; these two collect the whole room.
 
 ## The fallback notebook
 

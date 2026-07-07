@@ -24,11 +24,14 @@ from euro_chess_studio.calculations.game_clock import (
     is_valid_time_limit,
     summarize_results,
 )
+from euro_chess_studio.data.dataset_rows_repo import count_dataset_rows
 from euro_chess_studio.data.games_repo import (
     end_game,
     get_active_game,
     insert_game,
+    list_active_games,
     list_finished_games,
+    list_games_with_details,
 )
 from euro_chess_studio.data.workspaces_repo import get_workspace, update_board_fen
 
@@ -121,6 +124,25 @@ def start_over(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
     )
     update_board_fen(conn, workspace_id, chess.STARTING_FEN)
     return _status(conn, workspace_id, game)
+
+
+@dataclass(frozen=True)
+class RoomGames:
+    games: list[sqlite3.Row]
+    total_dataset_rows: int
+
+
+def room_games(conn: sqlite3.Connection) -> RoomGames:
+    """Every game in the room for the presenter dashboard. Reconciles
+    all active clocks with the wall clock first, so a game that died
+    while its player was at the coffee machine shows as the loss it
+    is, not as forever 'playing'."""
+    for active in list_active_games(conn):
+        expire_if_over(conn, active)
+    return RoomGames(
+        games=list_games_with_details(conn),
+        total_dataset_rows=count_dataset_rows(conn),
+    )
 
 
 def flag_timeout(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:

@@ -40,6 +40,15 @@ export function describeMatch(game: {
   return `${label}. ${moves} on a ${Math.round(game.time_limit_seconds / 60)} min clock.`;
 }
 
+/** Compact status word for the presenter dashboard. */
+export function shortResult(result: string | null): string {
+  if (result === null) return "playing";
+  if (result === "win") return "win";
+  if (result === "draw") return "draw";
+  if (result.startsWith("loss")) return "loss";
+  return result;
+}
+
 /** One line per way a game can end. Shown under the board. */
 export function describeGameEnd(result: string): string {
   switch (result) {

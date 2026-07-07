@@ -10,9 +10,12 @@ def get_or_create_presenter_state(conn: sqlite3.Connection) -> sqlite3.Row:
     row = conn.execute("SELECT * FROM presenter_state WHERE id = ?", (SINGLETON_ID,)).fetchone()
     if row is not None:
         return row
+    # A room joining at once means many requests race past the check
+    # above on an empty table. OR IGNORE lets exactly one insert win
+    # instead of throwing UNIQUE violations at the rest.
     conn.execute(
         """
-        INSERT INTO presenter_state
+        INSERT OR IGNORE INTO presenter_state
             (id, mode, locked, active_page_slug, focused_user_id, updated_at)
         VALUES (?, 'idle', 0, NULL, NULL, ?)
         """,

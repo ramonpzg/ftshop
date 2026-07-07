@@ -1,22 +1,30 @@
 import {
   ArrowCounterClockwise,
+  DownloadSimple,
   Lock,
   LockOpen,
   ProjectorScreen,
   UsersThree,
 } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
 import { navigateToWorkspace } from "../../actions/navigateToWorkspace";
 import { pageIdForSlug } from "../../actions/seedTldrawDocument";
 import {
   bringToPresenterView,
   createOrGetWorkspace,
+  type DatasetExport,
+  exportFullTextDataset,
+  exportTextDataset,
+  fetchRoomGames,
   lockEditing,
   resetPage,
+  type RoomGames,
   sendToWorkspaces,
   unlockEditing,
 } from "../../data/api";
 import type { LocalUser } from "../../data/localUser";
+import { formatClock, shortResult } from "../../lib/gameClock";
 import { PAGES } from "../../lib/pages";
 import "./PresenterPanel.css";
 
@@ -37,6 +45,8 @@ interface PresenterPanelProps {
   onPageReset: () => void;
 }
 
+const ROOM_POLL_MS = 3000;
+
 export function PresenterPanel({
   editor,
   currentUser,
@@ -44,6 +54,35 @@ export function PresenterPanel({
   onLockedChange,
   onPageReset,
 }: PresenterPanelProps) {
+  const [room, setRoom] = useState<RoomGames | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchRoomGames()
+        .then((games) => {
+          if (!cancelled) setRoom(games);
+        })
+        .catch(() => {});
+    };
+    load();
+    const poll = setInterval(load, ROOM_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, []);
+
+  async function handleDownload(run: () => Promise<DatasetExport>) {
+    setExporting(true);
+    try {
+      const result = await run();
+      window.open(`/api${result.url}`, "_blank");
+    } finally {
+      setExporting(false);
+    }
+  }
   async function handleBringToPresenterView() {
     // Attendees get pulled to the page the presenter is actually on.
     const slug = currentWorkshopPageSlug(editor);
@@ -86,6 +125,49 @@ export function PresenterPanel({
       </button>
       <button type="button" onClick={handleResetPage}>
         <ArrowCounterClockwise size={13} /> Reset page
+      </button>
+      <h2 className="presenter-panel-subhead">Games</h2>
+      {room === null ? (
+        <p className="presenter-room-empty">Loading the room.</p>
+      ) : room.games.length === 0 ? (
+        <p className="presenter-room-empty">No games yet.</p>
+      ) : (
+        <>
+          <p className="presenter-room-totals" data-testid="room-totals">
+            {room.playing} playing, {room.finished} finished, {room.total_dataset_rows} samples
+          </p>
+          <ul className="presenter-room-games" data-testid="room-games">
+            {room.games.map((game) => (
+              <li key={game.id} data-status={shortResult(game.result)}>
+                <span className="presenter-room-name">{game.user_name}</span>
+                <span className="presenter-room-status">
+                  {game.result === null
+                    ? formatClock(game.seconds_left ?? 0)
+                    : shortResult(game.result)}
+                </span>
+                <span className="presenter-room-moves">{game.legal_moves} mv</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => handleDownload(exportTextDataset)}
+        disabled={exporting}
+        title="Every game's prompt/completion pairs as chess_sft.jsonl. What the training snippets load."
+        data-testid="download-sft"
+      >
+        <DownloadSimple size={13} /> Download SFT dataset
+      </button>
+      <button
+        type="button"
+        onClick={() => handleDownload(exportFullTextDataset)}
+        disabled={exporting}
+        title="The full archive: every sample from every game, all six shapes, with workspace provenance. Take this to the GPU."
+        data-testid="download-full"
+      >
+        <DownloadSimple size={13} /> Download all shapes
       </button>
     </section>
   );

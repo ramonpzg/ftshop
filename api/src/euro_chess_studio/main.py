@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import anyio.to_thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,6 +29,10 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Sync routes each hold one worker thread, and a model-move request
+    # holds its thread for the whole LLM round trip. The default pool of
+    # 40 lets a full room saturate it; give the workshop headroom.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = 120
     conn = get_connection()
     try:
         init_db(conn)

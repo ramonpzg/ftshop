@@ -38,6 +38,16 @@ start:
 start-backend:
     cd api && uv run uvicorn euro_chess_studio.main:app --reload --port 8000
 
+# Fake OpenAI endpoint with configurable latency. Point the backend at
+# it: OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:9999 just start-backend
+mock-llm delay="1.2":
+    cd api && uv run python -m euro_chess_studio.tools.mock_llm --delay {{delay}}
+
+# Simulates a room hammering a running backend: joins, timed matches,
+# model replies, assessments, presenter polling. Latency report at the end.
+load-test attendees="20" duration="60":
+    cd api && uv run python -m euro_chess_studio.tools.load_sim --attendees {{attendees}} --duration {{duration}}
+
 start-frontend:
     cd web && bun run dev
 

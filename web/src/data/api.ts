@@ -263,6 +263,34 @@ export function unlockEditing(): Promise<PresenterState> {
   return request<PresenterState>("/presenter/unlock", { method: "POST" });
 }
 
+export interface RoomGame {
+  id: string;
+  workspace_id: string;
+  user_name: string;
+  result: string | null;
+  time_limit_seconds: number;
+  started_at: string;
+  ended_at: string | null;
+  seconds_left: number | null;
+  legal_moves: number;
+  dataset_rows: number;
+}
+
+export interface RoomGames {
+  games: RoomGame[];
+  playing: number;
+  finished: number;
+  total_dataset_rows: number;
+}
+
+export function fetchRoomGames(): Promise<RoomGames> {
+  return request<RoomGames>("/presenter/games");
+}
+
+export function exportFullTextDataset(): Promise<DatasetExport> {
+  return request<DatasetExport>("/datasets/text/export-full", { method: "POST" });
+}
+
 export interface ResetPageResponse {
   workspaces_reset: number;
 }

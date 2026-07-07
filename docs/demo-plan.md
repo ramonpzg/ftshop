@@ -28,6 +28,18 @@ client polls presenter state. Lock editing makes attendee canvases
 read-only. Bring everyone to presenter view pulls their cameras to the
 page you are on.
 
+The presenter panel's Games section is your room monitor: who is
+playing, how much clock they have, who finished and how. When the
+first round wraps, **Download all shapes** collects every sample from
+every game into one JSONL for the training demo; **Download SFT
+dataset** is the prompt/completion subset the snippets load. One
+click each, no shell.
+
+The week before: run the load test once on the actual laptop
+(`just mock-llm`, backend pointed at it, `just load-test 40`). It
+simulates a full room and prints latency percentiles; see
+local-dev.md for the three commands.
+
 ## Flow
 
 ### 1. Presentation (5 min)
