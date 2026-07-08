@@ -32,7 +32,9 @@ function makeShape(overrides: Partial<WorkspaceShape["props"]> = {}): WorkspaceS
   };
 }
 
-function routedFetch(opts: { expiredAway?: boolean; checkOnMove?: boolean } = {}) {
+function routedFetch(
+  opts: { expiredAway?: boolean; checkOnMove?: boolean; opponentModels?: string[] } = {},
+) {
   let lastArtifact: Record<string, unknown> | null = null;
   let activeGame: Record<string, unknown> | null = null;
   let losses = 0;
@@ -57,7 +59,13 @@ function routedFetch(opts: { expiredAway?: boolean; checkOnMove?: boolean } = {}
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/llm/status")) {
-      return new Response(JSON.stringify({ configured: true, model: "gpt-5.5-mini" }));
+      return new Response(
+        JSON.stringify({
+          configured: true,
+          model: "gpt-5.5-mini",
+          opponent_models: opts.opponentModels ?? ["gpt-5.5-mini"],
+        }),
+      );
     }
     if (url.endsWith("/game/start")) {
       const body = JSON.parse(String(init?.body));
@@ -65,6 +73,7 @@ function routedFetch(opts: { expiredAway?: boolean; checkOnMove?: boolean } = {}
         id: "game_1",
         workspace_id: "workspace_1",
         time_limit_seconds: body.time_limit_seconds,
+        opponent_model: body.opponent_model,
         started_at: "2026-07-06T10:00:00+00:00",
         ended_at: null,
         result: null,
@@ -379,6 +388,48 @@ describe("WorkspacePanel", () => {
     const items = screen.getByTestId("match-history").querySelectorAll("li");
     expect(items.length).toBe(1);
     expect(items[0].textContent).toContain("Loss, started over");
+  });
+
+  test("with several opponents on offer, starting sends the chosen one", async () => {
+    const fetchMock = routedFetch({
+      opponentModels: ["google/gemma-4-2b-it", "openai/gpt-5.5", "gpt-5.5-mini"],
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("opponent-model"));
+    // Short names in the picker, full ids on the wire.
+    const options = Array.from(
+      (screen.getByTestId("opponent-model") as HTMLSelectElement).options,
+    ).map((option) => option.textContent);
+    expect(options).toEqual(["gemma-4-2b-it", "gpt-5.5", "gpt-5.5-mini"]);
+
+    fireEvent.change(screen.getByTestId("opponent-model"), {
+      target: { value: "openai/gpt-5.5" },
+    });
+    fireEvent.click(screen.getByTestId("start-game"));
+
+    await waitFor(() => screen.getByTestId("game-timer"));
+    const startCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith("/game/start"));
+    expect(JSON.parse(String((startCall?.[1] as RequestInit).body)).opponent_model).toBe(
+      "openai/gpt-5.5",
+    );
+  });
+
+  test("a single-model setup shows no picker", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    expect(screen.queryByTestId("opponent-model")).toBeNull();
   });
 
   test("a checking move earns a pun", async () => {

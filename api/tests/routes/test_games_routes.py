@@ -198,3 +198,37 @@ def test_full_export_carries_every_shape_with_provenance(
         "rl_trajectory",
     }
     assert all(line["workspace_id"] == workspace_id for line in lines)
+
+
+def test_start_game_records_the_chosen_opponent(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-2b-it,openai/gpt-5.5")
+    workspace_id = make_workspace(client)
+
+    status = client.get("/llm/status").json()
+    assert status["opponent_models"] == [
+        "google/gemma-4-2b-it",
+        "openai/gpt-5.5",
+        "gpt-5.5-mini",
+    ]
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/game/start",
+        json={"opponent_model": "google/gemma-4-2b-it"},
+    )
+    assert response.status_code == 200
+    assert response.json()["game"]["opponent_model"] == "google/gemma-4-2b-it"
+
+    # Start over keeps the same opponent.
+    again = client.post(f"/workspaces/{workspace_id}/game/start-over").json()
+    assert again["game"]["opponent_model"] == "google/gemma-4-2b-it"
+
+
+def test_start_game_rejects_a_model_not_on_offer(client: TestClient):
+    workspace_id = make_workspace(client)
+    response = client.post(
+        f"/workspaces/{workspace_id}/game/start",
+        json={"opponent_model": "made-up/nonsense"},
+    )
+    assert response.status_code == 422

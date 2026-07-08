@@ -75,3 +75,42 @@ def test_assess_position_returns_parsed_payload(tmp_path: Path, monkeypatch: pyt
     assert result["assessment"] == "Level."
     assert result["real_world"] == "Monday standup."
     assert result["model"]
+
+
+def test_model_move_plays_with_the_games_chosen_opponent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from euro_chess_studio.actions.games import start_game
+
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-2b-it")
+    seen_models: list[str | None] = []
+
+    def fake_chat(*args, **kwargs):
+        seen_models.append(kwargs.get("model"))
+        return '{"move": "e7e5"}'
+
+    monkeypatch.setattr(game.llm_client, "chat", fake_chat)
+    start_game(conn, workspace["id"], 300, opponent_model="google/gemma-4-2b-it")
+    from euro_chess_studio.actions.moves import make_move
+
+    make_move(conn, workspace["id"], "e2e4")
+    model_move(conn, workspace["id"])
+
+    assert seen_models == ["google/gemma-4-2b-it"]
+
+
+def test_model_move_without_a_game_uses_the_default_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    conn, workspace = make_workspace(tmp_path)
+    seen_models: list[str | None] = []
+
+    def fake_chat(*args, **kwargs):
+        seen_models.append(kwargs.get("model"))
+        return '{"move": "e2e4"}'
+
+    monkeypatch.setattr(game.llm_client, "chat", fake_chat)
+    model_move(conn, workspace["id"])
+
+    assert seen_models == [None]

@@ -15,6 +15,7 @@ import chess
 from euro_chess_studio.actions.errors import (
     GameAlreadyActiveError,
     GameNotExpiredError,
+    InvalidOpponentModelError,
     InvalidTimeLimitError,
     NoActiveGameError,
     WorkspaceNotFoundError,
@@ -33,6 +34,7 @@ from euro_chess_studio.data.games_repo import (
     list_finished_games,
     list_games_with_details,
 )
+from euro_chess_studio.data.llm_client import get_opponent_models
 from euro_chess_studio.data.workspaces_repo import get_workspace, update_board_fen
 
 
@@ -92,17 +94,32 @@ def game_status(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
     return _status(conn, workspace_id, game, expired_while_away=expired_while_away)
 
 
-def start_game(conn: sqlite3.Connection, workspace_id: str, time_limit_seconds: int) -> GameStatus:
+def start_game(
+    conn: sqlite3.Connection,
+    workspace_id: str,
+    time_limit_seconds: int,
+    opponent_model: str | None = None,
+) -> GameStatus:
     """Begins a fresh timed match from the starting position."""
     _require_workspace(conn, workspace_id)
     if not is_valid_time_limit(time_limit_seconds):
         raise InvalidTimeLimitError(
             f"time limit must be 60 to 1800 seconds, got {time_limit_seconds}"
         )
+    if opponent_model is not None and opponent_model not in get_opponent_models():
+        raise InvalidOpponentModelError(
+            f"unknown opponent model: {opponent_model}. "
+            f"offered models: {', '.join(get_opponent_models())}"
+        )
     if expire_if_over(conn, get_active_game(conn, workspace_id)) is not None:
         raise GameAlreadyActiveError("a game is already running; start over to leave it")
 
-    game = insert_game(conn, workspace_id=workspace_id, time_limit_seconds=time_limit_seconds)
+    game = insert_game(
+        conn,
+        workspace_id=workspace_id,
+        time_limit_seconds=time_limit_seconds,
+        opponent_model=opponent_model,
+    )
     update_board_fen(conn, workspace_id, chess.STARTING_FEN)
     return _status(conn, workspace_id, game)
 
@@ -119,8 +136,12 @@ def start_over(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
     if expire_if_over(conn, active) is not None:
         end_game(conn, active["id"], "loss_resign")
 
+    # The fresh game keeps both the clock and the opponent the player chose.
     game = insert_game(
-        conn, workspace_id=workspace_id, time_limit_seconds=active["time_limit_seconds"]
+        conn,
+        workspace_id=workspace_id,
+        time_limit_seconds=active["time_limit_seconds"],
+        opponent_model=active["opponent_model"],
     )
     update_board_fen(conn, workspace_id, chess.STARTING_FEN)
     return _status(conn, workspace_id, game)

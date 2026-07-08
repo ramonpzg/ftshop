@@ -91,6 +91,10 @@ print(row)
 # RL teaches the model what good actions do. This reward is what RL needs,
 # and chess is a good RL environment because the environment can validate
 # every move for you.
+#
+# This env is hand-rolled to stay readable. The same idea, production
+# grade (env classes, rubrics, rollouts, GRPO trainers), is the
+# verifiers library: github.com/PrimeIntellect-ai/verifiers
 `,
   },
   {

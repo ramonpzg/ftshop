@@ -8,6 +8,7 @@ from euro_chess_studio.actions.errors import (
     GameAlreadyActiveError,
     GameClockExpiredError,
     GameNotExpiredError,
+    InvalidOpponentModelError,
     InvalidTimeLimitError,
     NoActiveGameError,
     WorkspaceNotFoundError,
@@ -30,6 +31,7 @@ from euro_chess_studio.data.llm_client import (
     LlmNotConfiguredError,
     LlmRequestError,
     get_llm_model,
+    get_opponent_models,
     is_llm_configured,
 )
 from euro_chess_studio.deps import get_db
@@ -42,6 +44,7 @@ class GameOut(BaseModel):
     id: str
     workspace_id: str
     time_limit_seconds: int
+    opponent_model: str | None
     started_at: str
     ended_at: str | None
     result: str | None
@@ -79,6 +82,7 @@ class StartGameRequest(BaseModel):
         ge=MIN_TIME_LIMIT_SECONDS,
         le=MAX_TIME_LIMIT_SECONDS,
     )
+    opponent_model: str | None = None
 
 
 def _game_status_out(status: GameStatus) -> GameStatusOut:
@@ -116,10 +120,12 @@ def post_start_game(
     conn: sqlite3.Connection = Depends(get_db),
 ) -> GameStatusOut:
     try:
-        return _game_status_out(start_game(conn, workspace_id, body.time_limit_seconds))
+        return _game_status_out(
+            start_game(conn, workspace_id, body.time_limit_seconds, body.opponent_model)
+        )
     except WorkspaceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except InvalidTimeLimitError as exc:
+    except (InvalidTimeLimitError, InvalidOpponentModelError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except GameAlreadyActiveError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -150,11 +156,16 @@ def post_flag_timeout(
 class LlmStatusOut(BaseModel):
     configured: bool
     model: str
+    opponent_models: list[str]
 
 
 @router.get("/llm/status")
 def llm_status() -> LlmStatusOut:
-    return LlmStatusOut(configured=is_llm_configured(), model=get_llm_model())
+    return LlmStatusOut(
+        configured=is_llm_configured(),
+        model=get_llm_model(),
+        opponent_models=get_opponent_models(),
+    )
 
 
 class AssessmentOut(BaseModel):

@@ -72,6 +72,11 @@ workspace here automatically.
   plus the real-world scenario mapping. If the model picks an illegal
   move, celebrate: the environment caught it, reward -1, that is the
   RL slide happening live.
+- The two-game beat: with OPPONENT_MODELS set (see local-dev.md), the
+  model picker sits next to the clock. Play one five-minute game
+  against small Gemma, then one against gpt-5.5. Same recipe, same
+  board, visibly different results. Let the room feel the gap before
+  you show the fine-tuning that closes it.
 - Point at the clock and the **Start over** button. Quitting a match
   costs a loss, and so does the flag falling; the W/L/D record and
   the match log under the board keep score. Say it out loud:

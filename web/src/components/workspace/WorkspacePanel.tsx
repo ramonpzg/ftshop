@@ -8,17 +8,18 @@ import {
   Horse,
   Package,
   Sliders,
-  Timer,
 } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ChessBoard } from "../../components/chess/ChessBoard";
 import { DatasetPanel } from "../../components/chess/DatasetPanel";
+import { GameCountdown } from "../../components/chess/GameCountdown";
 import { ConfigPanel } from "../../components/config/ConfigPanel";
 import { EvalPanel } from "../../components/eval/EvalPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
 import {
   ApiError,
+  apiErrorDetail,
   type Artifact,
   type Assessment,
   assessPosition,
@@ -52,7 +53,7 @@ import {
   describeGameEnd,
   describeMatch,
   EXPIRED_AWAY_NOTICE,
-  formatClock,
+  modelShortName,
   TIME_LIMIT_CHOICES,
 } from "../../lib/gameClock";
 import { usePresenterState } from "../../lib/presenterContext";
@@ -138,12 +139,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [record, setRecord] = useState<GameRecord | null>(null);
   const [history, setHistory] = useState<FinishedGame[]>([]);
   const [timeLimit, setTimeLimit] = useState(DEFAULT_TIME_LIMIT_SECONDS);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [opponentModel, setOpponentModel] = useState<string | null>(null);
   const [confirmingStartOver, setConfirmingStartOver] = useState(false);
   const [gameNotice, setGameNotice] = useState<string | null>(null);
   const [banter, setBanter] = useState<string | null>(null);
   const banterIndex = useRef(0);
-  const timeoutInFlight = useRef(false);
   const [modelThinking, setModelThinking] = useState(false);
   const [analysis, setAnalysis] = useState<Assessment | null>(null);
   const [analysisState, setAnalysisState] = useState<"idle" | "loading" | "error">("idle");
@@ -171,7 +171,9 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     let cancelled = false;
     fetchLlmStatus()
       .then((status) => {
-        if (!cancelled) setLlm(status);
+        if (cancelled) return;
+        setLlm(status);
+        setOpponentModel((current) => current ?? status.opponent_models[0] ?? null);
       })
       .catch(() => {
         if (!cancelled) setLlm(null);
@@ -224,37 +226,23 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     banterIndex.current += 1;
   }
 
-  // The countdown. One interval per game; when it hits zero the server
-  // gets to confirm before the loss is recorded.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the game id on purpose; refetches must not restart the clock
-  useEffect(() => {
-    if (!game || !isOwnWorkspace) {
-      setSecondsLeft(null);
-      return;
+  /** The countdown component's clock hit zero; the server confirms
+   * before anything is recorded. Returns whether the game ended. */
+  async function handleCountdownExpired(): Promise<boolean> {
+    try {
+      const status = await flagTimeout(workspaceId);
+      applyGameStatus(status);
+      setGameNotice(describeGameEnd("loss_timeout"));
+      dropBanter("loss");
+      return true;
+    } catch {
+      // The server disagrees (clock skew) or the game already ended
+      // another way. Resync; the countdown retries if still running.
+      const status = await fetchGameStatus(workspaceId).catch(() => null);
+      if (status) applyGameStatus(status);
+      return status ? status.game === null : false;
     }
-    const deadline = Date.now() + game.seconds_left * 1000;
-    setSecondsLeft(game.seconds_left);
-    const tick = setInterval(async () => {
-      const left = (deadline - Date.now()) / 1000;
-      setSecondsLeft(left);
-      if (left > 0 || timeoutInFlight.current) return;
-      timeoutInFlight.current = true;
-      try {
-        const status = await flagTimeout(workspaceId);
-        applyGameStatus(status);
-        setGameNotice(describeGameEnd("loss_timeout"));
-        dropBanter("loss");
-      } catch {
-        // The server disagrees (clock skew) or the game already ended
-        // another way. Resync and let the next tick retry if needed.
-        const status = await fetchGameStatus(workspaceId).catch(() => null);
-        if (status) applyGameStatus(status);
-      } finally {
-        timeoutInFlight.current = false;
-      }
-    }, 500);
-    return () => clearInterval(tick);
-  }, [game?.id, isOwnWorkspace]);
+  }
 
   // The model answers whenever it is black's turn in a running game.
   // This one effect covers both the reply to a fresh move and resuming
@@ -308,13 +296,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     await refreshGameStatus();
   }
 
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
   async function refreshAnalysis() {
     setAnalysisState("loading");
     try {
       setAnalysis(await assessPosition(workspaceId));
       setAnalysisState("idle");
-    } catch {
+      setAnalysisError(null);
+    } catch (error) {
       setAnalysisState("error");
+      setAnalysisError(apiErrorDetail(error));
     }
   }
 
@@ -328,7 +320,10 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
         await handleClockExpired();
         return;
       }
-      setLastMove({ label: "Model: no usable reply", legal: false, reward: 0 });
+      // Show the server's actual reason: a 401 from a mispaired key and
+      // base URL looks identical to "no reply" unless it is spelled out.
+      const detail = apiErrorDetail(error);
+      setGameNotice(detail ? `Model error: ${detail.slice(0, 160)}` : "Model: no usable reply.");
     } finally {
       setModelThinking(false);
     }
@@ -340,7 +335,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     setBanter(null);
     setLastMove(null);
     setAnalysis(null);
-    const status = await startGame(workspaceId, timeLimit).catch(() => null);
+    const status = await startGame(workspaceId, timeLimit, opponentModel ?? undefined).catch(
+      (error) => {
+        const detail = apiErrorDetail(error);
+        if (detail) setGameNotice(`Could not start: ${detail.slice(0, 160)}`);
+        return null;
+      },
+    );
     if (status) applyGameStatus(status, { board: true });
   }
 
@@ -390,10 +391,15 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  async function handleSelectSnippet(snippetId: string) {
-    setSelectedSnippetId(snippetId);
-    await selectSnippet(workspaceId, snippetId);
-  }
+  // Stable identity so the memoized MiniIde skips re-renders that have
+  // nothing to do with it.
+  const handleSelectSnippet = useCallback(
+    async (snippetId: string) => {
+      setSelectedSnippetId(snippetId);
+      await selectSnippet(workspaceId, snippetId);
+    },
+    [workspaceId],
+  );
 
   async function handleRunJob(jobType: string) {
     setRunningJob(true);
@@ -458,10 +464,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                     </>
                   ) : (
                     <>
-                      <span className="workspace-game-timer" data-testid="game-timer">
-                        <Timer size={12} weight="bold" />
-                        {formatClock(secondsLeft ?? game.seconds_left)}
-                      </span>
+                      <GameCountdown game={game} onExpired={handleCountdownExpired} />
                       <button
                         type="button"
                         onClick={() => setConfirmingStartOver(true)}
@@ -486,6 +489,20 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                         </option>
                       ))}
                     </select>
+                    {llmReady && (llm?.opponent_models.length ?? 0) > 1 && (
+                      <select
+                        value={opponentModel ?? ""}
+                        onChange={(event) => setOpponentModel(event.target.value)}
+                        title="Who you play. Small Gemma first, a frontier model after: same recipe, different results."
+                        data-testid="opponent-model"
+                      >
+                        {llm?.opponent_models.map((model) => (
+                          <option key={model} value={model}>
+                            {modelShortName(model)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <button
                       type="button"
                       onClick={handleStartGame}
@@ -498,7 +515,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                   </>
                 )}
                 {modelThinking && (
-                  <span className="workspace-model-thinking">Model is thinking</span>
+                  <span className="workspace-model-thinking">
+                    {game?.opponent_model
+                      ? `${modelShortName(game.opponent_model)} is thinking`
+                      : "Model is thinking"}
+                  </span>
                 )}
               </div>
             )}
@@ -610,7 +631,10 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                 <p className="workspace-analysis-empty">Assessing position</p>
               )}
               {analysisState === "error" && (
-                <p className="workspace-analysis-empty">Assessment failed. Next move retries.</p>
+                <p className="workspace-analysis-empty">
+                  Assessment failed{analysisError ? `: ${analysisError.slice(0, 160)}` : ""}. Next
+                  move retries.
+                </p>
               )}
               {isOwnWorkspace && isEditing && llmReady && !game && (
                 <button type="button" className="workspace-assess-button" onClick={refreshAnalysis}>

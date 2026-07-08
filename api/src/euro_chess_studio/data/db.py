@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS games (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     time_limit_seconds INTEGER NOT NULL,
+    opponent_model TEXT,
     started_at TEXT NOT NULL,
     ended_at TEXT,
     result TEXT,
@@ -128,9 +129,12 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     # CREATE TABLE IF NOT EXISTS never alters an existing table, so a
-    # database created before the games feature is missing moves.game_id.
-    # Patch it in place instead of forcing a reset-db mid-workshop.
+    # database created before a column existed needs it patched in
+    # place instead of forcing a reset-db mid-workshop.
     move_columns = {row[1] for row in conn.execute("PRAGMA table_info(moves)")}
     if "game_id" not in move_columns:
         conn.execute("ALTER TABLE moves ADD COLUMN game_id TEXT REFERENCES games(id)")
+    game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
+    if "opponent_model" not in game_columns:
+        conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")
     conn.commit()

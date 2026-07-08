@@ -76,12 +76,28 @@ startup, never overriding the shell, never committed):
 |---|---|---|
 | `OPENAI_API_KEY` | Model opponent and live analysis | unset (features disabled) |
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
-| `OPENAI_MODEL` | Which model plays and comments | `gpt-5.5-mini` |
+| `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.5-mini` |
+| `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
 
-Swapping the opponent to a Hugging Face router later is a two-line .env
-change: point `OPENAI_BASE_URL` at the router, set `OPENAI_MODEL`.
+The key and the base URL travel together. An OpenRouter key against
+the default api.openai.com returns 401, which the board reports as a
+model error the moment you start a game. For OpenRouter, set all
+three, plus the picker for the small-vs-frontier demo:
+
+```
+OPENAI_API_KEY=sk-or-...
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_MODEL=openai/gpt-5.5-mini
+OPPONENT_MODELS=google/gemma-4-2b-it,openai/gpt-5.5
+```
+
+Model ids follow the endpoint's naming: OpenRouter wants
+`provider/model` (check the exact Gemma id in their registry),
+api.openai.com wants bare names. When OPPONENT_MODELS lists more than
+one model, Start game grows a picker; each match remembers its
+opponent, and start over keeps it.
 
 Everything degrades cleanly when unset: buttons disable with a hint,
 nothing errors.

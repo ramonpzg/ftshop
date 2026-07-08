@@ -11,6 +11,18 @@ export class ApiError extends Error {
   }
 }
 
+/** The human sentence inside a FastAPI error body, for showing to the
+ * user instead of a silent failure. */
+export function apiErrorDetail(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null;
+  try {
+    const detail = JSON.parse(error.message).detail;
+    return typeof detail === "string" ? detail : error.message;
+  } catch {
+    return error.message;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -145,6 +157,7 @@ export function exportTextDataset(): Promise<DatasetExport> {
 export interface LlmStatus {
   configured: boolean;
   model: string;
+  opponent_models: string[];
 }
 
 export function fetchLlmStatus(): Promise<LlmStatus> {
@@ -159,6 +172,7 @@ export interface Game {
   id: string;
   workspace_id: string;
   time_limit_seconds: number;
+  opponent_model: string | null;
   started_at: string;
   ended_at: string | null;
   result: string | null;
@@ -194,10 +208,17 @@ export function fetchGameStatus(workspaceId: string): Promise<GameStatus> {
   return request<GameStatus>(`/workspaces/${workspaceId}/game`);
 }
 
-export function startGame(workspaceId: string, timeLimitSeconds: number): Promise<GameStatus> {
+export function startGame(
+  workspaceId: string,
+  timeLimitSeconds: number,
+  opponentModel?: string,
+): Promise<GameStatus> {
   return request<GameStatus>(`/workspaces/${workspaceId}/game/start`, {
     method: "POST",
-    body: JSON.stringify({ time_limit_seconds: timeLimitSeconds }),
+    body: JSON.stringify({
+      time_limit_seconds: timeLimitSeconds,
+      opponent_model: opponentModel ?? null,
+    }),
   });
 }
 

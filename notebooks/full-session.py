@@ -423,6 +423,12 @@ def _(mo):
         4. **Code that reads like config**: Unsloth or PEFT (cell after).
         5. **As low as it goes**: JAX. You write the loss. It runs live
            in this notebook on CPU.
+
+        Past SFT: the reward function plus legality checking here is a
+        minimal RL environment, hand-rolled so it fits on a slide. The
+        production-grade version of the same idea (env classes, rubrics,
+        rollouts, GRPO training) is the verifiers library:
+        github.com/PrimeIntellect-ai/verifiers.
         """
     )
     return

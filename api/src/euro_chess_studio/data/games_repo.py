@@ -12,15 +12,17 @@ def insert_game(
     workspace_id: str,
     time_limit_seconds: int,
     started_at: str | None = None,
+    opponent_model: str | None = None,
 ) -> sqlite3.Row:
     game_id = generate_id("game")
     now = datetime.now(UTC).isoformat()
     conn.execute(
         """
-        INSERT INTO games (id, workspace_id, time_limit_seconds, started_at, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO games
+            (id, workspace_id, time_limit_seconds, opponent_model, started_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (game_id, workspace_id, time_limit_seconds, started_at or now, now),
+        (game_id, workspace_id, time_limit_seconds, opponent_model, started_at or now, now),
     )
     conn.commit()
     row = get_game(conn, game_id)

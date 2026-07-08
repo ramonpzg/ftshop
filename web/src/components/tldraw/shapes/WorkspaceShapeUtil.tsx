@@ -22,8 +22,8 @@ export class WorkspaceShapeUtil extends BaseBoxShapeUtil<WorkspaceShape> {
 
   getDefaultProps(): WorkspaceShape["props"] {
     return {
-      w: 1160,
-      h: 800,
+      w: 1240,
+      h: 900,
       workspaceId: "",
       userId: "",
       userName: "",

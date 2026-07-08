@@ -70,4 +70,24 @@ describe("ensureWorkspaceShape", () => {
     const [updated] = editor.updateShape.mock.calls[0];
     expect(updated.props.userName).toBe("Ada Renamed");
   });
+
+  test("grows a cramped old shape to the current minimum but never shrinks one", () => {
+    const cramped = makeFakeEditor({
+      id: "shape:workspace-user_1-chess-machine",
+      props: { w: 900, h: 560 },
+    });
+    ensureWorkspaceShape(cramped as never, makeWorkspace(), "Ada", "chess-machine");
+    const [grown] = cramped.updateShape.mock.calls[0];
+    expect(grown.props.w).toBe(1240);
+    expect(grown.props.h).toBe(900);
+
+    const enlarged = makeFakeEditor({
+      id: "shape:workspace-user_1-chess-machine",
+      props: { w: 2000, h: 1200 },
+    });
+    ensureWorkspaceShape(enlarged as never, makeWorkspace(), "Ada", "chess-machine");
+    const [kept] = enlarged.updateShape.mock.calls[0];
+    expect(kept.props.w).toBe(2000);
+    expect(kept.props.h).toBe(1200);
+  });
 });

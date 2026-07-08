@@ -2,6 +2,7 @@ import { ArrowSquareOut } from "@phosphor-icons/react";
 import { python } from "@codemirror/lang-python";
 import { yaml } from "@codemirror/lang-yaml";
 import CodeMirror from "@uiw/react-codemirror";
+import { memo } from "react";
 import { getSnippetById, SNIPPETS } from "../../lib/snippets";
 import "./MiniIde.css";
 
@@ -16,7 +17,9 @@ const yamlLang = [yaml()];
 // unsloth studio -p 8888, run on the presenter's machine.
 const UNSLOTH_STUDIO_URL = "http://localhost:8888";
 
-export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
+/** Memoized: CodeMirror is the most expensive child in the workspace,
+ * and it must not re-render every time a clock ticks or a pun lands. */
+export const MiniIde = memo(function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
   const activeId = selectedSnippetId ?? SNIPPETS[0].id;
   const snippet = getSnippetById(activeId);
 
@@ -61,4 +64,4 @@ export function MiniIde({ selectedSnippetId, onSelectSnippet }: MiniIdeProps) {
       </div>
     </div>
   );
-}
+});

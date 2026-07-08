@@ -35,3 +35,7 @@ class GameNotExpiredError(ValueError):
 
 class InvalidTimeLimitError(ValueError):
     pass
+
+
+class InvalidOpponentModelError(ValueError):
+    pass

@@ -35,7 +35,14 @@ def model_move(conn: sqlite3.Connection, workspace_id: str) -> MakeMoveResult:
     if not legal_moves:
         raise ModelReplyError("no legal moves in this position; the game is over")
 
-    reply = llm_client.chat(build_move_messages(fen, legal_moves), json_response=True)
+    # A timed match may have picked its own opponent; None falls back
+    # to OPENAI_MODEL. Small Gemma and a frontier model on the same
+    # board is the whole "different results" demo.
+    active = get_active_game(conn, workspace_id)
+    opponent_model = active["opponent_model"] if active is not None else None
+    reply = llm_client.chat(
+        build_move_messages(fen, legal_moves), json_response=True, model=opponent_model
+    )
     uci = parse_move_reply(reply)
     if uci is None:
         raise ModelReplyError(f"model reply had no usable move: {reply[:200]}")

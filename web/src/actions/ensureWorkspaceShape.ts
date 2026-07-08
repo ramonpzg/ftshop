@@ -1,5 +1,5 @@
 import type { Editor, TLShapeId } from "tldraw";
-import { computeWorkspacePosition } from "../calculations/layout";
+import { computeWorkspacePosition, WORKSPACE_DIMENSIONS } from "../calculations/layout";
 import type { Workspace } from "../data/api";
 import { pageIdForSlug } from "./seedTldrawDocument";
 
@@ -36,9 +36,17 @@ export function ensureWorkspaceShape(
     return;
   }
 
+  // Shapes persisted before a size increase keep their cramped old
+  // dimensions forever unless nudged. Grow, never shrink: a shape the
+  // user made larger on purpose stays larger.
+  const props = (existing.props ?? {}) as { w?: number; h?: number };
   editor.updateShape({
     id: shapeId,
     type: "workspace",
-    props: { userName },
+    props: {
+      userName,
+      w: Math.max(props.w ?? 0, WORKSPACE_DIMENSIONS.width),
+      h: Math.max(props.h ?? 0, WORKSPACE_DIMENSIONS.height),
+    },
   });
 }

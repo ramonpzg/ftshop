@@ -40,6 +40,13 @@ export function describeMatch(game: {
   return `${label}. ${moves} on a ${Math.round(game.time_limit_seconds / 60)} min clock.`;
 }
 
+/** "google/gemma-4-2b-it" -> "gemma-4-2b-it": provider prefixes are
+ * noise in a picker this small. */
+export function modelShortName(modelId: string): string {
+  const tail = modelId.split("/").pop();
+  return tail || modelId;
+}
+
 /** Compact status word for the presenter dashboard. */
 export function shortResult(result: string | null): string {
   if (result === null) return "playing";
