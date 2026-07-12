@@ -42,7 +42,9 @@ startup and is idempotent.
 | `just seed` | Re-populate pages and cached eval fixtures |
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
 | `just notebooks` | Export the marimo notebooks to in-browser WASM |
+| `just deck` | The Slidev deck on port 3030 |
 | `just session-notebook` | Open the end-to-end fallback notebook in a sandboxed marimo |
+| `just notebook-md` | Regenerate notebooks/full-session.md from the notebook |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
 | `just load-test` | Simulate a room of attendees against a running backend |
 
@@ -160,6 +162,25 @@ three seconds. Below it, two buttons:
 
 Both export on click and open the file in a new tab. Attendees can
 still export their own view; these two collect the whole room.
+
+## The deck
+
+The workshop has three assets with separated concerns: the board is
+where the room works, the deck is where the narrative lives, the
+notebook is the fallback and the take-home.
+
+`just deck` runs the Slidev deck on port 3030. The Presentation page
+of the board embeds it in a panel (double-click to drive it; the Open
+link pops it into its own tab, which is where presenter mode and
+speaker notes live). The panel's URL is editable per browser if the
+deck runs elsewhere.
+
+The deck's content plan, slide by slide, with image prompts and
+component notes, is `docs/deck-plan.md`. Slides live in
+`deck/slides.md`; the Vue components (the live room dashboard, the
+dataset shape cycler, the reward meter, the modality grid) are in
+`deck/components/`. LiveRoom talks to the backend at localhost:8000
+and shows a terse offline hint when it is down.
 
 ## The fallback notebook
 

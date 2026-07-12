@@ -15,11 +15,12 @@ import { ensurePagesSeeded } from "../../actions/seedTldrawDocument";
 import { fetchCanvasSnapshot, saveCanvasSnapshot } from "../../data/api";
 import { backendAssetStore } from "../../data/canvasAssets";
 import { PageTabs } from "./PageTabs";
+import { DeckShapeUtil } from "./shapes/DeckShapeUtil";
 import { ModalityPanelShapeUtil } from "./shapes/ModalityPanelShapeUtil";
 import { NotebookShapeUtil } from "./shapes/NotebookShapeUtil";
 import { WorkspaceShapeUtil } from "./shapes/WorkspaceShapeUtil";
 
-const shapeUtils = [WorkspaceShapeUtil, ModalityPanelShapeUtil, NotebookShapeUtil];
+const shapeUtils = [WorkspaceShapeUtil, ModalityPanelShapeUtil, NotebookShapeUtil, DeckShapeUtil];
 
 // Fonts, icons, and translations bundled through Vite instead of fetched
 // from cdn.tldraw.com at runtime. The app has to work when the venue

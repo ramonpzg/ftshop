@@ -1,0 +1,51 @@
+/* Deck-wide bits shared across slides. Components carry their own
+ * scoped styles; only slide-level primitives live here. */
+
+.img-slot {
+  border: 1.5px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  padding: 18px;
+  max-width: 340px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.img-slot-label {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: #f59e0b;
+  margin-bottom: 8px;
+}
+
+.img-slot-prompt {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.plan-cell {
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 18px 14px;
+  text-align: center;
+}
+
+.plan-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.plan-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.plan-time {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: #f59e0b;
+  margin-top: 10px;
+}

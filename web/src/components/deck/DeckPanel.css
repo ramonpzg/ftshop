@@ -1,0 +1,64 @@
+.deck-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+  color: #212529;
+  font-family: "tldraw_draw", sans-serif;
+}
+
+.deck-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f1f3f5;
+  font-weight: 600;
+  border-bottom: 1px solid #ddd;
+}
+
+.deck-panel-url {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 400;
+  font-family: inherit;
+}
+
+.deck-panel-hint-inline {
+  font-weight: 400;
+  color: #868e96;
+  font-size: 11px;
+}
+
+.deck-panel-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: #212529;
+  text-decoration: none;
+}
+
+.deck-panel-hint {
+  margin-left: auto;
+  font-weight: 400;
+  color: #868e96;
+  font-size: 12px;
+}
+
+.deck-panel-frame {
+  flex: 1;
+  border: none;
+  min-height: 0;
+  background: #121212;
+}

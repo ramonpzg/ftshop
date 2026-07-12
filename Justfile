@@ -6,16 +6,27 @@ default:
 install:
     cd web && bun install
     cd api && uv sync
+    cd deck && bun install
 
 # Local text-to-audio models (musicgen, stable audio). Several GB.
 install-audio:
     cd api && uv sync --extra audio
+
+# The Slidev deck on port 3030. The Presentation page embeds it; the
+# tab itself has presenter mode and speaker notes.
+deck:
+    cd deck && bun run dev
 
 # The whole session as one notebook. The fallback if the app dies on
 # stage. Not in the WASM export list on purpose: it trains with JAX and
 # calls local models, which pyodide cannot do.
 session-notebook:
     uvx marimo edit --sandbox notebooks/full-session.py
+
+# Regenerates notebooks/full-session.md, the readable twin of the
+# fallback notebook. Rerun after editing the notebook.
+notebook-md:
+    cd api && uv run marimo export md ../notebooks/full-session.py -o ../notebooks/full-session.md
 
 # Exports the marimo notebooks to in-browser WASM under web/public/notebooks.
 # Rerun after editing anything in notebooks/.

@@ -35,6 +35,11 @@ every game into one JSONL for the training demo; **Download SFT
 dataset** is the prompt/completion subset the snippets load. One
 click each, no shell.
 
+Start the deck too: `just deck` (port 3030). The Presentation page
+embeds it; the Open link on that panel gives you the deck in its own
+tab with presenter mode and speaker notes. The LiveRoom slide needs
+the backend up, which it already is.
+
 The week before: run the load test once on the actual laptop
 (`just mock-llm`, backend pointed at it, `just load-test 40`). It
 simulates a full room and prints latency percentiles; see

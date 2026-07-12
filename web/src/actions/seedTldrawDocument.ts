@@ -26,6 +26,27 @@ function notebookShapeId(slug: string) {
   return createShapeId(`notebook-panel-${slug}`);
 }
 
+const DECK_SHAPE_ID = createShapeId("deck-panel");
+
+/** The Slidev deck embed on the Presentation page. Ensured on every
+ * mount, not only on fresh seeds, so canvases authored before the deck
+ * existed grow the panel too. */
+function ensureDeckShape(editor: Editor): boolean {
+  if (editor.getShape(DECK_SHAPE_ID)) return false;
+  const presentationPageId = pageIdForSlug(PAGES[0].slug);
+  if (!editor.getPages().some((page) => page.id === presentationPageId)) return false;
+  editor.createShape({
+    id: DECK_SHAPE_ID,
+    type: "deck-panel",
+    parentId: presentationPageId,
+    // Below the seeded slide-sketch row (y=1400, 900 tall).
+    x: 0,
+    y: 2450,
+    props: { w: 1440, h: 850, url: "http://localhost:3030" },
+  });
+  return true;
+}
+
 function toShapePartials(
   shape: SeedShape,
   pageId: TLPageId,
@@ -141,6 +162,7 @@ export function ensurePagesSeeded(editor: Editor): boolean {
       seededAnything = true;
     }
   }
+  ensureDeckShape(editor);
   if (seededAnything) {
     editor.setCurrentPage(pageIdForSlug(PAGES[0].slug));
     // Drop the empty default page a brand-new store starts with. Pages a
