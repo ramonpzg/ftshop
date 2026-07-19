@@ -24,10 +24,9 @@ acceptance before the next phase starts.
    export, regenerate, or resolve conflicts in `notebooks/` or
    `web/public/notebooks/`.
 
-The existing worktree may contain Ramon's changes, including an unresolved
-notebook conflict. Every phase prompt tells the agent to preserve them. If
-those changes prevent a branch switch, the agent must stop and ask rather than
-repairing, stashing, or discarding them.
+The accepted `main` should be clean before a phase starts. If a future
+worktree contains changes the phase agent did not create, the agent must stop
+and ask rather than repairing, stashing, committing, or discarding them.
 
 ## Current product decisions
 
@@ -69,5 +68,9 @@ All five phases must follow `AGENTS.md`, `CLAUDE.md`, and
   scratch when a proven local-first option fits.
 - Run project work through the `Justfile`. Add or improve recipes instead of
   leaving one-off scripts behind.
+- Commit coherent increments throughout the phase and push the phase branch.
+  Commit every phase-owned source, test, fixture, migration, lockfile, and
+  document. Finish with a clean tree. Do not merge into `main` before Ramon
+  reviews the summary and diff.
 - End every phase with both its `notes/ai/` handover and `notes/hu/` learning
   guide. These are part of the deliverable, not cleanup after the work.

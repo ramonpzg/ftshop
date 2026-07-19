@@ -41,10 +41,8 @@ startup and is idempotent.
 | `just reset-canvas` | Delete the authored canvas snapshot (slides, shapes). Keeps uploaded assets |
 | `just seed` | Re-populate pages and cached eval fixtures |
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
-| `just notebooks` | Export the marimo notebooks to in-browser WASM |
 | `just deck` | The Slidev deck on port 3030 |
-| `just session-notebook` | Open the end-to-end fallback notebook in a sandboxed marimo |
-| `just notebook-md` | Regenerate notebooks/full-session.md from the notebook |
+| `just session-notebook` | Open the standalone Jupyter notebook in JupyterLab |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
 | `just load-test` | Simulate a room of attendees against a running backend |
 
@@ -78,7 +76,7 @@ startup, never overriding the shell, never committed):
 |---|---|---|
 | `OPENAI_API_KEY` | Model opponent and live analysis | unset (features disabled) |
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
-| `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.5-mini` |
+| `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.6-luna` |
 | `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
@@ -91,8 +89,8 @@ three, plus the picker for the small-vs-frontier demo:
 ```
 OPENAI_API_KEY=sk-or-...
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENAI_MODEL=openai/gpt-5.5-mini
-OPPONENT_MODELS=google/gemma-4-2b-it,openai/gpt-5.5
+OPENAI_MODEL=openai/<frontier-model-id>
+OPPONENT_MODELS=google/<small-model-id>,openai/<frontier-model-id>
 ```
 
 Model ids follow the endpoint's naming: OpenRouter wants
@@ -101,21 +99,28 @@ api.openai.com wants bare names. When OPPONENT_MODELS lists more than
 one model, Start game grows a picker; each match remembers its
 opponent, and start over keeps it.
 
+The shared text client calls `/chat/completions`. It does not use the
+Responses API. It retries rate limits and server failures, and it also
+keeps the narrowly bounded retry for the generic permissions `401`
+observed while a new project key was propagating. Explicit invalid-key
+and access-denial responses fail immediately. Errors retain the
+provider request ID when one is returned.
+
 Everything degrades cleanly when unset: buttons disable with a hint,
 nothing errors.
 
-## Notebooks
+## Notebook
 
-Each technical page embeds a marimo notebook. Attendees run the WASM
-export in their own browser; `just notebooks` builds those exports into
-`web/public/notebooks/` (gitignored; sources live in `notebooks/`).
-Rerun it after editing a notebook. Pyodide loads from its CDN on first
-open, so warm it once before the session.
+`notebooks/full-session.ipynb` is a standalone Jupyter notebook. It is
+not served by Vite, exported to browser WASM, or required inside a
+tldraw panel. Open it separately with `just session-notebook` when the
+run of show calls for it.
 
-As the presenter you get a Browser / Live toggle on the panel: Live
-embeds a locally running marimo server (`marimo edit notebooks/`,
-default URL `http://localhost:2718`) with your real GPU behind it. If
-the embed lags, the Open link pops it into its own tab.
+The repository still contains legacy Marimo sources, generated output
+inside the converted notebook, and frontend notebook-panel code. They
+are not the active notebook workflow. Do not run the removed export
+commands or treat those files as a reason to restore the iframe. Their
+cleanup belongs in a reviewed phase after the notebook content settles.
 
 Unsloth Studio: the mini IDE links to `http://localhost:8888`. Launch
 it with `unsloth studio -p 8888`.
@@ -182,25 +187,17 @@ dataset shape cycler, the reward meter, the modality grid) are in
 `deck/components/`. LiveRoom talks to the backend at localhost:8000
 and shows a terse offline hint when it is down.
 
-## The fallback notebook
+## The standalone notebook
 
-`notebooks/full-session.py` is the whole session as one standalone
-notebook: the scripted game, all six dataset shapes, prompt and chat
-templates, the model opponent, evals, the training ladder (Unsloth,
-axolotl, live JAX), image, audio, and video generation, merging, and
-the closing argument. It maps one to one to the whiteboard pages. If
-the app fails on stage, teach from this instead.
+`notebooks/full-session.ipynb` contains the end-to-end material in a
+plain Jupyter format. `just session-notebook` opens JupyterLab through
+the API environment. Optional provider and local-model cells still
+depend on their documented credentials and packages.
 
-`just session-notebook` opens it. It carries its own dependencies as
-PEP 723 inline metadata, so `uvx marimo edit --sandbox` resolves
-everything without touching the api venv. It runs end to end with no
-API keys: gated cells (OpenAI, fal, local audio, Modal) detect what is
-available and print how to enable themselves. If the app has exported
-`data/processed/text/chess_sft.jsonl`, the notebook trains on that;
-otherwise it writes its own copy to the system temp dir.
-
-It is deliberately not in the `just notebooks` WASM export list: it
-trains with JAX and loads local models, which pyodide cannot do.
+The notebook can use `data/processed/text/chess_sft.jsonl` when the app
+has exported it. It is a pragmatic presenter and take-home asset, not a
+required application fallback or a browser integration. Notebook
+content will receive its own review after the five hardening phases.
 
 ## tldraw license note
 

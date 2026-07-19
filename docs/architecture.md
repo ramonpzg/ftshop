@@ -70,7 +70,7 @@ independently.
 
 ## Custom tldraw shapes
 
-Two custom shape types exist, both `BaseBoxShapeUtil` subclasses that
+Four custom shape types exist. They are `BaseBoxShapeUtil` subclasses that
 follow tldraw's own convention for embedded interactive content (the
 same pattern its built-in video and embed shapes use): the shape's
 HTML content only accepts pointer events while it's in *edit mode*
@@ -87,6 +87,13 @@ so tldraw's own canvas layer handles selection and dragging normally.
   Renders `ModalityPanel`: a config/artifact/eval trio, since those
   pages don't have per-user chess games to hang a full workspace off
   of.
+- `DeckShapeUtil`, the Slidev iframe on the presentation page. The
+  editable URL is browser-local so a presenter can point it at the
+  machine hosting the deck.
+- `NotebookShapeUtil`, compatibility support for old snapshots. New
+  canvases do not seed it. It renders a standalone-Jupyter handoff
+  rather than an iframe and can be removed after old snapshots no
+  longer contain the shape.
 
 ## Backend: actions / calculations / data / jobs
 

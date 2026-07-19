@@ -27,6 +27,9 @@ not.
   demo, deck plan, and phase 32-33 handovers before editing.
 - Preserve unrelated changes. Do not read, edit, format, export, regenerate,
   or resolve `notebooks/` or `web/public/notebooks/`.
+- Commit coherent, tested increments throughout the phase. Push the phase
+  branch, finish with no relevant untracked or uncommitted files, and do not
+  merge it into `main`. Ramon reviews the summary and diff first.
 - Do not perform the phase 35 visual redesign. Add only the UI needed to make
   the teaching flow usable, following the current visual language.
 - Do not perform the broad phase 36 architecture refactor. New functionality

@@ -34,6 +34,9 @@ swagger, and familiar AI-talk phrases that do not match the requested voice.
   other weaknesses.
 - Preserve unrelated work. Do not read, edit, export, regenerate, or resolve
   anything in `notebooks/` or `web/public/notebooks/`.
+- Commit coherent, tested increments throughout the phase. Push the phase
+  branch, finish with no relevant untracked or uncommitted files, and do not
+  merge it into `main`. Ramon reviews the summary and diff first.
 - Content placeholders Ramon intends to fill are valid. Preserve them and make
   their layout usable; do not invent final biography, resources, prices,
   images, or personal stories.

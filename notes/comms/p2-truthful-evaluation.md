@@ -42,6 +42,9 @@ the branch rather than replacing it from memory.
   demo plans, and the phase 32 handover before editing.
 - Preserve unrelated user changes. Do not read, edit, export, regenerate, or
   resolve files under `notebooks/` or `web/public/notebooks/`.
+- Commit coherent, tested increments throughout the phase. Push the phase
+  branch, finish with no relevant untracked or uncommitted files, and do not
+  merge it into `main`. Ramon reviews the summary and diff first.
 - Keep broad frontend component extraction for phase 36. You may extract a
   focused action or pure calculation when this phase needs it, but do not turn
   this into a general refactor.

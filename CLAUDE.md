@@ -3,8 +3,13 @@
 Interactive EuroSciPy 2026 workshop app for "Same Recipe, Different
 Results: Fine-Tuning Models Across Modalities". A local-first tldraw
 whiteboard with five pages (text, image, audio, video, plus a
-presentation page), a chess domain throughout, and a FastAPI backend
-that owns all durable state.
+presentation page), a separate Slidev deck, a standalone Jupyter
+notebook, a chess domain throughout, and a FastAPI backend that owns
+durable workshop state.
+
+The repository is in pre-workshop hardening. `notes/comms/README.md`
+contains the ordered phase prompts and current product decisions. Do not
+assume `main` is already the release build.
 
 ## Commands
 
@@ -13,12 +18,15 @@ Everything goes through the Justfile. Do not add one-off scripts.
 ```
 just install      # bun install + uv sync
 just start        # backend :8000 + frontend :5173
+just deck         # Slidev :3030
+just session-notebook # standalone JupyterLab notebook
 just test         # pytest + bun test
 just test-e2e     # playwright smoke tests (needs both servers down)
 just lint         # ruff + biome
 just typecheck    # ty + tsc
 just format       # ruff format + biome format
 just reset-db     # drop and recreate SQLite (workshop state only)
+just reset-canvas # delete the authored canvas snapshot only
 just seed         # repopulate pages and cached eval fixtures
 ```
 
@@ -28,8 +36,31 @@ just seed         # repopulate pages and cached eval fixtures
 - `api/` FastAPI backend. uv, python-chess, ruff, ty.
 - `data/` datasets (`raw/processed/tiny`), canvas snapshot, uploaded assets.
 - `artifacts/` cached fixture JSON and generated job output.
+- `deck/` Slidev presentation and Vue teaching components.
+- `notebooks/full-session.ipynb` standalone Jupyter notebook.
 - `docs/` architecture, session plan, demo plan, local dev, licenses.
+- `notes/comms/` reviewed implementation prompts, in execution order.
 - `notes/ai/` handover docs, one per phase. `notes/hu/` learning guides.
+
+## Current product decisions
+
+- The board, deck, and notebook are separate assets. Keep their visual
+  languages separate: hand-drawn whiteboard, composed deck, pragmatic
+  Jupyter notebook.
+- The notebook is plain Jupyter. It is not Marimo and does not need an
+  iframe or tldraw panel. Legacy Marimo sources and integration code may
+  remain until the relevant reviewed phase removes them. Do not regenerate
+  the old browser notebook exports.
+- OpenAI-compatible text calls use `/chat/completions`, not the Responses
+  API. `gpt-5.5-mini` does not exist. The current configurable default is
+  `gpt-5.6-luna`.
+- Preserve the narrowly bounded retry for the observed generic `401` text
+  "You have insufficient permissions for this operation". The same key
+  produced both `401` and `200` during key propagation. Do not generalize
+  this to invalid, revoked, restricted, or denied credentials.
+- The provisional teaching order is concise motivation, why chess, the
+  chess basics needed by non-players, Ramon's route into it, outcome-first
+  demos, and then decomposition of data, adaptation, and evaluation.
 
 ## Architecture rules
 
@@ -59,16 +90,41 @@ enthusiasm. Short labels with clear verbs: "Train", "Evaluate",
 
 ## Content source of truth
 
-When the original build prompt and `docs/session-plan.md` disagree,
-the session plan wins. It captures Ramon's mental model of the session;
-the prompt was scaffolding instructions.
+The latest direct instruction from Ramon wins. After that, current phase
+decisions in `notes/comms/README.md` take precedence over older handovers
+and plans. `docs/session-plan.md` remains the narrative source of truth,
+but phase 34 will revise its order around outcome-first demos. The original
+build prompt was scaffolding and does not override these sources.
 
 Icons, when needed, come from Phosphor (`@phosphor-icons/react`).
 
 ## Git
 
-Work in phases, one branch per phase, detailed commit messages written
-like a development log. No co-authored-by trailers.
+`main` is the default branch locally and at `origin`. Work in phases, one
+branch per phase, using the branch named in `notes/comms/`. Start a phase
+from the accepted `main`, not from another unreviewed branch.
+
+At the start of a phase:
+
+1. Run `git status --short --branch` and confirm the base is understood.
+2. If the tree contains work you did not create, do not stash, restore,
+   resolve, or commit it. Stop and ask.
+3. Create the phase branch before editing.
+
+Commit throughout the phase, not only at the end. Each commit should be a
+coherent development-log entry with its relevant focused checks passing.
+Stage deliberately. Commit every source, test, fixture, migration, lockfile,
+and document that belongs to the phase. Do not commit secrets, local databases,
+build output, caches, or unrelated user work.
+
+Push the phase branch so the work is recoverable and reviewable. Do not merge,
+rebase, squash, or fast-forward it into `main` until Ramon has reviewed the
+agent summary and diff. A phase is not ready for review with relevant
+untracked or uncommitted files.
+
+The final phase commit includes the required handover and learning guide. Use
+detailed commit messages written like a development log. No co-authored-by
+trailers.
 
 ## End-of-phase documentation
 
@@ -89,7 +145,7 @@ Written at the end of each phase for the human. The ratio is roughly 40% Socrati
 
 The Socratic portions ask the human to think through decisions: "Why did we separate EpisodePlaybackState from Episode? What would break if they were one table?" The walkthrough portions explain the codebase with concrete examples, code snippets, and a narrative that teaches how the pieces connect.
 
-**Tone for guides:** flowing prose, no bullet-point dumps or excessive colons or semi-colons, absolutely no emojis. Terse, direct, and to 
-the point with sporadic wit and subtle hints of sarcasm that catches anyone off guard. Favour "use" over "utilise." Never say delve, dive 
-in, or extraordinary. Imagine explaining the work to Richard Feynman and Ali Wong simultaneously. Precise enough for a physicist, 
+**Tone for guides:** flowing prose, no bullet-point dumps or excessive colons or semi-colons, absolutely no emojis. Terse, direct, and to
+the point with sporadic wit and subtle hints of sarcasm that catches anyone off guard. Favour "use" over "utilise." Never say delve, dive
+in, or extraordinary. Imagine explaining the work to Richard Feynman and Ali Wong simultaneously. Precise enough for a physicist,
 entertaining enough for a comedian.

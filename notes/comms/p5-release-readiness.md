@@ -26,6 +26,9 @@ the deck, weak E2E coverage, and no single presenter preflight.
   requires a small correction.
 - Preserve unrelated work. Do not read, edit, format, export, regenerate, or
   resolve anything in `notebooks/` or `web/public/notebooks/`.
+- Commit coherent, tested increments throughout the phase. Push the phase
+  branch, finish with no relevant untracked or uncommitted files, and do not
+  merge it into `main`. Ramon reviews the summary and diff first.
 - The notebook is standalone Jupyter. Do not add Marimo commands, notebook
   exports, a tldraw notebook panel, or an iframe requirement to release checks.
 - Do not perform another visual redesign or rewrite the workshop narrative.

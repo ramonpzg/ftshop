@@ -31,9 +31,12 @@ Treat these as release blockers. Do not hide them with optimistic status copy.
   `docs/architecture.md`, `docs/session-plan.md`, `docs/demo-plan.md`, and the
   latest relevant handover notes before editing.
 - Inspect `git status` first. Preserve all changes you did not make.
-- Create and work on `phase-32-room-correctness`. If the existing unresolved
-  notebook work prevents branch creation, stop and ask the user. Do not stash,
-  resolve, restore, or delete their work.
+- Create and work on `phase-32-room-correctness`. If the tree is not clean or
+  contains work you did not create, stop and ask. Do not stash, resolve,
+  restore, commit, or delete someone else's work.
+- Commit coherent, tested increments throughout the phase. Push the phase
+  branch, finish with no relevant untracked or uncommitted files, and do not
+  merge it into `main`. Ramon reviews the summary and diff first.
 - Do not read or change anything under `notebooks/` or
   `web/public/notebooks/`. The notebook is now a standalone Jupyter asset. Do
   not add or restore a notebook iframe or make a notebook panel part of canvas

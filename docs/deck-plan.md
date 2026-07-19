@@ -2,7 +2,8 @@
 
 The Slidev deck is one of the workshop's three assets: the board is
 where the room works, the deck is where the narrative lives, the
-notebook is the fallback and the take-home. This plan follows the
+standalone Jupyter notebook is pragmatic working material and the
+take-home. This plan follows the
 polyglot workflow: every slide gets its content, layout, and
 animation noted before it gets built; images get a prompt for an
 image model; components get built alongside their slides in bouts.
@@ -20,8 +21,11 @@ Working agreements, carried over from polyglot and this repo:
   graceful offline states. Where a component can talk to the running
   FastAPI backend, it should, with a clean fallback when the backend
   is down.
-- The session plan (docs/session-plan.md) is the source of truth for
-  content and order.
+- The session plan is the narrative source of truth. The accepted phase
+  34 direction is motivation and chess grounding, outcome-first demos,
+  then technical decomposition. The existing slide order below records
+  v1 and will be reorganized only after the engineering fixes are
+  reviewed.
 
 Build in bouts of five slides. v1 status is tracked per slide.
 
@@ -66,7 +70,7 @@ interleaved with app time. 90 minutes overall.
 1. **Title.** "Same Recipe, Different Results." Subtitle: fine-tuning
    across text, image, audio, video. One domain: chess. Layout:
    cover, image cover-board right. v-click reveals the three assets
-   line: a whiteboard, a deck, a notebook. NOTE: state the URL of the
+   line: a whiteboard, a deck, a Jupyter notebook. NOTE: state the URL of the
    board early and twice.
 2. **The chess story.** Duolingo chess pathway, 2 matches a day, then
    30, then 50, over 1000 matches, Elo past 1000. v-motion counter
@@ -156,8 +160,8 @@ interleaved with app time. 90 minutes overall.
 27. **Your personalised instructor.** The point of the whole session:
     a model that teaches chess the way you want to learn it. Mine:
     win while capturing as few pieces as possible. Image instructor.
-28. **Resources.** The repo, the notebook, verifiers, Unsloth,
-    axolotl, mergekit, fal, marimo. QR to the repo. Thanks.
+28. **Resources.** The repo, the Jupyter notebook, verifiers, Unsloth,
+    axolotl, mergekit, and fal. QR to the repo. Thanks.
 
 ## v1 status
 

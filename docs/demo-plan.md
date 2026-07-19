@@ -5,6 +5,12 @@ one shared chess domain, four modalities. The narrative and topic plan
 for the session itself lives in [session-plan.md](session-plan.md);
 this file is the app walkthrough.
 
+The current timing and detail-first order describe the existing build. The
+accepted direction for phase 34 is a compact motivation and chess grounding,
+then outcome-first demos across all four modalities, followed by technical
+decomposition. Keep this runbook operational until that revised flow has been
+implemented and rehearsed.
+
 ## Before the room fills up
 
 ```
@@ -38,7 +44,8 @@ click each, no shell.
 Start the deck too: `just deck` (port 3030). The Presentation page
 embeds it; the Open link on that panel gives you the deck in its own
 tab with presenter mode and speaker notes. The LiveRoom slide needs
-the backend up, which it already is.
+the backend up. Its development-origin correction is part of phase 32;
+until then, verify it manually rather than assuming the panel is live.
 
 The week before: run the load test once on the actual laptop
 (`just mock-llm`, backend pointed at it, `just load-test 40`). It
@@ -79,9 +86,9 @@ workspace here automatically.
   RL slide happening live.
 - The two-game beat: with OPPONENT_MODELS set (see local-dev.md), the
   model picker sits next to the clock. Play one five-minute game
-  against small Gemma, then one against gpt-5.5. Same recipe, same
-  board, visibly different results. Let the room feel the gap before
-  you show the fine-tuning that closes it.
+  against the configured small model, then the configured frontier
+  model. Same recipe, same board, visibly different results. Let the
+  room feel the gap before you show the fine-tuning that closes it.
 - Point at the clock and the **Start over** button. Quitting a match
   costs a loss, and so does the flag falling; the W/L/D record and
   the match log under the board keep score. Say it out loud:
@@ -92,10 +99,10 @@ workspace here automatically.
   moves land, so the room watches the newest row replace the old one
   in place. That is the aha moment; do not rush past it.
 - Click **Export dataset**: the room's games become
-  `data/processed/text/chess_sft.jsonl`. Open the notebook panel: it
-  loads that exact file in the browser. The Unsloth and Axolotl
-  snippets in the mini IDE point at the same path. One file, three
-  consumers, zero hand-waving.
+  `data/processed/text/chess_sft.jsonl`. The standalone Jupyter
+  notebook and the Unsloth and Axolotl snippets in the mini IDE can
+  load that exact path. Do not switch to Jupyter here unless the
+  accepted run of show explicitly calls for it.
 - Open the mini IDE. Walk through the snippets: the prompt template,
   the chat template, the legal-move validator, the dataset row builder,
   the reward function, and the LoRA training run. These are real code.
@@ -147,8 +154,9 @@ event recognisability, human preference.
 With `just install-audio` done, generate a capture sound with
 musicgen-small running on your own machine, then swap the picker to
 stable-audio-open for the diffusion take on the same prompt. The
-notebook panel synthesizes a click from scratch and shows it as a
-spectrogram, which is the page's one-line thesis.
+standalone Jupyter notebook also contains the click synthesis and
+spectrogram material, but it is a separate presenter asset rather than
+an embedded panel.
 
 ### 5. Video of the Real-World Use Case, video (15 min)
 
@@ -185,9 +193,8 @@ before Q&A or a second run.
 - Deck damaged mid-session (accidental mass delete): stop the server,
   copy `data/canvas/snapshot.prev.json` over `snapshot.json`, start
   again. That backup holds the state from just before the last save.
-- App unusable, projector hates you, wifi died: `just session-notebook`
-  opens `notebooks/full-session.py`, the entire session as one marimo
-  notebook. Same narrative, same code, same evals, no whiteboard. It
-  runs without any API keys and picks up the exported dataset if the
-  app got that far. Teaching from the notebook loses the shared canvas
-  but none of the content.
+- App unusable or the network is unavailable: `just session-notebook`
+  opens `notebooks/full-session.ipynb` in JupyterLab. It is a separate
+  pragmatic asset, not an iframe. Optional live cells still depend on
+  their configured credentials and packages, so rehearse the exact
+  fallback path before relying on it.
