@@ -20,7 +20,12 @@ interface ScenarioSectionProps {
 /** The persisted real-world scenario mapping: suggestion, review, and
  * recovery. Persistence lives on the backend; this component only calls
  * the API and renders what came back. */
-export function ScenarioSection({ workspaceId, llmReady, canAct, refreshKey }: ScenarioSectionProps) {
+export function ScenarioSection({
+  workspaceId,
+  llmReady,
+  canAct,
+  refreshKey,
+}: ScenarioSectionProps) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -132,9 +137,7 @@ export function ScenarioSection({ workspaceId, llmReady, canAct, refreshKey }: S
                 <p>{scenario.video_prompt}</p>
                 <button
                   type="button"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(scenario.video_prompt ?? "")
-                  }
+                  onClick={() => void navigator.clipboard.writeText(scenario.video_prompt ?? "")}
                   title="Copy video prompt"
                   aria-label="Copy video prompt"
                 >

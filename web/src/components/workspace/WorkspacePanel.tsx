@@ -267,11 +267,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     const label = move.san ?? move.uci;
     setLastMove({
       label:
-        mover === "model"
-          ? `Model: ${label}`
-          : mover === "fallback"
-            ? `Fallback: ${label}`
-            : label,
+        mover === "model" ? `Model: ${label}` : mover === "fallback" ? `Fallback: ${label}` : label,
       legal: move.is_legal,
       reward: move.reward,
     });
