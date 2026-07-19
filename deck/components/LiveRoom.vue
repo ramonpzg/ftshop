@@ -46,7 +46,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { applyPollResult, createLatestGate, INITIAL_LIVE_ROOM_STATE } from "../lib/liveRoom";
+import { createSingleFlight, INITIAL_LIVE_ROOM_STATE, pollRoomOnce } from "../lib/liveRoom";
 
 const props = defineProps({
   // Same-origin path proxied by the Slidev dev server to the backend,
@@ -63,22 +63,21 @@ const now = ref(Date.now());
 let poll = null;
 let tick = null;
 
-// Overlapping polls resolve latest-wins: a slow older response must
-// never overwrite fresher data or the recovery state.
-const gate = createLatestGate();
+// Polls are single-flight with a timeout: a request slower than the
+// interval still lands (later ticks are skipped, not raced), and a
+// hung request is aborted instead of blocking the loop forever.
+const runPoll = createSingleFlight();
 
-async function load() {
-  const token = gate.begin();
-  try {
-    const response = await fetch(`${props.apiBase}/presenter/games`);
-    if (!response.ok) throw new Error(String(response.status));
-    const payload = await response.json();
-    if (!gate.isCurrent(token)) return;
-    state.value = applyPollResult(state.value, { ok: true, room: payload, at: Date.now() });
-  } catch {
-    if (!gate.isCurrent(token)) return;
-    state.value = applyPollResult(state.value, { ok: false });
-  }
+async function fetchGames(signal) {
+  const response = await fetch(`${props.apiBase}/presenter/games`, { signal });
+  if (!response.ok) throw new Error(String(response.status));
+  return response.json();
+}
+
+function load() {
+  return runPoll(async () => {
+    state.value = await pollRoomOnce(fetchGames, state.value, { timeoutMs: 8000 });
+  });
 }
 
 const visibleGames = computed(() => {

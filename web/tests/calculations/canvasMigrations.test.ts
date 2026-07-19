@@ -12,7 +12,11 @@ import {
   modalityPanelShapeId,
   pageIdForSlug,
 } from "../../src/calculations/canvasIds";
-import { createRoomSchema, runtimeSchemaSequences } from "../../sync-server/schema";
+import {
+  createRoomSchema,
+  runtimeSchemaSequences,
+  upgradeAndValidateDocument,
+} from "../../sync-server/schema";
 
 const SEQUENCES = runtimeSchemaSequences();
 const SCHEMA = createRoomSchema();
@@ -238,6 +242,45 @@ describe("migrateCanvasDocument", () => {
     expect(input).toEqual(before);
   });
 
+  test("a genuinely unknown schema sequence is rejected, not silently accepted", () => {
+    const input = oldSnapshot();
+    input.schema.sequences["com.tldraw.shape.hologram"] = 99;
+    const before = structuredClone(input);
+    expect(() => migrateCanvasDocument(input, SEQUENCES)).toThrow(CanvasMigrationError);
+    expect(() => migrateCanvasDocument(input, SEQUENCES)).toThrow(/hologram/);
+    expect(input).toEqual(before);
+  });
+
+  test("a malformed record of a known type is caught before the room opens", () => {
+    const { snapshot } = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
+    // Type-name checks pass this note; only the real validators see
+    // that its props are empty. This is the gate the room boot uses.
+    snapshot.store["shape:bad-note"] = {
+      id: "shape:bad-note",
+      typeName: "shape",
+      type: "note",
+      parentId: pageIdForSlug("presentation"),
+      index: "a9",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      isLocked: false,
+      opacity: 1,
+      meta: {},
+      props: {},
+    };
+    expect(() => upgradeAndValidateDocument(snapshot)).toThrow(CanvasMigrationError);
+    expect(() => upgradeAndValidateDocument(snapshot)).toThrow(/shape:bad-note/);
+  });
+
+  test("a valid migrated document passes the room's full validation gate", () => {
+    const { snapshot } = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
+    const document = upgradeAndValidateDocument(snapshot);
+    expect(Object.keys(document.store).length).toBe(Object.keys(snapshot.store).length);
+    // Already at current sequences: nothing for tldraw to upgrade.
+    expect(document.upgraded).toBe(false);
+  });
+
   test("a document from a newer workshop version is rejected, not silently accepted", () => {
     const first = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
     const future = structuredClone(first.snapshot);
@@ -271,6 +314,8 @@ describe("migrateCanvasDocument", () => {
       schema: snapshot.schema as never,
     });
     expect(result.type).toBe("success");
+    // Every record survives the room's full validation gate too.
+    upgradeAndValidateDocument(snapshot);
     // And it settles: a second pass is a no-op.
     const again = migrateCanvasDocument(snapshot, SEQUENCES);
     expect(again.changed).toBe(false);

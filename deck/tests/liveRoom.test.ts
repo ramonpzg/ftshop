@@ -55,29 +55,70 @@ describe("LiveRoom state machine", () => {
   });
 });
 
-describe("createLatestGate", () => {
-  test("only the newest token may apply", async () => {
-    const { createLatestGate } = await import("../lib/liveRoom");
-    const gate = createLatestGate();
-    const slow = gate.begin();
-    const fast = gate.begin();
-    expect(gate.isCurrent(fast)).toBe(true);
-    expect(gate.isCurrent(slow)).toBe(false);
+describe("single-flight polling", () => {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  test("a poll slower than the interval still lands instead of being discarded", async () => {
+    const { createSingleFlight, pollRoomOnce } = await import("../lib/liveRoom");
+    const runPoll = createSingleFlight();
+    let state = INITIAL_LIVE_ROOM_STATE;
+    // A four-second-style request, scaled down: resolves after 40ms
+    // while the "interval" ticks every 10ms.
+    const slowFetch = async () => {
+      await wait(40);
+      return ROOM;
+    };
+    const first = runPoll(async () => {
+      state = await pollRoomOnce(slowFetch, state, { timeoutMs: 1000, now: () => 1000 });
+    });
+    // Interval ticks arriving mid-flight are skipped, not raced.
+    for (let i = 0; i < 3; i++) {
+      await wait(10);
+      expect(
+        await runPoll(async () => {
+          state = await pollRoomOnce(slowFetch, state, { timeoutMs: 1000 });
+        }),
+      ).toBe(false);
+    }
+    await first;
+    // The slow response was applied: no starvation in connecting.
+    expect(state.phase).toBe("connected");
+    expect(state.room).toEqual(ROOM);
   });
 
-  test("a stale success cannot overwrite a newer failure's recovery state", async () => {
-    const { createLatestGate } = await import("../lib/liveRoom");
-    const gate = createLatestGate();
-    let state = applyPollResult(INITIAL_LIVE_ROOM_STATE, { ok: true, room: ROOM, at: 1000 });
+  test("a hung request is aborted at the timeout and counts as a failed poll", async () => {
+    const { pollRoomOnce } = await import("../lib/liveRoom");
+    const hangingFetch = (signal: AbortSignal) =>
+      new Promise<never>((_, reject) => {
+        signal.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    const state = await pollRoomOnce(hangingFetch, INITIAL_LIVE_ROOM_STATE, { timeoutMs: 20 });
+    expect(state.phase).toBe("unavailable");
+  });
 
-    const stale = gate.begin(); // poll starts, will resolve late
-    const fresh = gate.begin(); // next poll starts and fails first
-    if (gate.isCurrent(fresh)) state = applyPollResult(state, { ok: false });
-    expect(state.phase).toBe("recovering");
+  test("after the flight finishes, the next tick polls again", async () => {
+    const { createSingleFlight } = await import("../lib/liveRoom");
+    const runPoll = createSingleFlight();
+    let runs = 0;
+    await runPoll(async () => {
+      runs += 1;
+    });
+    await runPoll(async () => {
+      runs += 1;
+    });
+    expect(runs).toBe(2);
+  });
 
-    // The stale response finally lands; the gate discards it.
-    if (gate.isCurrent(stale)) state = applyPollResult(state, { ok: true, room: ROOM, at: 900 });
-    expect(state.phase).toBe("recovering");
-    expect(state.fetchedAt).toBe(1000);
+  test("a failing task releases the flight for the next poll", async () => {
+    const { createSingleFlight } = await import("../lib/liveRoom");
+    const runPoll = createSingleFlight();
+    await runPoll(async () => {
+      throw new Error("boom");
+    }).catch(() => {});
+    let ran = false;
+    await runPoll(async () => {
+      ran = true;
+    });
+    expect(ran).toBe(true);
   });
 });

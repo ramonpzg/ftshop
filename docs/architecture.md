@@ -103,10 +103,13 @@ Running twice is a no-op; legacy shape types that are still registered
 the room instead of overwriting the last valid snapshot. Documents the
 runtime cannot represent are refused outright rather than half-loaded:
 record or shape types absent from the schema, workshop versions above
-the runtime's, and unknown from-the-future tldraw sequences all fail
-with an actionable error while the disk snapshot stays intact. A
+the runtime's, and any schema sequence the runtime does not know all
+fail with an actionable error while the disk snapshot stays intact. A
 compatibility pre-step down-converts the three known tldraw 5.2.2
-schema sequences (the runtime is pinned at 5.1.1).
+schema sequences (the runtime is pinned at 5.1.1). After migration and
+before the room opens, every record runs through tldraw's own migrator
+and the real validators (sync-server/schema.ts), so a malformed record
+of a known type is caught at boot instead of reaching clients.
 
 The two are linked by one convention: a workspace's tldraw shape id is
 generated identically on both sides

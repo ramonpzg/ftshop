@@ -47,25 +47,44 @@ export function applyPollResult(state: LiveRoomState, result: PollResult): LiveR
 }
 
 /**
- * Latest-wins ordering for overlapping polls. Each request takes a
- * token at start; only the holder of the newest token may apply its
- * result, so a slow response from three polls ago cannot overwrite
- * fresher data or a recovery state.
+ * Single-flight execution for the poll loop. While one poll is
+ * running, later ticks are skipped rather than raced: responses can
+ * never complete out of order, and a request slower than the poll
+ * interval still lands instead of being discarded by a newer one.
  */
-export interface LatestGate {
-  begin(): number;
-  isCurrent(token: number): boolean;
+export function createSingleFlight(): (task: () => Promise<void>) => Promise<boolean> {
+  let running = false;
+  return async function run(task) {
+    if (running) return false;
+    running = true;
+    try {
+      await task();
+    } finally {
+      running = false;
+    }
+    return true;
+  };
 }
 
-export function createLatestGate(): LatestGate {
-  let sequence = 0;
-  return {
-    begin() {
-      sequence += 1;
-      return sequence;
-    },
-    isCurrent(token: number) {
-      return token === sequence;
-    },
-  };
+/**
+ * One poll: fetch the room payload under a timeout, fold the outcome
+ * into the state machine. A request that hangs past timeoutMs is
+ * aborted and counts as a failed poll, so single-flight can never
+ * starve behind a dead connection.
+ */
+export async function pollRoomOnce(
+  fetchGames: (signal: AbortSignal) => Promise<RoomGamesPayload>,
+  state: LiveRoomState,
+  options: { timeoutMs: number; now?: () => number },
+): Promise<LiveRoomState> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+  try {
+    const room = await fetchGames(controller.signal);
+    return applyPollResult(state, { ok: true, room, at: (options.now ?? Date.now)() });
+  } catch {
+    return applyPollResult(state, { ok: false });
+  } finally {
+    clearTimeout(timer);
+  }
 }

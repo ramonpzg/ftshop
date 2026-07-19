@@ -14,6 +14,13 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
+  // The durability spec restarts the backend and sync server processes
+  // and must point the replacements at the same scratch state.
+  metadata: {
+    e2eDbPath,
+    e2eCanvasDir,
+    e2eAssetsDir,
+  },
   webServer: [
     {
       command: "uv run uvicorn euro_chess_studio.main:app --port 8000",

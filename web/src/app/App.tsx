@@ -10,13 +10,8 @@ import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { SlideControls } from "../components/tldraw/SlideControls";
-import {
-  ApiError,
-  createOrGetWorkspace,
-  fetchHealth,
-  fetchPresenterState,
-  fetchRoomHealth,
-} from "../data/api";
+import { resolveJoinNavigation } from "../actions/joinNavigation";
+import { ApiError, createOrGetWorkspace, fetchHealth, fetchRoomHealth } from "../data/api";
 import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
@@ -116,18 +111,15 @@ export function App() {
       .then(async (workspace) => {
         if (cancelled) return;
         ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
-        // While the presenter is driving the room, joining must not
-        // yank this client's camera to its workspace: the presenter
-        // target has already been (or is about to be) applied, and the
-        // revision that carried it will not repeat. Only a successful
-        // response confirming a non-presenter mode may navigate; an
-        // unreachable backend must not be read as permission.
-        const state = await fetchPresenterState().catch(() => null);
+        setAttendeeRefreshToken((token) => token + 1);
+        // Retries until presenter mode is actually known: a transient
+        // backend failure must neither move the camera unsafely nor
+        // strand an idle-room attendee on the wrong page.
+        const navigation = await resolveJoinNavigation({ isCancelled: () => cancelled });
         if (cancelled) return;
-        if (state !== null && state.mode !== "presenter") {
+        if (navigation === "workspace") {
           navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
         }
-        setAttendeeRefreshToken((token) => token + 1);
       })
       .catch((error: unknown) => {
         if (cancelled) return;

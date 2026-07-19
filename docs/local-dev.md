@@ -239,11 +239,13 @@ maps only). If you upgrade, move every tldraw package in one commit
 and check the canvas migration pre-step in
 `web/src/calculations/canvasMigrations.ts`: it knows the exact schema
 sequences that differ between 5.1.1 and 5.2.2 and refuses anything
-newer it cannot prove safe. The same gate applies to record and shape
-types: a snapshot containing a type this runtime does not know (for
-example one authored by a newer build, or a workshop version above the
-runtime's) refuses to load with an actionable error instead of opening
-a room that clients cannot render. The disk snapshot stays untouched.
+newer it cannot prove safe. The same policy applies to record and
+shape types, unknown schema sequences, and workshop versions above the
+runtime's: refuse to load with an actionable error instead of opening
+a room that clients cannot render. Before the room opens, every
+migrated record is also validated through the real tldraw validators,
+so a structurally broken record of a known type fails at boot too. In
+every case the disk snapshot stays untouched.
 
 ## tldraw license note
 

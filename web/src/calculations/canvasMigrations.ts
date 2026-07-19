@@ -91,7 +91,17 @@ export function downgradeFutureSchema(
   let changed = false;
   for (const [sequence, snapshotVersion] of Object.entries(snapshot.schema.sequences)) {
     const runtimeVersion = runtimeSequences[sequence];
-    if (runtimeVersion === undefined || snapshotVersion <= runtimeVersion) continue;
+    if (runtimeVersion === undefined) {
+      // A sequence this runtime has never heard of means the document
+      // was authored by a newer or foreign build. Its records may be
+      // absent today, but accepting the schema would still claim we
+      // can represent a document we cannot.
+      throw new CanvasMigrationError(
+        `snapshot uses schema sequence ${sequence} (version ${snapshotVersion}) ` +
+          "that this runtime does not know; refusing to load",
+      );
+    }
+    if (snapshotVersion <= runtimeVersion) continue;
 
     if (sequence === "com.tldraw.shape.note" && snapshotVersion === 13 && runtimeVersion === 12) {
       for (const note of shapesOfType(snapshot.store, "note")) {

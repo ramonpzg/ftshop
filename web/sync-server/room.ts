@@ -8,7 +8,7 @@ import { createSaveScheduler, type SaveStatus } from "../src/actions/canvasSaveS
 import { migrateCanvasDocument } from "../src/calculations/canvasMigrations";
 import type { CanvasBackend } from "./persistence";
 import { loadWithRetry, roomSnapshotToDocument } from "./persistence";
-import { createRoomSchema, runtimeSchemaSequences } from "./schema";
+import { createRoomSchema, runtimeSchemaSequences, upgradeAndValidateDocument } from "./schema";
 
 export interface WorkshopRoom {
   room: TLSocketRoom<TLRecord>;
@@ -29,11 +29,20 @@ export async function openWorkshopRoom(backend: CanvasBackend): Promise<Workshop
   // been written to, so the last valid document survives untouched.
   const { snapshot, applied, changed } = migrateCanvasDocument(stored, runtimeSchemaSequences());
 
+  // The last gate: tldraw's own migrator plus full record validation.
+  // The workshop migrations check types and structure; only the real
+  // validators can catch a malformed record of a known type, and a
+  // document that fails them must never reach connecting clients.
   const schema = createRoomSchema();
+  const document = upgradeAndValidateDocument(snapshot, schema);
+
   let scheduler: ReturnType<typeof createSaveScheduler> | null = null;
   const room = new TLSocketRoom({
     schema,
-    initialSnapshot: snapshot as unknown as TLStoreSnapshot,
+    initialSnapshot: {
+      store: document.store,
+      schema: document.schema,
+    } as unknown as TLStoreSnapshot,
     onDataChange() {
       scheduler?.markDirty();
     },
@@ -51,12 +60,13 @@ export async function openWorkshopRoom(backend: CanvasBackend): Promise<Workshop
     retryMs: 3000,
   });
 
-  if (changed) {
-    // Persist right away whenever migration altered anything, including
-    // a schema down-conversion with no named steps, so the file on disk
-    // is valid for this runtime even if no one ever draws. The backend
-    // answered the load moments ago; if this write fails, opening the
-    // room anyway would run it on a document the disk cannot represent.
+  if (changed || document.upgraded) {
+    // Persist right away whenever migration altered anything: named
+    // steps, a schema down-conversion, or tldraw's own up-migration of
+    // older sequences. The file on disk must be valid for this runtime
+    // even if no one ever draws. The backend answered the load moments
+    // ago; if this write fails, opening the room anyway would run it
+    // on a document the disk cannot represent.
     scheduler.markDirty();
     if (!(await scheduler.flush())) {
       throw new Error("could not persist the migrated canvas; refusing to open the room");
