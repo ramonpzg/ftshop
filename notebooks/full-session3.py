@@ -82,7 +82,7 @@ def show_markdown(text: str) -> None:
 def show_table(rows: Sequence[dict[str, Any]], *, precision: int = 3) -> pd.DataFrame:
     frame = pd.DataFrame(rows)
     display(frame.style.hide(axis="index").format(precision=precision, na_rep=""))
-    return frame
+    # return frame
 
 
 def indented(text: str) -> str:
@@ -189,29 +189,38 @@ show_table(OUTCOME_OVERVIEW)
 # the task. It is a poor place to store facts that change often. It is also a
 # poor substitute for an evaluation set.
 #
-# I played chess as a child and returned to it through Duolingo's chess
-# pathway in April. Two matches a day became thirty, then fifty on the
-# hardcore days. After more than a thousand matches, my Elo passed 1000.
+# I played chess when I was younger and returned to it through Duolingo's chess
+# pathway in April this year. Two matches a day became thirty, and then fifty on the
+# hardcore days. After more than a thousand matches, my Elo passed 1000. Now,
+# being the addict that I am, I thought it would be fun to be able to play against a
+# model that not only would be a good sparring partner but also a really good strategist
+# that could help me connect the history of a finished game to a real world scenario. Also,
+# it should run on device without any need for an internet connection. More on this in a bit.
 #
 # Chess is useful here because the environment can validate a move and replay
 # a game. That gives us a deterministic constraint and a simulator. It does
 # not tell us which legal move is good. Demonstration games, engine analysis,
 # outcomes, or human preferences must provide that signal.
 #
-# The personal task is not to replace a chess engine. It is to build an
-# instructor with a particular teaching preference. Mine should teach me to
-# win while capturing as few opposing pieces as possible.
+# There are quite a few examples on building a chess engine so my preference
+# is to build an instructor with a particular teaching preference in that, it
+# should teach me to win while capturing as few opposing pieces as possible.
+#
+# Quote the art of war here
 #
 # ### Chess in five minutes
 #
-# Chess is played on an eight by eight board. White moves first. The goal is
-# checkmate: attack the opposing king so no legal response remains. Each
-# piece has its own movement rule. A legal move may still be strategically
-# poor, which is precisely why legality alone is not an evaluation.
+# Chess is played on an eight by eight board and white always moves first. The goal
+# is to checkmate your opponent and this happens when you attack the opposing king
+# so no legal response remains. Each piece has its own movement rule and a legal
+# move may still be strategically poor, which is why legality alone cannot be the
+# sole eval for us to use.
 
 # %%
 starting_board = chess.Board()
-display(SVG(chess.svg.board(board=starting_board, size=440, coordinates=True)))
+# display(SVG(
+chess.svg.board(board=starting_board, size=440, coordinates=True)
+# ))
 
 # %% [markdown]
 # Four representations are enough for this notebook:
@@ -346,7 +355,9 @@ RUY_LOPEZ = replay_game(
 )
 
 show_markdown("### One canonical game\n\n" + indented(RUY_LOPEZ.pgn))
-display(SVG(chess.svg.board(board=chess.Board(RUY_LOPEZ.final_fen), size=420)))
+# display(SVG(
+chess.svg.board(board=chess.Board(RUY_LOPEZ.final_fen), size=420)
+# ))
 
 # %% [markdown]
 # ### Canonical rows, trainer-specific views
