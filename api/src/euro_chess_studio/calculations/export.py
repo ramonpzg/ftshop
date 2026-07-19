@@ -37,3 +37,43 @@ def build_sft_rows(payloads: list[dict]) -> list[dict]:
 
 def to_jsonl(rows: list[dict]) -> str:
     return "\n".join(json.dumps(row) for row in rows) + ("\n" if rows else "")
+
+
+def build_scenario_export_rows(scenarios: list[dict]) -> list[dict]:
+    """Stored scenario rows to export rows. The raw suggestion and the
+    participant-approved text stay separate: `approved` is null until a
+    participant accepted or edited, so a presenter reading the export
+    can tell model output from vetted examples. Failed rows are skipped;
+    they carry no scenario to train on."""
+    rows = []
+    for scenario in scenarios:
+        if scenario["status"] == "failed":
+            continue
+        approved = None
+        if scenario["status"] in ("accepted", "edited"):
+            approved = {
+                "assessment": scenario["final_assessment"],
+                "real_world": scenario["final_real_world"],
+                "video_prompt": scenario["final_video_prompt"],
+            }
+        rows.append(
+            {
+                "workspace_id": scenario["workspace_id"],
+                "game_id": scenario["game_id"],
+                "ply": scenario["ply"],
+                "fen": scenario["fen"],
+                "status": scenario["status"],
+                "suggested": {
+                    "assessment": scenario["suggested_assessment"],
+                    "real_world": scenario["suggested_real_world"],
+                    "video_prompt": scenario["suggested_video_prompt"],
+                },
+                "approved": approved,
+                "model": scenario["model"],
+                "provider_alias": scenario["provider_alias"],
+                "prompt_version": scenario["prompt_version"],
+                "created_at": scenario["created_at"],
+                "updated_at": scenario["updated_at"],
+            }
+        )
+    return rows

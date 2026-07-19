@@ -10,16 +10,24 @@ from euro_chess_studio.actions.errors import (
     GameNotExpiredError,
     InvalidOpponentModelError,
     InvalidTimeLimitError,
+    ModelReplyError,
     NoActiveGameError,
+    ScenarioNotFoundError,
+    ScenarioReviewError,
     WorkspaceNotFoundError,
 )
-from euro_chess_studio.actions.game import ModelReplyError, assess_position, model_move
 from euro_chess_studio.actions.games import (
     GameStatus,
     flag_timeout,
     game_status,
     start_game,
     start_over,
+)
+from euro_chess_studio.actions.model_turn import ModelTurnError, ModelTurnResult, model_turn
+from euro_chess_studio.actions.scenario import (
+    latest_scenario_for_workspace,
+    review_scenario,
+    suggest_scenario,
 )
 from euro_chess_studio.calculations.game_clock import (
     DEFAULT_TIME_LIMIT_SECONDS,
@@ -35,7 +43,7 @@ from euro_chess_studio.data.llm_client import (
     is_llm_configured,
 )
 from euro_chess_studio.deps import get_db
-from euro_chess_studio.routes.moves import MoveOut, MoveResponse, _dataset_row_out
+from euro_chess_studio.routes.moves import DatasetRowOut, MoveOut, _dataset_row_out
 
 router = APIRouter(tags=["game"])
 
@@ -168,11 +176,94 @@ def llm_status() -> LlmStatusOut:
     )
 
 
-class AssessmentOut(BaseModel):
-    assessment: str
-    real_world: str
-    video_prompt: str
-    model: str
+class AttemptOut(BaseModel):
+    """One recorded model attempt, bounded for the client."""
+
+    attempt_number: int
+    actor: str
+    status: str
+    parsed_move: str | None
+    is_legal: bool | None
+    model: str | None
+    error_detail: str | None
+
+
+def _attempt_out(row: sqlite3.Row) -> AttemptOut:
+    return AttemptOut(
+        attempt_number=row["attempt_number"],
+        actor=row["actor"],
+        status=row["status"],
+        parsed_move=row["parsed_move"],
+        is_legal=None if row["is_legal"] is None else bool(row["is_legal"]),
+        model=row["model"],
+        error_detail=row["error_detail"],
+    )
+
+
+class ModelTurnOut(BaseModel):
+    # "model_move", "fallback_move", or "unavailable". Only
+    # "unavailable" leaves the board unchanged, and it says so.
+    outcome: str
+    move: MoveOut | None
+    dataset_rows: list[DatasetRowOut]
+    game_result: str | None
+    attempts: list[AttemptOut]
+    detail: str | None
+
+
+def _model_turn_out(result: ModelTurnResult) -> ModelTurnOut:
+    move_result = result.move_result
+    return ModelTurnOut(
+        outcome=result.outcome,
+        move=MoveOut(**dict(move_result.move)) if move_result else None,
+        dataset_rows=[_dataset_row_out(row) for row in move_result.dataset_rows]
+        if move_result
+        else [],
+        game_result=move_result.game_result if move_result else None,
+        attempts=[_attempt_out(row) for row in result.attempts],
+        detail=result.detail,
+    )
+
+
+class ScenarioOut(BaseModel):
+    id: str
+    workspace_id: str
+    game_id: str | None
+    ply: int
+    status: str
+    # The effective text a client shows: participant-approved when
+    # reviewed, the raw suggestion otherwise.
+    assessment: str | None
+    real_world: str | None
+    video_prompt: str | None
+    suggested_assessment: str | None
+    suggested_real_world: str | None
+    suggested_video_prompt: str | None
+    model: str | None
+    provider_alias: str | None
+    prompt_version: str | None
+    created_at: str
+
+
+def _scenario_out(row: sqlite3.Row) -> ScenarioOut:
+    reviewed = row["status"] in ("accepted", "edited")
+    return ScenarioOut(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        game_id=row["game_id"],
+        ply=row["ply"],
+        status=row["status"],
+        assessment=row["final_assessment"] if reviewed else row["suggested_assessment"],
+        real_world=row["final_real_world"] if reviewed else row["suggested_real_world"],
+        video_prompt=row["final_video_prompt"] if reviewed else row["suggested_video_prompt"],
+        suggested_assessment=row["suggested_assessment"],
+        suggested_real_world=row["suggested_real_world"],
+        suggested_video_prompt=row["suggested_video_prompt"],
+        model=row["model"],
+        provider_alias=row["provider_alias"],
+        prompt_version=row["prompt_version"],
+        created_at=row["created_at"],
+    )
 
 
 def _map_llm_errors(exc: Exception) -> HTTPException:
@@ -180,30 +271,66 @@ def _map_llm_errors(exc: Exception) -> HTTPException:
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, LlmNotConfiguredError):
         return HTTPException(status_code=503, detail=str(exc))
-    if isinstance(exc, (LlmRequestError, ModelReplyError)):
+    if isinstance(exc, (LlmRequestError, ModelReplyError, ModelTurnError)):
         return HTTPException(status_code=502, detail=str(exc))
     raise exc
 
 
 @router.post("/workspaces/{workspace_id}/model-move")
-def post_model_move(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> MoveResponse:
+def post_model_move(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> ModelTurnOut:
     try:
-        result = model_move(conn, workspace_id)
+        result = model_turn(conn, workspace_id)
     except GameClockExpiredError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except (WorkspaceNotFoundError, LlmNotConfiguredError, LlmRequestError, ModelReplyError) as exc:
+    except (WorkspaceNotFoundError, LlmNotConfiguredError, ModelTurnError) as exc:
         raise _map_llm_errors(exc) from exc
-    return MoveResponse(
-        move=MoveOut(**dict(result.move)),
-        dataset_rows=[_dataset_row_out(row) for row in result.dataset_rows],
-        game_result=result.game_result,
-    )
+    return _model_turn_out(result)
 
 
 @router.post("/workspaces/{workspace_id}/assess")
-def post_assess(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> AssessmentOut:
+def post_assess(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> ScenarioOut:
     try:
-        result = assess_position(conn, workspace_id)
+        row = suggest_scenario(conn, workspace_id)
     except (WorkspaceNotFoundError, LlmNotConfiguredError, LlmRequestError, ModelReplyError) as exc:
         raise _map_llm_errors(exc) from exc
-    return AssessmentOut(**result)
+    return _scenario_out(row)
+
+
+@router.get("/workspaces/{workspace_id}/scenario")
+def get_scenario(
+    workspace_id: str, conn: sqlite3.Connection = Depends(get_db)
+) -> ScenarioOut | None:
+    try:
+        row = latest_scenario_for_workspace(conn, workspace_id)
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _scenario_out(row) if row is not None else None
+
+
+class ScenarioReviewRequest(BaseModel):
+    accept: bool = False
+    assessment: str | None = None
+    real_world: str | None = None
+    video_prompt: str | None = None
+
+
+@router.post("/scenarios/{scenario_id}/review")
+def post_scenario_review(
+    scenario_id: str,
+    body: ScenarioReviewRequest,
+    conn: sqlite3.Connection = Depends(get_db),
+) -> ScenarioOut:
+    try:
+        row = review_scenario(
+            conn,
+            scenario_id,
+            accept=body.accept,
+            assessment=body.assessment,
+            real_world=body.real_world,
+            video_prompt=body.video_prompt,
+        )
+    except ScenarioNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ScenarioReviewError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _scenario_out(row)

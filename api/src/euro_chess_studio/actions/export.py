@@ -5,15 +5,21 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from euro_chess_studio.calculations.export import build_sft_rows, to_jsonl
+from euro_chess_studio.calculations.export import (
+    build_scenario_export_rows,
+    build_sft_rows,
+    to_jsonl,
+)
 from euro_chess_studio.config import get_data_dir
 from euro_chess_studio.data.dataset_rows_repo import (
     list_all_dataset_rows,
     list_dataset_rows_by_shape,
 )
+from euro_chess_studio.data.scenario_repo import list_scenarios
 
 EXPORT_FILE_NAME = "chess_sft.jsonl"
 FULL_EXPORT_FILE_NAME = "chess_all_shapes.jsonl"
+SCENARIO_EXPORT_FILE_NAME = "chess_scenarios.jsonl"
 
 
 def get_text_export_path() -> Path:
@@ -22,6 +28,10 @@ def get_text_export_path() -> Path:
 
 def get_full_export_path() -> Path:
     return get_data_dir() / "processed" / "text" / FULL_EXPORT_FILE_NAME
+
+
+def get_scenario_export_path() -> Path:
+    return get_data_dir() / "processed" / "text" / SCENARIO_EXPORT_FILE_NAME
 
 
 @dataclass(frozen=True)
@@ -69,3 +79,17 @@ def export_full_dataset(conn: sqlite3.Connection) -> ExportResult:
     tmp.replace(path)
 
     return ExportResult(file_name=FULL_EXPORT_FILE_NAME, row_count=len(rows), path=str(path))
+
+
+def export_scenarios(conn: sqlite3.Connection) -> ExportResult:
+    """The room's scenario mappings with full provenance: the raw model
+    suggestion and, separately, whatever a participant approved."""
+    rows = build_scenario_export_rows([dict(row) for row in list_scenarios(conn)])
+
+    path = get_scenario_export_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".jsonl.tmp")
+    tmp.write_text(to_jsonl(rows))
+    tmp.replace(path)
+
+    return ExportResult(file_name=SCENARIO_EXPORT_FILE_NAME, row_count=len(rows), path=str(path))

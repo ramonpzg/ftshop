@@ -1,0 +1,270 @@
+"""State machine tests for the model's turn: every failure mode has a
+recorded attempt and a deterministic outcome. The transport is stubbed
+at the action boundary; the transport itself is tested against
+httpx.MockTransport in tests/data/test_llm_client.py."""
+
+from pathlib import Path
+
+import chess
+import pytest
+
+from euro_chess_studio.actions import model_turn as model_turn_module
+from euro_chess_studio.actions.model_turn import ModelTurnError, model_turn
+from euro_chess_studio.actions.moves import make_move
+from euro_chess_studio.calculations.pages import PAGES
+from euro_chess_studio.data.db import get_connection, init_db
+from euro_chess_studio.data.llm_client import ChatOutcome, LlmRequestError
+from euro_chess_studio.data.model_attempts_repo import list_attempts
+from euro_chess_studio.data.pages_repo import upsert_page
+from euro_chess_studio.data.users_repo import insert_user
+from euro_chess_studio.data.workspaces_repo import get_workspace, insert_workspace
+
+
+def fake_outcome(content: str, model: str = "gpt-5.6-luna") -> ChatOutcome:
+    return ChatOutcome(
+        content=content,
+        model=model,
+        provider_alias="opponent",
+        attempts=1,
+        request_ids=("req-ok",),
+        json_mode_requested=True,
+        json_mode_sent=True,
+        json_mode_dropped=False,
+        reasoning_effort_dropped=False,
+    )
+
+
+def make_workspace(tmp_path: Path):
+    conn = get_connection(tmp_path / "test.db")
+    init_db(conn)
+    for page in PAGES:
+        upsert_page(conn, page)
+    page = conn.execute("SELECT * FROM pages WHERE slug = 'chess-machine'").fetchone()
+    user = insert_user(conn, "Ada")
+    workspace = insert_workspace(
+        conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
+    )
+    conn.commit()
+    return conn, workspace
+
+
+def stub_replies(monkeypatch: pytest.MonkeyPatch, replies: list):
+    """Each call to chat() pops the next scripted reply; an Exception
+    instance is raised instead of returned."""
+    calls: list[dict] = []
+
+    def fake_chat(messages, **kwargs):
+        calls.append(kwargs)
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(model_turn_module.llm_client, "chat", fake_chat)
+    return calls
+
+
+def test_legal_reply_is_applied_with_full_provenance(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(monkeypatch, [fake_outcome('{"move": "e2e4"}')])
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "model_move"
+    assert result.move_result.move["san"] == "e4"
+    assert result.move_result.move["actor"] == "model"
+    assert result.move_result.move["model"] == "gpt-5.6-luna"
+    (attempt,) = result.attempts
+    assert attempt["status"] == "applied"
+    assert attempt["applied_move_id"] == result.move_result.move["id"]
+    assert attempt["raw_response"] == '{"move": "e2e4"}'
+    assert attempt["prompt_version"] == "move-v1"
+    assert attempt["fen"] == chess.STARTING_FEN
+
+
+def test_illegal_then_legal_retains_both_attempts_and_applies_one_move(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [fake_outcome('{"move": "e2e5"}'), fake_outcome('{"move": "d2d4"}')],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "model_move"
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["illegal", "applied"]
+    assert result.attempts[0]["is_legal"] == 0
+    assert result.attempts[0]["parsed_move"] == "e2e5"
+    (count,) = conn.execute("SELECT COUNT(*) FROM moves").fetchone()
+    assert count == 1
+
+
+def test_persistent_illegal_replies_end_in_the_deterministic_fallback(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [fake_outcome('{"move": "e2e5"}'), fake_outcome('{"move": "a1a8"}')],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "fallback_move"
+    # First legal move in UCI sort order from the starting position.
+    assert result.move_result.move["uci"] == "a2a3"
+    assert result.move_result.move["actor"] == "fallback"
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["illegal", "illegal", "applied"]
+    assert result.attempts[2]["actor"] == "fallback"
+    assert "Fallback played a2a3" in result.detail
+    # The board advanced; the game is not waiting on the model.
+    reloaded = get_workspace(conn, workspace["id"])
+    assert reloaded["board_fen"].split(" ")[1] == "b"
+
+
+def test_unparsable_empty_and_bad_syntax_replies_are_classified(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "3")
+    stub_replies(
+        monkeypatch,
+        [
+            fake_outcome("I would castle early."),
+            fake_outcome("   "),
+            fake_outcome('{"move": "castle kingside"}'),
+        ],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "fallback_move"
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["parse_failed", "empty", "invalid_move_syntax", "applied"]
+    assert result.attempts[2]["parsed_move"] == "castle kingside"
+    # Raw evidence survives for every reply that arrived.
+    assert result.attempts[0]["raw_response"] == "I would castle early."
+
+
+def test_transport_failure_every_attempt_returns_unavailable_without_moving(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [
+            LlmRequestError("502 from opponent", request_ids=("req-1",)),
+            LlmRequestError("timeout", request_ids=("req-2", "req-3")),
+        ],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "unavailable"
+    assert result.move_result is None
+    assert "No move was played" in result.detail
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["transport_failed", "transport_failed"]
+    assert result.attempts[0]["request_ids_json"] == '["req-1"]'
+    assert result.attempts[1]["request_ids_json"] == '["req-2", "req-3"]'
+    reloaded = get_workspace(conn, workspace["id"])
+    assert reloaded["board_fen"] == chess.STARTING_FEN
+    (count,) = conn.execute("SELECT COUNT(*) FROM moves").fetchone()
+    assert count == 0
+
+
+def test_transport_failure_then_reply_recovers(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [LlmRequestError("flaky", request_ids=()), fake_outcome('{"move": "g1f3"}')],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "model_move"
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["transport_failed", "applied"]
+
+
+def test_failed_attempts_survive_even_when_the_turn_fails(tmp_path, monkeypatch):
+    """Attempts commit as they happen: a second connection sees them
+    after an unavailable turn."""
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [LlmRequestError("down", request_ids=()), LlmRequestError("down", request_ids=())],
+    )
+    model_turn(conn, workspace["id"])
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        (count,) = other.execute("SELECT COUNT(*) FROM model_attempts").fetchone()
+        assert count == 2
+    finally:
+        other.close()
+
+
+def test_checkmate_by_the_model_ends_the_game_as_a_loss(tmp_path, monkeypatch):
+    from euro_chess_studio.actions.games import start_game
+
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    # Fool's mate: the participant opens badly, the model mates.
+    make_move(conn, workspace["id"], "f2f3")
+    make_move(conn, workspace["id"], "e7e5", actor="model", model="stub")
+    make_move(conn, workspace["id"], "g2g4")
+    stub_replies(monkeypatch, [fake_outcome('{"move": "d8h4"}')])
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "model_move"
+    assert result.move_result.game_result == "loss"
+
+
+def test_uses_the_games_chosen_opponent_model(tmp_path, monkeypatch):
+    from euro_chess_studio.actions.games import start_game
+
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("OPPONENT_MODELS", "gemma-4-2b-local")
+    calls = stub_replies(monkeypatch, [fake_outcome('{"move": "e7e5"}', model="gemma-4-2b-local")])
+    start_game(conn, workspace["id"], 300, opponent_model="gemma-4-2b-local")
+    make_move(conn, workspace["id"], "e2e4")
+
+    result = model_turn(conn, workspace["id"])
+
+    assert calls[0]["model"] == "gemma-4-2b-local"
+    assert result.move_result.move["model"] == "gemma-4-2b-local"
+    assert result.attempts[0]["model"] == "gemma-4-2b-local"
+
+
+def test_no_legal_moves_raises(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    # Checkmated position: black to move, no legal moves.
+    conn.execute(
+        "UPDATE workspaces SET board_fen = ? WHERE id = ?",
+        ("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3", workspace["id"]),
+    )
+    conn.commit()
+    with pytest.raises(ModelTurnError):
+        model_turn(conn, workspace["id"])
+
+
+def test_max_attempts_is_configurable_and_clamped(monkeypatch):
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "4")
+    assert model_turn_module.max_attempts() == 4
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "99")
+    assert model_turn_module.max_attempts() == 5
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "0")
+    assert model_turn_module.max_attempts() == 1
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "not-a-number")
+    assert model_turn_module.max_attempts() == 2
+
+
+def test_attempts_are_queryable_by_scope(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [fake_outcome('{"move": "e2e5"}'), fake_outcome('{"move": "e2e4"}')],
+    )
+    model_turn(conn, workspace["id"])
+
+    move_attempts = list_attempts(conn, workspace_id=workspace["id"], task="move", actor="model")
+    assert len(move_attempts) == 2
+    assert list_attempts(conn, task="scenario") == []

@@ -39,3 +39,15 @@ class InvalidTimeLimitError(ValueError):
 
 class InvalidOpponentModelError(ValueError):
     pass
+
+
+class ModelReplyError(RuntimeError):
+    """The model answered, but not with anything usable."""
+
+
+class ScenarioNotFoundError(ValueError):
+    pass
+
+
+class ScenarioReviewError(ValueError):
+    """A review that cannot apply: failed suggestion or empty fields."""
