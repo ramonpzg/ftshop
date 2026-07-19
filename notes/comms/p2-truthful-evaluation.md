@@ -28,18 +28,21 @@ stored evidence and visible labels agree.
 
 There is also a corrected model-call direction that this phase must preserve
 and harden. OpenAI-compatible calls use `/chat/completions`, not the Responses
-API. `gpt-5.5-mini` does not exist. Ramon has supplied a working Chat
-Completions implementation using the configurable default `gpt-5.6-luna`,
-`reasoning_effort`, optional JSON response format, and bounded retries. Treat
-that code as the starting point and work with any version already present in
-the branch rather than replacing it from memory.
+API. `gpt-5.5-mini` does not exist. The repository already has a shared
+`llm_client._chat_completion` transport with configurable settings, optional
+JSON response format, and bounded retries. It also keeps opponent calls under
+`OPENAI_*` settings and Luna scene-writing calls under `VIDEO_PROMPT_*`
+settings, with documented fallbacks. Treat that code as the starting point
+rather than replacing it from memory.
 
 ### Branch and boundaries
 
-- Start from the accepted phase 32 result and create
+- Start from the current accepted `main`, which includes phase 32 and the
+  `notebook-gemma-video-direction` merge, and create
   `phase-33-truthful-evaluation`.
 - Read `AGENTS.md`, the tone section of `CLAUDE.md`, architecture, session and
-  demo plans, and the phase 32 handover before editing.
+  demo plans, the phase 32 handover, and
+  `notes/ai/notebook-gemma-video-direction.md` before editing.
 - Preserve unrelated user changes. Do not read, edit, export, regenerate, or
   resolve files under `notebooks/` or `web/public/notebooks/`.
 - Commit coherent, tested increments throughout the phase. Push the phase
@@ -54,19 +57,26 @@ the branch rather than replacing it from memory.
 
 ### 1. Tighten the Chat Completions boundary
 
-Create one backend data boundary for OpenAI-compatible Chat Completions. All
-game replies, scenario assessments, structured evaluations, and future text
-jobs must go through it rather than constructing HTTP requests independently.
+Harden the existing backend data boundary for OpenAI-compatible Chat
+Completions. All game replies, scenario assessments, structured evaluations,
+and future text jobs must go through its shared transport rather than
+constructing HTTP requests independently. Preserve separate typed settings
+profiles for opponent play and Luna scene writing; sharing transport does not
+mean forcing both tasks through one model or endpoint.
 
 Required contract:
 
-- Build the URL from `OPENAI_BASE_URL`, strip one trailing slash, and call
-  `/chat/completions`.
+- Build the URL from the selected settings profile, strip trailing slashes,
+  and call `/chat/completions`. Opponent calls use `OPENAI_BASE_URL`; scene
+  writing uses `VIDEO_PROMPT_BASE_URL` with its documented `OPENAI_BASE_URL`
+  fallback.
 - Send `messages` and a configurable `model`; keep `gpt-5.6-luna` as Ramon's
   current default unless a newer accepted repository decision changes it.
 - Remove every active `gpt-5.5-mini` and stale `gpt-5.5` default, fixture,
   option, test, code snippet, and documentation reference. Do not silently map
-  a nonexistent name to another model.
+  a nonexistent name to another model. Historical phase handovers and learning
+  guides are records of past work; do not rewrite them merely because they
+  mention an old model name.
 - Read text from `choices[0].message.content` and validate the response shape
   before indexing into it. Preserve the raw body needed for diagnostics and
   evaluation without storing API keys or authorization headers.
@@ -78,6 +88,9 @@ Required contract:
 - Treat `reasoning_effort` as a model/provider capability rather than assuming
   every OpenAI-compatible endpoint accepts it. Keep capability decisions in a
   typed model catalog or request calculation, not scattered string checks.
+  The catalog must support local `gemma-4-2b-local` through llama.cpp and
+  hosted `gpt-5.6-luna` without leaking one profile's endpoint or capabilities
+  into the other.
 - Use a 120-second upper bound or a documented smaller operation-specific
   timeout. Handle `httpx` transport failures as well as HTTP responses.
 - Retry genuinely transient failures with bounded exponential backoff, jitter,
@@ -105,7 +118,9 @@ application. Cover success, malformed response shape, JSON-mode rejection then
 success, unsupported `reasoning_effort`, `429` with retry, `500` exhaustion,
 transport timeout, explicit invalid-key `401` without retry, generic transient
 permissions `401` followed by success, exhausted transient `401` attempts with
-all request IDs retained, and redacted diagnostics.
+all request IDs retained, redacted diagnostics, and one process using local
+Gemma for opponent play while hosted Luna handles scene writing with no model,
+endpoint, or capability leakage between the two requests.
 
 ### 2. Define durable provenance before changing metrics
 
@@ -181,16 +196,20 @@ good.
 
 ### 5. Persist the real-world scenario mapping
 
-The scenario mapping is one of the workshop's distinctive datasets. Store it
-against the relevant game and ply with assessment text, scenario text, model,
-prompt version, creation time, and participant acceptance or edit state.
+The scenario mapping is one of the workshop's distinctive datasets. Its
+current contract has three fields: `assessment`, `real_world`, and
+`video_prompt`. Store all three against the relevant game and ply with model,
+provider alias, prompt version, creation time, and participant acceptance or
+edit state.
 
 Required behavior:
 
-- Reloading a workspace restores its prior assessments.
+- Reloading a workspace restores its prior assessment, real-world mapping, and
+  video prompt.
 - A participant can accept or edit a suggested mapping without overwriting the
   raw model suggestion.
-- Exports include the accepted scenario record and its provenance.
+- Exports include the accepted scenario and video-prompt record with its
+  provenance.
 - Presenter room exports can distinguish raw suggestions from participant
   approved examples.
 - Failed assessment calls have a recoverable explicit state and do not erase
@@ -199,11 +218,16 @@ Required behavior:
 Use a dedicated action and repository. Do not leave persistence orchestration
 inside `WorkspacePanel`.
 
-Call the shared Chat Completions boundary for this task with a terse system
-message and an exact JSON object shape containing `assessment` and
-`real_world`. Store the raw reply before parsing. Do not use the absence of a
-provider key to invent a successful live mapping; show the existing cached or
-skipped state accurately.
+Call the shared Chat Completions transport through the `VIDEO_PROMPT_*`
+settings profile for this task. Use a direct system message and the exact JSON
+object shape containing `assessment`, `real_world`, and `video_prompt`. The
+real-world description must explain the relationship to the game in useful
+detail. The video prompt must turn that description into a filmable scene with
+a setting, visible people, one physical sequence, camera movement, lighting,
+and sound. It must not depict a chessboard, chess pieces, notation, or a chess
+move. Store the raw reply before parsing. Do not use the absence of a provider
+key to invent a successful live mapping; show the existing cached or skipped
+state accurately.
 
 ### 6. Give illegal model output a deterministic outcome
 
@@ -229,13 +253,16 @@ that prove:
 5. The terminal retry path cannot leave the game waiting forever.
 6. Dataset row fields and visible labels agree for several legal moves,
    promotion, check, checkmate, and an unfinished game.
-7. Scenario suggestions, edits, acceptance, reload, and export preserve both
-   raw and approved values.
+7. Scenario suggestions, video prompts, edits, acceptance, reload, and export
+   preserve both raw and approved values plus their model and prompt
+   provenance.
 8. One action failure rolls back all state that should be atomic.
 9. Every text-model workflow uses `/chat/completions`, and tests fail if a
    Responses API URL or `gpt-5.5-mini` reappears.
 10. The narrow generic-permissions `401` exception retries successfully, while
     explicit credential and access denials do not retry.
+11. Local Gemma opponent calls and hosted Luna scene-writing calls can coexist
+    without sharing endpoints, model names, or unsupported capabilities.
 
 Update frontend tests for the visible provenance and recovery states. Run
 `just lint`, `just typecheck`, `just test`, and the relevant E2E paths. Manually
