@@ -89,4 +89,7 @@ Written at the end of each phase for the human. The ratio is roughly 40% Socrati
 
 The Socratic portions ask the human to think through decisions: "Why did we separate EpisodePlaybackState from Episode? What would break if they were one table?" The walkthrough portions explain the codebase with concrete examples, code snippets, and a narrative that teaches how the pieces connect.
 
-**Tone for guides:** flowing prose, no bullet-point dumps. Terse, direct, with wit and subtle sarcasm that catches you off guard. Favour "use" over "utilise." Never say delve, dive in, or extraordinary. Imagine explaining the work to Richard Feynman and Ali Wong simultaneously. Precise enough for a physicist, funny enough for a comedian.
+**Tone for guides:** flowing prose, no bullet-point dumps or excessive colons or semi-colons, absolutely no emojis. Terse, direct, and to 
+the point with sporadic wit and subtle hints of sarcasm that catches anyone off guard. Favour "use" over "utilise." Never say delve, dive 
+in, or extraordinary. Imagine explaining the work to Richard Feynman and Ali Wong simultaneously. Precise enough for a physicist, 
+entertaining enough for a comedian.

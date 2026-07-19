@@ -21,42 +21,40 @@
 
 import marimo
 
-__generated_with = "0.23.13"
-app = marimo.App(width="medium")
+__generated_with = "0.23.14"
+app = marimo.App(width="medium", auto_download=["ipynb"])
 
 
 @app.cell
 def _():
     import marimo as mo
-
-    mo.md(
-        """
-        # Same Recipe, Different Results
-
-        Fine-tuning across text, image, audio, and video. One domain:
-        chess. This notebook is the whole session as code. If the
-        whiteboard app dies on stage, or you grabbed this file a month
-        later, everything is here.
-
-        The recipe never changes: data in pairs, a base model, an
-        adapter, an eval. What changes per modality is what "a pair"
-        means, how much data it takes, and how it fails. Watch for that.
-
-        Cells that need an API key or a heavy dependency check first and
-        tell you what to set instead of erroring.
-        """
-    )
-    return (mo,)
-
-
-@app.cell
-def _(mo):
     import importlib.util
     import json
     import os
+    import chess
+
 
     import httpx
 
+    return chess, httpx, importlib, json, mo, os
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Same Recipe, Different Results
+
+    We'll cover fine-tuning across text, image, audio, and video all through the domain of chess. This notebook is the whole session as code but we also ave a whiteboard app with similar info and a deck with more details.
+
+    The recipes we'll cover stay more or less consistent across data in pairs (e.g. instruction and response), a base model, an adapter, and some evals. What changes per modality is what a pair means, for example, how much data it takes to make something useful and how it the process may fail (and it will most-likely).
+
+    Cells that need an API key or a heavy dependency check first and tell you what to set instead of erroring.
+    """)
+    return
+
+
+@app.cell
+def _(importlib, mo, os):
     def _has(pkg: str) -> bool:
         return importlib.util.find_spec(pkg) is not None
 
@@ -79,35 +77,42 @@ def _(mo):
         ]
     )
     mo.md(f"**What runs on this machine right now:**\n\n| capability | ready |\n|---|---|\n{_rows}")
-    return CAPS, httpx, json, os
+    return (CAPS,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        """
-        ## 1. Why chess
+    mo.md("""
+    ## 1. Why chess
 
-        AI has beaten grandmasters for decades and chess has never been
-        more popular. It is the perfect fine-tuning domain for one
-        reason: **the environment can validate every action**. A move is
-        legal or it is not; python-chess decides in microseconds; no
-        human labeler required. That single property gives us free
-        supervision for SFT and a free reward signal for RL.
+    AI has beaten grandmasters for decades and chess has never been more popular. It is the perfect fine-tuning domain for for the simple fact that the environment can validate every action. Meaning, a move is legal or it is not, python-chess decides in microseconds, and no human labeler required. These properties give us free supervision for SFT and a free reward signal for RL. If you don't know what these mean, that's okay we'll go over them in a little bit.
 
-        And the personal angle, which becomes the dataset's unique
-        angle later: everyone can mould their own instructor. Mine
-        should teach me to win while capturing as few pieces as
-        possible.
-        """
-    )
+    There is a personal angle with this example (wether you like chess or not), which is that our in-session games become a dataset we can use and we can also give it a unique angle later where everyone can mould their own instructor to their preference. Mine should teach me to win while capturing as few pieces as possible.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 2. Building a Chess Machine
+
+    The Ruy Lopez, also called the Spanish Opening, is one of the oldest and most respected chess openings for White. It starts with the moves 1. e4 e5 2. Nf3 Nc6 3. Bb5. White develops the bishop to attack the knight defending Black's e5-pawn, putting immediate pressure on Black's center without overextending.
+    """)
     return
 
 
 @app.cell
-def _(mo):
-    import chess
+def _():
+    # import chess.svg
 
+    # game_board2 = chess.Board()
+    # mo.HTML(chess.svg.board(board=game_board2, size=400))
+    return
+
+
+@app.cell
+def _(chess, mo):
     game_board = chess.Board()
     # A scripted Ruy Lopez so the notebook is deterministic without keys.
     game_sans = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O"]
@@ -128,12 +133,12 @@ def _(mo):
             }
         )
     mo.md(
-        f"## 2. Building a Chess Machine\n\nA game to work with. {len(game_records)} plies of a "
+        f"A game to work with. {len(game_records)} plies of a "
         f"Ruy Lopez, ending here:\n\n```\n{game_board.unicode(invert_color=True)}\n```\n\n"
         "Every row of training data in this section comes from this game, "
         "the same way the app builds rows from yours."
     )
-    return chess, game_board, game_records
+    return (game_records,)
 
 
 @app.cell
@@ -282,7 +287,15 @@ def _(CAPS, httpx, json, mo, os):
 
 
 @app.cell
-def _(CAPS, PROMPT_TEMPLATE, chess, compute_reward, llm_chat, mo, parse_move_reply):
+def _(
+    CAPS,
+    PROMPT_TEMPLATE,
+    chess,
+    compute_reward,
+    llm_chat,
+    mo,
+    parse_move_reply,
+):
     llm_game_log = []
     if CAPS["openai_key"]:
         _board = chess.Board()
@@ -409,56 +422,54 @@ def _(all_rows, json, mo, parse_move_reply):
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ### The training ladder
+    mo.md("""
+    ### The training ladder
 
-        Five rungs, most to least abstracted. Same dataset every time.
+    Five rungs, most to least abstracted. Same dataset every time.
 
-        1. **UI**: Unsloth Studio, `unsloth studio -p 8888`. No code,
-           live loss curves, GGUF export.
-        2. **API**: a training endpoint (Thinking Machines and friends).
-           Your data leaves the room; your GPU budget does not.
-        3. **Config**: Axolotl. The run is a YAML file (next cell).
-        4. **Code that reads like config**: Unsloth or PEFT (cell after).
-        5. **As low as it goes**: JAX. You write the loss. It runs live
-           in this notebook on CPU.
+    1. **UI**: Unsloth Studio, `unsloth studio -p 8888`. No code,
+       live loss curves, GGUF export.
+    2. **API**: a training endpoint (Thinking Machines and friends).
+       Your data leaves the room; your GPU budget does not.
+    3. **Config**: Axolotl. The run is a YAML file (next cell).
+    4. **Code that reads like config**: Unsloth or PEFT (cell after).
+    5. **As low as it goes**: JAX. You write the loss. It runs live
+       in this notebook on CPU.
 
-        Past SFT: the reward function plus legality checking here is a
-        minimal RL environment, hand-rolled so it fits on a slide. The
-        production-grade version of the same idea (env classes, rubrics,
-        rollouts, GRPO training) is the verifiers library:
-        github.com/PrimeIntellect-ai/verifiers.
-        """
-    )
+    Past SFT: the reward function plus legality checking here is a
+    minimal RL environment, hand-rolled so it fits on a slide. The
+    production-grade version of the same idea (env classes, rubrics,
+    rollouts, GRPO training) is the verifiers library:
+    github.com/PrimeIntellect-ai/verifiers.
+    """)
     return
 
 
 @app.cell
 def _(mo, sft_path):
     axolotl_yaml = f"""# axolotl train chess-lora.yml    (NVIDIA Ampere+ or AMD only)
-base_model: google/gemma-4-E2B-it
-load_in_4bit: true
-adapter: lora
-lora_r: 16
-lora_alpha: 32
+    base_model: google/gemma-4-E2B-it
+    load_in_4bit: true
+    adapter: lora
+    lora_r: 16
+    lora_alpha: 32
 
-chat_template: gemma4
-datasets:
-  - path: {sft_path}
+    chat_template: gemma4
+    datasets:
+      - path: {sft_path}
     type:
       field_instruction: prompt
       field_output: completion
       format: "{{instruction}}"
       no_input_format: "{{instruction}}"
 
-sequence_len: 2048
-micro_batch_size: 1
-gradient_accumulation_steps: 4
-num_epochs: 1
-learning_rate: 0.0002
-output_dir: ./outputs/chess-lora
-"""
+    sequence_len: 2048
+    micro_batch_size: 1
+    gradient_accumulation_steps: 4
+    num_epochs: 1
+    learning_rate: 0.0002
+    output_dir: ./outputs/chess-lora
+    """
     mo.md(f"### Rung 3: the run is a file\n\n```yaml\n{axolotl_yaml}```")
     return
 
@@ -466,21 +477,21 @@ output_dir: ./outputs/chess-lora
 @app.cell
 def _(mo, sft_path):
     unsloth_code = f'''from datasets import load_dataset
-from trl import SFTConfig, SFTTrainer
-from unsloth import FastModel
+    from trl import SFTConfig, SFTTrainer
+    from unsloth import FastModel
 
-dataset = load_dataset("json", data_files="{sft_path}", split="train")
+    dataset = load_dataset("json", data_files="{sft_path}", split="train")
 
-model, tokenizer = FastModel.from_pretrained(
+    model, tokenizer = FastModel.from_pretrained(
     model_name="unsloth/gemma-4-E2B-it", max_seq_length=2048, load_in_4bit=True
-)
-model = FastModel.get_peft_model(model, r=8, lora_alpha=8)
+    )
+    model = FastModel.get_peft_model(model, r=8, lora_alpha=8)
 
-SFTTrainer(
+    SFTTrainer(
     model=model, tokenizer=tokenizer, train_dataset=dataset,
     args=SFTConfig(per_device_train_batch_size=1, gradient_accumulation_steps=4,
                    max_steps=60, learning_rate=2e-4, output_dir="outputs/chess-lora"),
-).train()'''
+    ).train()'''
     mo.md(
         "### Rung 4: code that reads like config\n\n"
         f"```python\n{unsloth_code}\n```\n\n"
@@ -569,16 +580,16 @@ def _(CAPS, all_rows, mo):
 def _(CAPS, mo, os):
     modal_code = '''import modal
 
-app = modal.App("chess-lora")
-image = modal.Image.debian_slim().pip_install("unsloth", "trl", "datasets")
+    app = modal.App("chess-lora")
+    image = modal.Image.debian_slim().pip_install("unsloth", "trl", "datasets")
 
-@app.function(gpu="L40S", image=image, timeout=1800,
+    @app.function(gpu="L40S", image=image, timeout=1800,
               secrets=[modal.Secret.from_name("huggingface")])
-def train(jsonl: bytes):
+    def train(jsonl: bytes):
     open("chess_sft.jsonl", "wb").write(jsonl)
     # ... the exact Unsloth cell from above ...
 
-# modal run train_chess.py'''
+    # modal run train_chess.py'''
     _configured = CAPS["modal"] and bool(os.environ.get("MODAL_TOKEN_ID"))
     mo.md(
         "### Borrowed GPUs: sandboxes\n\n"
@@ -593,24 +604,22 @@ def train(jsonl: bytes):
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## 3. Painting Our Pieces (image)
+    mo.md("""
+    ## 3. Painting Our Pieces (image)
 
-        Same recipe. New failure modes.
+    Same recipe. New failure modes.
 
-        Diffusion models denoise toward your caption; transformers
-        predict tokens. Both fine-tune with LoRA, but image adaptation
-        is far more sensitive to **dataset size and composition** than
-        text: twenty consistent images beat two hundred sloppy ones.
-        Providers also quietly rewrite your prompts before generation,
-        which is why your local results differ from their playground.
+    Diffusion models denoise toward your caption; transformers
+    predict tokens. Both fine-tune with LoRA, but image adaptation
+    is far more sensitive to **dataset size and composition** than
+    text: twenty consistent images beat two hundred sloppy ones.
+    Providers also quietly rewrite your prompts before generation,
+    which is why your local results differ from their playground.
 
-        The approach menu, each one a different data recipe: text to
-        image, image to image, image plus text to image, text to SVG,
-        image to SVG, image editing, image layering.
-        """
-    )
+    The approach menu, each one a different data recipe: text to
+    image, image to image, image plus text to image, text to SVG,
+    image to SVG, image editing, image layering.
+    """)
     return
 
 
@@ -706,24 +715,18 @@ def _(CAPS, img_captions, img_url, json, llm_chat, mo):
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        **Training the style**: the same LoRA recipe through Diffusers,
-        pointed at your drawings.
+    mo.md("""
+    **Training the style**: the same LoRA recipe through Diffusers,
+    pointed at your drawings.
 
-        ```bash
-        accelerate launch train_dreambooth_lora_flux.py \\
-          --pretrained_model_name_or_path black-forest-labs/FLUX.2-Klein-4B \\
-          --instance_data_dir ./drawings \\
-          --instance_prompt "a wtrclrchess style chess piece" \\
-          --rank 16 --max_train_steps 800 --learning_rate 1e-4
-        ```
+    ```bash
+    accelerate launch train_dreambooth_lora_flux.py   --pretrained_model_name_or_path black-forest-labs/FLUX.2-Klein-4B   --instance_data_dir ./drawings   --instance_prompt "a wtrclrchess style chess piece"   --rank 16 --max_train_steps 800 --learning_rate 1e-4
+    ```
 
-        The code ladder repeats: a UI, then stablediffusion.cpp, then
-        Diffusers. Recognize the shape from the text section. That is
-        the point.
-        """
-    )
+    The code ladder repeats: a UI, then stablediffusion.cpp, then
+    Diffusers. Recognize the shape from the text section. That is
+    the point.
+    """)
     return
 
 
@@ -883,55 +886,51 @@ def _(CAPS, fal_run, mo):
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## 6. Merging: capabilities without retraining
+    mo.md("""
+    ## 6. Merging: capabilities without retraining
 
-        Once you own several fine-tunes, merging combines them for the
-        price of an average. mergekit:
+    Once you own several fine-tunes, merging combines them for the
+    price of an average. mergekit:
 
-        ```yaml
-        merge_method: slerp
-        models:
-          - model: outputs/chess-lora        # the player
-          - model: outputs/analyst-lora      # the real-world mapper
-        parameters:
-          t: 0.5
-        ```
+    ```yaml
+    merge_method: slerp
+    models:
+      - model: outputs/chess-lora        # the player
+      - model: outputs/analyst-lora      # the real-world mapper
+    parameters:
+      t: 0.5
+    ```
 
-        When it works: adapters trained from the **same base** on
-        disjoint skills. When it wrecks quality: different bases,
-        different chat templates, or two adapters fighting over the
-        same behavior. Merging averages weights, not intentions. Eval
-        before and after or you merged blind.
-        """
-    )
+    When it works: adapters trained from the **same base** on
+    disjoint skills. When it wrecks quality: different bases,
+    different chat templates, or two adapters fighting over the
+    same behavior. Merging averages weights, not intentions. Eval
+    before and after or you merged blind.
+    """)
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        """
-        ## Closing
+    mo.md("""
+    ## Closing
 
-        Training any of these from scratch is expensive, and we get open
-        models matching closed ones from two years ago, sometimes six
-        months. The barrier keeps dropping: Karpathy's microchat trains
-        a GPT in a few hundred lines on consumer hardware, and you just
-        trained a transformer inside a notebook cell.
+    Training any of these from scratch is expensive, and we get open
+    models matching closed ones from two years ago, sometimes six
+    months. The barrier keeps dropping: Karpathy's microchat trains
+    a GPT in a few hundred lines on consumer hardware, and you just
+    trained a transformer inside a notebook cell.
 
-        As compute gets cheaper, specialisation may matter more than a
-        ten-point benchmark gap. The recipe you now know four times
-        over: pairs in, adapter out, eval always. Same recipe,
-        different results, and the results are yours.
+    As compute gets cheaper, specialisation may matter more than a
+    ten-point benchmark gap. The recipe you now know four times
+    over: pairs in, adapter out, eval always. Same recipe,
+    different results, and the results are yours.
 
-        **Resources**: python-chess docs, Unsloth docs (Gemma 4 guide),
-        Axolotl docs, Flax NNX guide, Diffusers LoRA training scripts,
-        fal.ai model registry, mergekit, marimo, and the workshop repo
-        this notebook lives in.
-        """
-    )
+    **Resources**: python-chess docs, Unsloth docs (Gemma 4 guide),
+    Axolotl docs, Flax NNX guide, Diffusers LoRA training scripts,
+    fal.ai model registry, mergekit, marimo, and the workshop repo
+    this notebook lives in.
+    """)
     return
 
 

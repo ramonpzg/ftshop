@@ -25,3 +25,7 @@ web/playwright-report/
 .env
 .DS_Store
 *.log
+
+
+.ipynb_checkpoints
+notebooks/__marimo__
