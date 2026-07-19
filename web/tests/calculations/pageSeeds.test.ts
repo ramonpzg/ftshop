@@ -62,4 +62,15 @@ describe("getPageSeedShapes", () => {
       expect(text).toContain(topic);
     }
   });
+
+  test("video page maps chess to a detailed real-world scene", () => {
+    const text = getPageSeedShapes("real-world-video")
+      .map((shape) => (shape.kind === "frame" ? `${shape.name} ${shape.prompt}` : shape.text))
+      .join(" ");
+
+    expect(text).toContain("Luna");
+    expect(text).toContain("real-world");
+    expect(text).toContain("camera");
+    expect(text.toLowerCase()).not.toContain("chess moments");
+  });
 });

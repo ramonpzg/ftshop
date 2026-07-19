@@ -171,6 +171,7 @@ def llm_status() -> LlmStatusOut:
 class AssessmentOut(BaseModel):
     assessment: str
     real_world: str
+    video_prompt: str
     model: str
 
 

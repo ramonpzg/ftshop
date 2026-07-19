@@ -467,6 +467,9 @@ helped. You can only claim it ran.
 # The training ladder
 
 <div class="mb-2 opacity-70 text-sm">Five rungs. Same dataset every time. Watch the same run change costume:</div>
+<div class="mb-2 opacity-70 text-xs">
+Deploy: google/gemma-4-E2B-it-qat-q4_0-gguf. Tune: google/gemma-4-E2B-it-qat-q4_0-unquantized.
+</div>
 
 ````md magic-move {lines: true}
 ```python {*|1-3|5-7|all}
@@ -475,13 +478,14 @@ from unsloth import FastModel
 from trl import SFTConfig, SFTTrainer
 
 model, tok = FastModel.from_pretrained(
-    "unsloth/gemma-4-E2B-it", load_in_4bit=True)
+    "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+    load_in_4bit=True)
 model = FastModel.get_peft_model(model, r=8, lora_alpha=8)
 ```
 
 ```yaml {*|1-2|4-8|all}
 # Rung 3: the run is a file (axolotl)
-base_model: google/gemma-4-E2B-it
+base_model: google/gemma-4-E2B-it-qat-q4_0-unquantized
 
 adapter: lora
 lora_r: 16
@@ -492,12 +496,16 @@ datasets:
 
 ```python {*|1-2|4-7|all}
 # Rung 5: no trainer, no config, just the loss (JAX)
-import optax; from flax import nnx
+import jax
+import jax.numpy as jnp
 
-def loss_fn(model, batch):
-    logits = model(batch["tokens"])
-    return optax.softmax_cross_entropy_with_integer_labels(
-        logits, batch["targets"]).mean()
+def loss_fn(adapter, frozen_base, batch):
+    delta = adapter["a"] @ adapter["b"]
+    logits = batch["hidden"] @ (frozen_base + delta)
+    return -jnp.mean(jax.nn.log_softmax(logits)[
+        jnp.arange(batch["target"].shape[0]), batch["target"]])
+
+loss, grads = jax.value_and_grad(loss_fn)(adapter, frozen_base, batch)
 ```
 
 ```text {*|2|3|4|5|6|all}
@@ -677,15 +685,15 @@ layout: section
 
 <div v-click>
 
-Pairs: **(video, caption)**. The knight fork, three seconds,
-labeled.
+Luna reads the game and writes a detailed real-world scene. The video
+pair is **(scene prompt, clip)**. No board. No pieces.
 
 </div>
 
 <div v-click class="mt-4">
 
-On the board: LTX fast, about a minute for six seconds. Veo in the
-picker for the frontier comparison.
+On the board: the saved Luna prompt goes to LTX fast or Veo. One
+physical sequence, detailed camera, light, and sound.
 
 </div>
 

@@ -134,7 +134,7 @@ dataset = load_dataset(
 )
 
 model, tokenizer = FastModel.from_pretrained(
-    model_name="unsloth/gemma-4-E2B-it",
+    model_name="google/gemma-4-E2B-it-qat-q4_0-unquantized",
     max_seq_length=2048,
     load_in_4bit=True,
 )
@@ -154,6 +154,7 @@ trainer = SFTTrainer(
 )
 trainer.train()
 
+# Local baseline: google/gemma-4-E2B-it-qat-q4_0-gguf
 # Same run, no code: unsloth studio -p 8888
 # Same recipe, different results: swap the dataset and the base model,
 # keep the shape. The image, audio, and video runs read the same way.
@@ -165,7 +166,7 @@ trainer.train()
     language: "yaml",
     code: `# The whole run is this file: axolotl train chess-lora.yml
 # NVIDIA (Ampere or newer) or AMD GPU required.
-base_model: google/gemma-4-E2B-it
+base_model: google/gemma-4-E2B-it-qat-q4_0-unquantized
 load_in_4bit: true
 adapter: lora
 lora_r: 16
@@ -197,44 +198,44 @@ output_dir: ./outputs/chess-lora
     id: "jax_train",
     label: "JAX (low level)",
     language: "python",
-    code: `import optax
-from flax import nnx
+    code: `import jax
+import jax.numpy as jnp
 
 
-class TinyLM(nnx.Module):
-    def __init__(self, vocab, dim=128, rngs=nnx.Rngs(0)):
-        self.embed = nnx.Embed(vocab, dim, rngs=rngs)
-        self.attn = nnx.MultiHeadAttention(
-            num_heads=4, in_features=dim, decode=False, rngs=rngs
-        )
-        self.norm = nnx.LayerNorm(dim, rngs=rngs)
-        self.head = nnx.Linear(dim, vocab, rngs=rngs)
+RANK = 8
+ALPHA = 8.0
+LEARNING_RATE = 3e-4
+base_key, adapter_key = jax.random.split(jax.random.key(0))
 
-    def __call__(self, tokens):
-        x = self.embed(tokens)
-        x = x + self.attn(self.norm(x), mask=nnx.make_causal_mask(tokens))
-        return self.head(x)
+# One frozen projection from the base model. It is deliberately not part of params.
+frozen_base = 0.02 * jax.random.normal(base_key, (768, 512))
+params = {
+    "a": 0.02 * jax.random.normal(adapter_key, (768, RANK)),
+    "b": jnp.zeros((RANK, 512)),
+}
 
 
-model = TinyLM(vocab=512)
-optimizer = nnx.Optimizer(model, optax.adamw(3e-4), wrt=nnx.Param)
+def loss_fn(params, hidden_states, target_tokens):
+    delta = (ALPHA / RANK) * (params["a"] @ params["b"])
+    logits = hidden_states @ (frozen_base + delta)
+    log_probs = jax.nn.log_softmax(logits)
+    return -jnp.mean(log_probs[jnp.arange(target_tokens.shape[0]), target_tokens])
 
 
-@nnx.jit
-def train_step(model, optimizer, tokens):
-    def loss_fn(model):
-        logits = model(tokens[:, :-1])
-        return optax.softmax_cross_entropy_with_integer_labels(
-            logits, tokens[:, 1:]
-        ).mean()
+@jax.jit
+def train_step(params, hidden_states, target_tokens):
+    loss, grads = jax.value_and_grad(loss_fn)(
+        params, hidden_states, target_tokens
+    )
+    updated = jax.tree.map(
+        lambda parameter, gradient: parameter - LEARNING_RATE * gradient,
+        params,
+        grads,
+    )
+    return updated, loss
 
-    loss, grads = nnx.value_and_grad(loss_fn)(model)
-    optimizer.update(model, grads)
-    return loss
 
-
-# No trainer, no config. The loop is these lines, and it runs on CPU.
-# Reads closer to NumPy than PyTorch does, which is the point.
+# The base stays frozen because JAX differentiates only params.
 `,
   },
 ];

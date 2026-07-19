@@ -51,9 +51,9 @@ const rows = [
   },
   {
     modality: "video",
-    pairs: "(video, caption)",
+    pairs: "(Luna scene, clip)",
     adapter: "LoRA on LTX",
-    evals: "temporal flicker",
+    evals: "case, continuity",
   },
 ];
 

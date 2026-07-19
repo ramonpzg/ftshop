@@ -22,6 +22,41 @@ def test_default_model_is_current(monkeypatch: pytest.MonkeyPatch):
     assert llm_client.get_llm_model() == "gpt-5.6-luna"
 
 
+def test_video_prompt_model_defaults_to_luna(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("VIDEO_PROMPT_MODEL", raising=False)
+    assert llm_client.get_video_prompt_model() == "gpt-5.6-luna"
+
+
+def test_video_prompt_chat_can_use_separate_provider(monkeypatch: pytest.MonkeyPatch):
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["authorization"] = request.headers["authorization"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    install_transport(monkeypatch, handler)
+    monkeypatch.setenv("OPENAI_API_KEY", "opponent-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:8080/v1")
+    monkeypatch.setenv("OPENAI_MODEL", "google/gemma-4-E2B-it-qat-q4_0-gguf")
+    monkeypatch.setenv("VIDEO_PROMPT_API_KEY", "luna-key")
+    monkeypatch.setenv("VIDEO_PROMPT_BASE_URL", "https://api.openai.com/v1")
+    monkeypatch.setenv("VIDEO_PROMPT_MODEL", "gpt-5.6-luna")
+
+    assert llm_client.video_prompt_chat([{"role": "user", "content": "draft"}]) == "{}"
+    assert seen == {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authorization": "Bearer luna-key",
+        "body": {
+            "model": "gpt-5.6-luna",
+            "reasoning_effort": "medium",
+            "messages": [{"role": "user", "content": "draft"}],
+            "response_format": {"type": "json_object"},
+        },
+    }
+
+
 def test_chat_uses_chat_completions_and_json_mode(monkeypatch: pytest.MonkeyPatch):
     seen: dict = {}
 

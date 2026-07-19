@@ -235,6 +235,7 @@ export function flagTimeout(workspaceId: string): Promise<GameStatus> {
 export interface Assessment {
   assessment: string;
   real_world: string;
+  video_prompt: string;
   model: string;
 }
 

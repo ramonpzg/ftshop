@@ -66,15 +66,19 @@ def test_assess_position_returns_parsed_payload(tmp_path: Path, monkeypatch: pyt
     conn, workspace = make_workspace(tmp_path)
     monkeypatch.setattr(
         game.llm_client,
-        "chat",
-        lambda *a, **k: '{"assessment": "Level.", "real_world": "Monday standup."}',
+        "video_prompt_chat",
+        lambda *a, **k: (
+            '{"assessment": "Level.", "real_world": "Monday standup.", '
+            '"video_prompt": "A team meets around a plain table."}'
+        ),
     )
 
     result = assess_position(conn, workspace["id"])
 
     assert result["assessment"] == "Level."
     assert result["real_world"] == "Monday standup."
-    assert result["model"]
+    assert result["video_prompt"] == "A team meets around a plain table."
+    assert result["model"] == "gpt-5.6-luna"
 
 
 def test_model_move_plays_with_the_games_chosen_opponent(
@@ -83,7 +87,7 @@ def test_model_move_plays_with_the_games_chosen_opponent(
     from euro_chess_studio.actions.games import start_game
 
     conn, workspace = make_workspace(tmp_path)
-    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-2b-it")
+    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-E2B-it-qat-q4_0-gguf")
     seen_models: list[str | None] = []
 
     def fake_chat(*args, **kwargs):
@@ -91,13 +95,18 @@ def test_model_move_plays_with_the_games_chosen_opponent(
         return '{"move": "e7e5"}'
 
     monkeypatch.setattr(game.llm_client, "chat", fake_chat)
-    start_game(conn, workspace["id"], 300, opponent_model="google/gemma-4-2b-it")
+    start_game(
+        conn,
+        workspace["id"],
+        300,
+        opponent_model="google/gemma-4-E2B-it-qat-q4_0-gguf",
+    )
     from euro_chess_studio.actions.moves import make_move
 
     make_move(conn, workspace["id"], "e2e4")
     model_move(conn, workspace["id"])
 
-    assert seen_models == ["google/gemma-4-2b-it"]
+    assert seen_models == ["google/gemma-4-E2B-it-qat-q4_0-gguf"]
 
 
 def test_model_move_without_a_game_uses_the_default_model(

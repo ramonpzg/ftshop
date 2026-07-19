@@ -17,6 +17,8 @@ def test_assess_messages_carry_history_and_fen():
     messages = build_assess_messages(["e4", "e5"], "some-fen")
     assert "e4 e5" in messages[1]["content"]
     assert "some-fen" in messages[1]["content"]
+    assert "video_prompt" in messages[1]["content"]
+    assert "never a chessboard" in messages[0]["content"]
 
 
 def test_assess_messages_handle_empty_history():
@@ -43,18 +45,21 @@ def test_parse_move_reply_rejects_garbage():
 
 
 def test_parse_assess_reply_happy_path():
-    reply = '{"assessment": "White is better.", "real_world": "Like a tidy inbox."}'
+    reply = (
+        '{"assessment": "White is better.", '
+        '"real_world": "A team has room to choose.", '
+        '"video_prompt": "A team reviews two options in a quiet room."}'
+    )
     assert parse_assess_reply(reply) == {
         "assessment": "White is better.",
-        "real_world": "Like a tidy inbox.",
+        "real_world": "A team has room to choose.",
+        "video_prompt": "A team reviews two options in a quiet room.",
     }
 
 
-def test_parse_assess_reply_tolerates_missing_real_world():
-    assert parse_assess_reply('{"assessment": "Equal."}') == {
-        "assessment": "Equal.",
-        "real_world": "",
-    }
+def test_parse_assess_reply_requires_the_video_contract():
+    assert parse_assess_reply('{"assessment": "Equal."}') is None
+    assert parse_assess_reply('{"assessment": "Equal.", "real_world": "Routine work."}') is None
 
 
 def test_parse_assess_reply_rejects_garbage():

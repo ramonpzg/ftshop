@@ -272,6 +272,32 @@
   font-style: italic;
 }
 
+.workspace-analysis-video-prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 6px;
+  align-items: start;
+}
+
+.workspace-analysis-video-prompt p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #495057;
+}
+
+.workspace-analysis-video-prompt button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  color: #212529;
+  background: white;
+  cursor: pointer;
+}
+
 .workspace-analysis-model {
   font-size: 10px;
   text-transform: uppercase;

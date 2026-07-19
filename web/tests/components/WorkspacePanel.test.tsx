@@ -392,7 +392,7 @@ describe("WorkspacePanel", () => {
 
   test("with several opponents on offer, starting sends the chosen one", async () => {
     const fetchMock = routedFetch({
-      opponentModels: ["google/gemma-4-2b-it", "openai/gpt-5.6", "gpt-5.6-luna"],
+      opponentModels: ["google/gemma-4-E2B-it-qat-q4_0-gguf", "openai/gpt-5.6", "gpt-5.6-luna"],
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     render(
@@ -406,7 +406,7 @@ describe("WorkspacePanel", () => {
     const options = Array.from(
       (screen.getByTestId("opponent-model") as HTMLSelectElement).options,
     ).map((option) => option.textContent);
-    expect(options).toEqual(["gemma-4-2b-it", "gpt-5.6", "gpt-5.6-luna"]);
+    expect(options).toEqual(["gemma-4-E2B-it-qat-q4_0-gguf", "gpt-5.6", "gpt-5.6-luna"]);
 
     fireEvent.change(screen.getByTestId("opponent-model"), {
       target: { value: "openai/gpt-5.6" },

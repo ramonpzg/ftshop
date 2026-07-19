@@ -12,7 +12,8 @@ interface GeneratePanelProps {
 
 const PLACEHOLDERS: Record<string, string> = {
   image: "a hand-drawn white knight, watercolor edges, plain background",
-  video: "a knight fork winning the queen, top-down chess board, 6 seconds",
+  video:
+    "A medium-wide documentary shot follows an operations lead entering a quiet control room as two warning lights activate on opposite consoles.",
   audio: "a wooden chess piece capturing another, sharp click, short",
 };
 

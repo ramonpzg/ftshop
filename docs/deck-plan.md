@@ -144,9 +144,10 @@ interleaved with app time. 90 minutes overall.
     The click synth: you can also just make the sound yourself.
 22. **Audio evals.** Duration, clipping, spectrogram sanity. Computed
     from real bytes, not vibes.
-23. **SECTION: Video of the Real-World Use Case.** Video pairs, LTX
-    fast vs Veo; the cost table is real now: cents per second. Say
-    the numbers out loud.
+23. **SECTION: Video of the Real-World Use Case.** Luna turns a game
+    into a detailed filmable situation. LTX fast or Veo stages that
+    situation, not a chess move. The cost table is real now: cents per
+    second. Say the numbers out loud.
 24. **Merging.** Two adapters, one model: slerp in a YAML file. And
     when merging wrecks both. mergekit config on screen.
 

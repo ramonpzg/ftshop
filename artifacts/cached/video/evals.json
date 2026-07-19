@@ -2,12 +2,12 @@
   {
     "metric": "action_success",
     "value": 0.64,
-    "note": "Illustrative cached example. Measures whether the depicted chess move or analogy scene actually happens on screen."
+    "note": "Illustrative cached example. Measures whether the real-world incident described by Luna happens on screen."
   },
   {
-    "metric": "piece_identity_consistency",
+    "metric": "subject_identity_consistency",
     "value": 0.77,
-    "note": "Illustrative cached example. Measures whether a piece keeps a consistent appearance across frames."
+    "note": "Illustrative cached example. Measures whether the people keep a consistent appearance across frames."
   },
   {
     "metric": "temporal_flicker",
@@ -15,9 +15,9 @@
     "note": "Illustrative cached example. Lower is better; measures frame-to-frame instability."
   },
   {
-    "metric": "caption_adherence",
+    "metric": "scenario_adherence",
     "value": 0.71,
-    "note": "Illustrative cached example. Measures whether the generated clip matches its caption."
+    "note": "Illustrative cached example. Measures whether the clip stages the detailed real-world case rather than matching isolated prompt nouns."
   },
   {
     "metric": "human_preference",

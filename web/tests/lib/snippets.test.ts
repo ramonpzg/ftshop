@@ -35,6 +35,23 @@ describe("SNIPPETS", () => {
     }
   });
 
+  test("the low-level example uses JAX directly", () => {
+    const snippet = getSnippetById("jax_train");
+    expect(snippet.code).toContain("import jax");
+    expect(snippet.code).toContain("jax.value_and_grad");
+    expect(snippet.code).not.toContain("flax");
+    expect(snippet.code).not.toContain("optax");
+  });
+
+  test("Gemma snippets distinguish local inference from training", () => {
+    const fineTune = getSnippetById("fine_tune").code;
+    const axolotl = getSnippetById("axolotl_config").code;
+
+    expect(fineTune).toContain("google/gemma-4-E2B-it-qat-q4_0-gguf");
+    expect(fineTune).toContain("google/gemma-4-E2B-it-qat-q4_0-unquantized");
+    expect(axolotl).toContain("google/gemma-4-E2B-it-qat-q4_0-unquantized");
+  });
+
   test("the reward function snippet matches the backend's precedence rules", () => {
     const snippet = getSnippetById("reward_function");
     expect(snippet.code).toContain("return -1");

@@ -54,6 +54,14 @@ just seed         # repopulate pages and cached eval fixtures
 - OpenAI-compatible text calls use `/chat/completions`, not the Responses
   API. `gpt-5.5-mini` does not exist. The current configurable default is
   `gpt-5.6-luna`.
+- The local Gemma baseline is
+  `google/gemma-4-E2B-it-qat-q4_0-gguf`. That GGUF is for deployment.
+  Trainer examples use the matching
+  `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights and convert the
+  merged result back to GGUF.
+- Luna maps each game to a detailed real-world case and an LTX-ready scene
+  prompt. The generated video stages that case. It does not depict a chess
+  move, chessboard, or chess pieces.
 - Preserve the narrowly bounded retry for the observed generic `401` text
   "You have insufficient permissions for this operation". The same key
   produced both `401` and `200` during key propagation. Do not generalize

@@ -6,10 +6,17 @@ Hugging Face router, vLLM, llama.cpp) later without touching code:
 
     OPENAI_API_KEY    required
     OPENAI_BASE_URL   default https://api.openai.com/v1
-    OPENAI_MODEL      default gpt-5.6-luna; analysis and the default opponent
+    OPENAI_MODEL      default gpt-5.6-luna; the default opponent
     OPPONENT_MODELS   optional comma-separated list of extra opponents
                       to offer in the Start game picker, e.g.
-                      google/gemma-4-2b-it,openai/gpt-5.6
+                      google/gemma-4-E2B-it-qat-q4_0-gguf,gpt-5.6-luna
+
+The video-scene prompt can use a separate compatible endpoint. Each
+VIDEO_PROMPT_* setting falls back to its OPENAI_* counterpart:
+
+    VIDEO_PROMPT_API_KEY
+    VIDEO_PROMPT_BASE_URL
+    VIDEO_PROMPT_MODEL default gpt-5.6-luna
 """
 
 import os
@@ -32,6 +39,10 @@ class LlmRequestError(RuntimeError):
 
 def get_llm_model() -> str:
     return os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
+
+
+def get_video_prompt_model() -> str:
+    return os.environ.get("VIDEO_PROMPT_MODEL", DEFAULT_MODEL)
 
 
 def get_opponent_models() -> list[str]:
@@ -57,6 +68,17 @@ def _settings(model: str | None = None) -> tuple[str, str, str]:
     return base_url, api_key, model or get_llm_model()
 
 
+def _video_prompt_settings() -> tuple[str, str, str]:
+    api_key = os.environ.get("VIDEO_PROMPT_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        raise LlmNotConfiguredError("VIDEO_PROMPT_API_KEY and OPENAI_API_KEY are not set")
+    base_url = (
+        os.environ.get("VIDEO_PROMPT_BASE_URL")
+        or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    ).rstrip("/")
+    return base_url, api_key, get_video_prompt_model()
+
+
 def chat(
     messages: list[dict],
     *,
@@ -71,7 +93,37 @@ def chat(
     failures, and the generic permissions 401 observed while a new project key
     was propagating. Explicit credential failures are not retried.
     """
-    base_url, api_key, model = _settings(model)
+    return _chat_completion(
+        messages,
+        settings=_settings(model),
+        json_response=json_response,
+        timeout=timeout,
+    )
+
+
+def video_prompt_chat(
+    messages: list[dict],
+    *,
+    json_response: bool = True,
+    timeout: float = 120.0,
+) -> str:
+    """One video-scene draft from Luna or an explicitly configured replacement."""
+    return _chat_completion(
+        messages,
+        settings=_video_prompt_settings(),
+        json_response=json_response,
+        timeout=timeout,
+    )
+
+
+def _chat_completion(
+    messages: list[dict],
+    *,
+    settings: tuple[str, str, str],
+    json_response: bool,
+    timeout: float,
+) -> str:
+    base_url, api_key, model = settings
     body: dict = {
         "model": model,
         "reasoning_effort": "medium",

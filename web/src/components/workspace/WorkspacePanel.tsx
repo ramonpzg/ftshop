@@ -4,6 +4,7 @@ import {
   ChartBar,
   ChatText,
   Code,
+  Copy,
   Database,
   Horse,
   Package,
@@ -618,6 +619,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                   {analysis.real_world && (
                     <p className="workspace-analysis-real-world">{analysis.real_world}</p>
                   )}
+                  <div className="workspace-analysis-video-prompt">
+                    <p>{analysis.video_prompt}</p>
+                    <button
+                      type="button"
+                      onClick={() => void navigator.clipboard.writeText(analysis.video_prompt)}
+                      title="Copy video prompt"
+                      aria-label="Copy video prompt"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
                   <span className="workspace-analysis-model">{analysis.model}</span>
                 </>
               ) : (

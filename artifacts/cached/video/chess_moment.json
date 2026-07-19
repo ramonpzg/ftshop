@@ -1,12 +1,15 @@
 {
   "modality": "video",
-  "kind": "chess_moment_reveal",
+  "kind": "scenario_video_reveal",
   "payload": {
-    "event": "knight_fork",
-    "description": "Cached example: a short clip of a knight fork moment.",
-    "duration_seconds": 2.0,
+    "event": "rushed_release_incident",
+    "source_game": "fools-mate",
+    "description": "Cached example: two routine safeguards are removed before a rushed release fails.",
+    "real_world": "A small release team disables two routine safeguards to ship before a deadline. The shortcuts expose one direct path from an ordinary mistake to a production incident.",
+    "video_prompt": "A medium-wide documentary shot opens inside a small software operations room late in the afternoon. A release manager in a grey overshirt stands between two plain consoles as one amber warning light activates on each side of the room. She enters a final command on an unlabelled keyboard, the cooling fans rise, and both lights turn red while a colleague wheels across the floor to disconnect a cable cabinet. The camera makes a slow dolly from the doorway to her side profile, keeping her and both consoles in frame as the failed response unfolds. Cool fluorescent ceiling light mixes with muted monitor light on the desks; there are no readable interfaces or logos. The audio is restrained: ventilation, keyboard taps, chair wheels, two warning tones, and a final relay click.",
+    "duration_seconds": 8.0,
     "fps": 24,
-    "frame_count": 48,
-    "note": "v0 doesn't generate or play real video; this reveals a cached example of the intended clip."
+    "frame_count": 192,
+    "note": "Illustrative fixture for the real-world scene Luna derives from the game. It is not a generated clip."
   }
 }

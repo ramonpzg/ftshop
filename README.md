@@ -50,6 +50,24 @@ Model calls use the OpenAI-compatible Chat Completions endpoint,
 `OPENAI_MODEL` together. The current default model is `gpt-5.6-luna`.
 Provider-specific model names still need to match the configured endpoint.
 
+The local Gemma baseline is
+`google/gemma-4-E2B-it-qat-q4_0-gguf`. For llama.cpp, start it with:
+
+```bash
+llama serve -hf google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0
+```
+
+That repository is a deployment-ready QAT GGUF. Trainer examples use the
+matching `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights, then convert the
+merged result back to GGUF. Passing a GGUF repository directly to TRL or
+Axolotl is not the same operation.
+
+Game analysis also produces the detailed real-world scene prompt used for
+video generation. It defaults to Luna. When the opponent uses a different
+endpoint, set `VIDEO_PROMPT_API_KEY`, `VIDEO_PROMPT_BASE_URL`, and
+`VIDEO_PROMPT_MODEL=gpt-5.6-luna` separately. Each value otherwise falls back
+to its `OPENAI_*` counterpart.
+
 ## Commands
 
 Run `just` to list the full command surface. The regular development commands

@@ -11,10 +11,15 @@ MOVE_SYSTEM_PROMPT = (
 )
 
 ASSESS_SYSTEM_PROMPT = (
-    "You are a chess commentator for a fine-tuning workshop. Terse, direct, "
-    "no fluff. You relate each position to an everyday real-world scenario "
-    "(work, home, sports) in one or two sentences. You always answer with "
-    "JSON only."
+    "You map chess games to concrete real-world situations for a fine-tuning workshop. "
+    "Be direct and specific. Return JSON only. The assessment is terse. The real-world "
+    "description explains the relationship to the game in three to five sentences. The "
+    "video prompt is one flowing paragraph of four to eight sentences in present tense. "
+    "It depicts only the real-world situation, never a chessboard, chess pieces, chess "
+    "notation, or a chess move. Establish one shot and setting, define the people through "
+    "visible details, describe one clear sequence of physical actions, specify camera "
+    "movement, lighting, and sound. Do not request readable text or logos. Describe visible "
+    "behaviour instead of internal emotions."
 )
 
 
@@ -36,9 +41,11 @@ def build_assess_messages(san_history: list[str], fen: str) -> list[dict]:
     user = (
         f"Moves so far (SAN): {moves_text}\n"
         f"Current position (FEN): {fen}\n\n"
-        "Assess the position in one or two short sentences, then map the "
-        "state of this game to a concrete everyday scenario.\n"
-        'Respond with JSON: {"assessment": "...", "real_world": "..."}'
+        "Assess the game, explain a concrete real-world situation with the same tension "
+        "or trade-off, then turn that situation into a detailed prompt for a short video. "
+        "The video must show the real-world situation rather than a literal chess scene.\n"
+        'Respond with JSON: {"assessment": "...", "real_world": "...", '
+        '"video_prompt": "..."}'
     )
     return [
         {"role": "system", "content": ASSESS_SYSTEM_PROMPT},
@@ -78,15 +85,21 @@ def parse_move_reply(text: str) -> str | None:
 
 
 def parse_assess_reply(text: str) -> dict | None:
-    """{"assessment", "real_world"} strings, or None when unusable."""
+    """The assessment, real-world mapping, and video prompt, or None."""
     parsed = _extract_json(text)
     if parsed is None:
         return None
     assessment = parsed.get("assessment")
     real_world = parsed.get("real_world")
+    video_prompt = parsed.get("video_prompt")
     if not isinstance(assessment, str) or not assessment.strip():
+        return None
+    if not isinstance(real_world, str) or not real_world.strip():
+        return None
+    if not isinstance(video_prompt, str) or not video_prompt.strip():
         return None
     return {
         "assessment": assessment.strip(),
-        "real_world": real_world.strip() if isinstance(real_world, str) else "",
+        "real_world": real_world.strip(),
+        "video_prompt": video_prompt.strip(),
     }

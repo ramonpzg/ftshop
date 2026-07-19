@@ -140,10 +140,13 @@ existing example of this use case, so it is unique to the session.
 
 ## Page 5: Video of the Real-World Use Case (video)
 
-Take the hundred real-world-scenario prompts from page 2, generate ten
-to fifteen second clips with one or several of the top video models, and
-use those to fine-tune a recent LTX model. This page stays light and
-leans on an online training setup.
+For each game, Luna first writes a detailed real-world case and a filmable
+scene prompt. The prompt covers one setting, visible characters, a physical
+sequence of actions, camera movement, lighting, and sound. It does not ask the
+video model to move chess pieces. Take a hundred of those prompts from page 2,
+generate ten to fifteen second clips with one or several top video models, and
+use those to fine-tune a recent LTX model. This page stays light and leans on
+an online training setup.
 
 - Mechanics of a video model: frame sampling, temporal consistency,
   and compute that escalates faster than you expect.

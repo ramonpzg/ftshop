@@ -40,7 +40,21 @@ class Handler(BaseHTTPRequestHandler):
             content = json.dumps(
                 {
                     "assessment": "Balanced position. Development over drama.",
-                    "real_world": "Like week one at a new job: show up, make normal moves.",
+                    "real_world": (
+                        "It resembles the first week in a new operations role. The useful "
+                        "work is still basic: observe the routine, learn who owns each "
+                        "decision, and avoid creating a problem before the constraints are clear."
+                    ),
+                    "video_prompt": (
+                        "A medium-wide documentary shot follows a new operations analyst "
+                        "entering a quiet control room at the start of a morning shift. She "
+                        "hangs a plain jacket beside the door, studies two unlabelled status "
+                        "monitors, and watches a senior colleague complete a routine equipment "
+                        "check before copying the same measured sequence. The camera makes a "
+                        "slow lateral move past brushed metal desks under cool overhead light. "
+                        "Ventilation hum, soft footsteps, and restrained button clicks form the "
+                        "only audio."
+                    ),
                 }
             )
         payload = {"choices": [{"message": {"role": "assistant", "content": content}}]}

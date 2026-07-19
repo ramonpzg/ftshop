@@ -286,7 +286,7 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     { kind: "heading", text: "Video of the Real-World Use Case", x: 0, y: 0 },
     {
       kind: "heading",
-      text: "Video fine-tuning. Short chess moments and real-world analogy scenes.",
+      text: "Video fine-tuning. Detailed real-world scenes derived from complete games.",
       x: 0,
       y: 90,
     },
@@ -294,9 +294,9 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
     ...noteRow(
       [
         "The 100 scenario prompts\nfrom the text page",
-        "Generate 10 to 15 second clips\nwith top video models",
+        "Luna writes the case, action,\ncamera, light, and sound",
+        "Generate 10 to 15 second scenes\nwith top video models",
         "Fine-tune a recent LTX model\nsame recipe, heavier compute",
-        "Compute escalates\nfaster than you expect",
       ],
       560,
       "grey",
@@ -311,7 +311,7 @@ const SEEDS_BY_SLUG: Record<string, SeedShape[]> = {
       {
         name: "Explainer 02 From prompts to LTX",
         prompt:
-          "Take the 100 scenario prompts from the text page.\nGenerate short clips with a top model. Fine-tune LTX on the result.",
+          "Luna maps each complete game to one detailed real-world scene.\nGenerate the scenes with a top model. Fine-tune LTX on the result.",
       },
     ]),
   ],

@@ -51,16 +51,15 @@ def model_move(conn: sqlite3.Connection, workspace_id: str) -> MakeMoveResult:
 
 
 def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:
-    """One terse position assessment plus the real-world scenario mapping
-    the session plan is built around."""
+    """A position assessment, its real-world mapping, and a video prompt."""
     workspace = get_workspace(conn, workspace_id)
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
 
     active = get_active_game(conn, workspace_id)
     sans = list_legal_sans(conn, workspace_id, active["id"] if active else None)
-    reply = llm_client.chat(build_assess_messages(sans, workspace["board_fen"]), json_response=True)
+    reply = llm_client.video_prompt_chat(build_assess_messages(sans, workspace["board_fen"]))
     parsed = parse_assess_reply(reply)
     if parsed is None:
         raise ModelReplyError(f"model reply had no usable assessment: {reply[:200]}")
-    return {**parsed, "model": llm_client.get_llm_model()}
+    return {**parsed, "model": llm_client.get_video_prompt_model()}
