@@ -33,6 +33,9 @@ interface PresenterPanelProps {
   currentUser: LocalUser | null;
   locked: boolean;
   onLockedChange: (locked: boolean) => void;
+  /** Immediate mode feedback for this client; attendees learn the mode
+   * through the poll loop instead. */
+  onModeChange?: (mode: string) => void;
   onPageReset: () => void;
 }
 
@@ -43,6 +46,7 @@ export function PresenterPanel({
   currentUser,
   locked,
   onLockedChange,
+  onModeChange,
   onPageReset,
 }: PresenterPanelProps) {
   const [room, setRoom] = useState<RoomGames | null>(null);
@@ -78,11 +82,13 @@ export function PresenterPanel({
     // Attendees get pulled to the page and camera region the presenter
     // is actually looking at, not just a whole-page fit.
     if (!editor) return;
-    await bringEveryoneHere(editor);
+    const state = await bringEveryoneHere(editor);
+    onModeChange?.(state.mode);
   }
 
   async function handleSendToWorkspaces() {
-    await sendToWorkspaces();
+    const state = await sendToWorkspaces();
+    onModeChange?.(state.mode);
     if (editor && currentUser) {
       const workspace = await createOrGetWorkspace(currentUser.id, RESETTABLE_PAGE_SLUG);
       navigateToWorkspace(editor, workspace, RESETTABLE_PAGE_SLUG);

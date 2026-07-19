@@ -48,6 +48,12 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
 
+  // Deliberate test-and-debug hook: the Playwright suite drives real
+  // multi-client scenarios through the live editor.
+  useEffect(() => {
+    (window as unknown as { chessStudioEditor?: Editor | null }).chessStudioEditor = editor;
+  }, [editor]);
+
   useEffect(() => {
     let cancelled = false;
     fetchHealth()
@@ -130,6 +136,7 @@ export function App() {
               currentUser={currentUser}
               locked={locked}
               onLockedChange={setLocked}
+              onModeChange={setPresenterMode}
               onPageReset={() => setResetToken((token) => token + 1)}
             />
           )}

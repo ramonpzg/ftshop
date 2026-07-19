@@ -29,16 +29,16 @@ test("a new attendee can join and see their workspace and themselves in the atte
   await expect(page.locator(`text=${name}`).first()).toBeVisible();
 });
 
-test("the canvas saves to the backend and survives a reload in a fresh session", async ({
+test("the room serves the document and survives a reload in a fresh session", async ({
   browser,
 }) => {
   const contextA = await browser.newContext();
   const pageA = await contextA.newPage();
   await pageA.goto("/");
   await pageA.waitForSelector("#join-name");
-  // Seeding the five pages is itself a document change, so the badge
-  // must reach saved without any user action.
-  await expect(pageA.locator('[data-save-status="saved"]')).toBeVisible({ timeout: 15_000 });
+  // The five pages come from the sync room's migrations; the badge
+  // reaching live means this client holds the server document.
+  await expect(pageA.locator('[data-room-status="live"]')).toBeVisible({ timeout: 15_000 });
   await contextA.close();
 
   // A brand-new context has no local storage or IndexedDB. Everything
@@ -66,10 +66,14 @@ test("playing a legal move records a dataset row visible in the workspace", asyn
   await page.click('button[type="submit"]');
 
   // The canvas persists across sessions, so workspaces from earlier
-  // tests are legitimately still on the page. Scope everything to the
-  // panel this attendee owns.
+  // tests are legitimately still on the page, and a leftover presenter
+  // mode may have pulled the camera elsewhere on the first poll. Wait
+  // out that poll, then return to this attendee's own workspace.
+  await expect(page.locator('[data-room-status="live"]')).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(1500);
+  await page.locator(".attendee-self").click();
   const workspacePanel = page.locator(".workspace-panel-own");
-  await expect(workspacePanel).toBeAttached();
+  await expect(workspacePanel).toBeVisible({ timeout: 10_000 });
   await workspacePanel.dblclick({ force: true });
 
   await expect(workspacePanel.locator('[data-testid="square-e2"]')).toBeVisible();
