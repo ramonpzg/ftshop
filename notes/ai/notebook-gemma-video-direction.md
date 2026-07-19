@@ -19,6 +19,14 @@ matching `google/gemma-4-E2B-it-qat-q4_0-unquantized` source because those
 trainers do not consume the deployment GGUF as a normal training checkpoint.
 The deck, snippets, README, canvas copy, and session plans use the same rule.
 
+`just download-models` downloads Gemma to the llama.cpp cache and verifies it
+with an offline load. It downloads MusicGen Small and Stable Audio Open 1.0 to
+the Hugging Face cache and verifies their checksums. `just start-gemma` serves
+Gemma at `127.0.0.1:8080` with the API alias `gemma-4-2b-local`. The notebook
+has an optional side-by-side action that sends one position and one JSON
+contract to local Gemma and Luna, then shows raw answers, legality, reasons,
+and latency.
+
 Game analysis has a three-field contract: `assessment`, `real_world`, and
 `video_prompt`. Luna reads the move history and position, explains the
 real-world relationship, then writes one detailed filmable prompt. That prompt

@@ -54,8 +54,12 @@ The local Gemma baseline is
 `google/gemma-4-E2B-it-qat-q4_0-gguf`. For llama.cpp, start it with:
 
 ```bash
-llama serve -hf google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0
+just download-models  # Gemma, MusicGen, Stable Audio; download and verify
+just start-gemma      # OpenAI-compatible API on http://127.0.0.1:8080/v1
 ```
+
+Stable Audio is gated. Accept its Hugging Face license and set `HF_TOKEN`
+before running `just download-models`.
 
 That repository is a deployment-ready QAT GGUF. Trainer examples use the
 matching `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights, then convert the
@@ -75,7 +79,9 @@ are:
 
 ```text
 just install          Install web, API, deck, and Jupyter dependencies
+just download-models  Download and verify all local models
 just start            Run API :8000 and web :5173
+just start-gemma      Run Gemma 4 through llama.cpp on :8080
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just test             Run backend and frontend tests

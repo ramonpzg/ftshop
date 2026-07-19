@@ -66,6 +66,13 @@ Gemma's full architecture, quantisation, adapter injection, and distributed
 training fit together. A workshop cell should make one mechanism legible,
 not impersonate an entire trainer stack.
 
+The optional comparison sends the same position, legal-move list, and JSON
+contract to Gemma and Luna through two OpenAI-compatible endpoints. Why keep
+the raw replies beside legality and latency? A single aggregate score hides
+the difference you want the room to notice. One model may be terse and legal,
+another may explain well, and either can spend more time arriving there. The
+table lets the evidence stay inconveniently specific.
+
 ## The notebook as a script
 
 `notebooks/full-session3.py` uses `# %%` markers. Zed sends each region to the

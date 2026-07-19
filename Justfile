@@ -1,5 +1,7 @@
 set shell := ["bash", "-uc"]
 
+gemma_model := "google/gemma-4-E2B-it-qat-q4_0-gguf"
+
 default:
     just --list
 
@@ -11,6 +13,49 @@ install:
 # Local text-to-audio models (musicgen, stable audio). Several GB.
 install-audio:
     cd api && uv sync --extra audio
+
+# Download every model used locally and verify it before the session.
+# Stable Audio is gated: accept its license and set HF_TOKEN first.
+download-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v llama >/dev/null || {
+        echo "llama.cpp is required: https://github.com/ggml-org/llama.cpp" >&2
+        exit 1
+    }
+
+    echo "Downloading {{ gemma_model }} into the llama.cpp cache"
+    llama download -hf "{{ gemma_model }}:Q4_0"
+    echo "Verifying Gemma with an offline load"
+    llama cli \
+        -hf "{{ gemma_model }}:Q4_0" \
+        --offline --no-mmproj --single-turn \
+        --no-display-prompt --no-show-timings \
+        --prompt "Reply with OK." --predict 1 >/dev/null
+
+    audio_models=(
+        "facebook/musicgen-small"
+        "stabilityai/stable-audio-open-1.0"
+    )
+    for model in "${audio_models[@]}"; do
+        echo "Downloading ${model}"
+        uvx --from huggingface-hub hf download "${model}"
+        uvx --from huggingface-hub hf cache verify "${model}" --fail-on-missing-files
+    done
+
+# Gemma 4 on llama.cpp's OpenAI-compatible API at http://127.0.0.1:8080/v1.
+start-gemma port="8080":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v llama >/dev/null || {
+        echo "llama.cpp is required: https://github.com/ggml-org/llama.cpp" >&2
+        exit 1
+    }
+    exec llama serve \
+        -hf "{{ gemma_model }}:Q4_0" \
+        --alias gemma-4-2b-local \
+        --host 127.0.0.1 \
+        --port "{{ port }}"
 
 # The Slidev deck on port 3030. The Presentation page embeds it; the
 # tab itself has presenter mode and speaker notes.

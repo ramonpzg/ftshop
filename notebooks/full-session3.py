@@ -98,6 +98,7 @@ EXPECTED_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 LOGGER = logging.getLogger("ftshop.notebook")
 GEMMA_LOCAL_MODEL_ID = "google/gemma-4-E2B-it-qat-q4_0-gguf"
 GEMMA_TRAINING_MODEL_ID = "google/gemma-4-E2B-it-qat-q4_0-unquantized"
+GEMMA_API_MODEL = os.environ.get("GEMMA_API_MODEL", "gemma-4-2b-local")
 VIDEO_PROMPT_MODEL = os.environ.get("VIDEO_PROMPT_MODEL", "gpt-5.6-luna")
 
 # %%
@@ -839,18 +840,27 @@ def llm_chat(
     *,
     json_mode: bool = True,
     model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> str:
     global _CHAT_HAS_SUCCEEDED
 
-    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip(
-        "/"
+    resolved_base_url = (
+        base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    ).rstrip("/")
+    resolved_api_key = api_key if api_key is not None else os.environ["OPENAI_API_KEY"]
+    resolved_reasoning_effort = (
+        reasoning_effort
+        if reasoning_effort is not None
+        else os.environ.get("OPENAI_REASONING_EFFORT", "medium")
     )
-    api_key = os.environ["OPENAI_API_KEY"]
     body: dict[str, Any] = {
         "model": model or os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"),
-        "reasoning_effort": os.environ.get("OPENAI_REASONING_EFFORT", "medium"),
         "messages": messages,
     }
+    if resolved_reasoning_effort:
+        body["reasoning_effort"] = resolved_reasoning_effort
     if json_mode:
         body["response_format"] = {"type": "json_object"}
 
@@ -859,9 +869,9 @@ def llm_chat(
         for attempt in range(3):
             try:
                 response = client.post(
-                    f"{base_url}/chat/completions",
+                    f"{resolved_base_url}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {api_key}",
+                        "Authorization": f"Bearer {resolved_api_key}",
                         "Content-Type": "application/json",
                     },
                     json=body,
@@ -1000,6 +1010,95 @@ def run_live_text_evaluation(
     return metrics, details, prediction_tuple
 
 
+# %% [markdown]
+# ### Same request, two OpenAI-compatible endpoints
+#
+# Start local Gemma with `just start-gemma`. Luna uses the `VIDEO_PROMPT_*`
+# settings, falling back to `OPENAI_*`. Both models receive the same position,
+# legal moves, and JSON contract. Run the final commented line when both
+# endpoints are ready. The table keeps the raw answer, legality, and latency
+# visible instead of reducing the comparison to one score.
+
+# %%
+MODEL_COMPARISON_CASE = EVALUATION_CASES[-1]
+
+
+def compare_chess_models(
+    case: EvaluationCase = MODEL_COMPARISON_CASE,
+    chat: Callable[..., str] = llm_chat,
+) -> list[dict[str, Any]]:
+    board = chess.Board(case.fen)
+    legal_moves = tuple(move.uci() for move in board.legal_moves)
+    messages = [
+        {
+            "role": "system",
+            "content": "Choose a legal chess move and explain it briefly. Return JSON only.",
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Position (FEN): {case.fen}\n"
+                f"Legal moves (UCI): {', '.join(legal_moves)}\n"
+                'Return this exact shape: {"move": "<uci>", "reason": "<one sentence>"}'
+            ),
+        },
+    ]
+
+    def call(
+        label: str,
+        model: str,
+        base_url: str,
+        api_key: str,
+        reasoning_effort: str,
+    ) -> dict[str, Any]:
+        started = time.perf_counter()
+        reply = chat(
+            messages,
+            json_mode=True,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            reasoning_effort=reasoning_effort,
+        )
+        parsed = parse_json_object(reply)
+        move = parse_move_reply(reply)
+        return {
+            "model": label,
+            "move": move,
+            "legal": move in legal_moves,
+            "seconds": time.perf_counter() - started,
+            "reason": parsed.get("reason", "") if parsed else "",
+            "raw": reply,
+        }
+
+    luna_key = os.environ.get("VIDEO_PROMPT_API_KEY") or os.environ.get(
+        "OPENAI_API_KEY"
+    )
+    if not luna_key:
+        raise RuntimeError("Set VIDEO_PROMPT_API_KEY or OPENAI_API_KEY for Luna")
+    return [
+        call(
+            "Gemma 4 E2B Q4_0",
+            GEMMA_API_MODEL,
+            os.environ.get("GEMMA_BASE_URL", "http://127.0.0.1:8080/v1"),
+            os.environ.get("GEMMA_API_KEY", "local"),
+            "",
+        ),
+        call(
+            "Luna",
+            VIDEO_PROMPT_MODEL,
+            os.environ.get("VIDEO_PROMPT_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            luna_key,
+            os.environ.get("OPENAI_REASONING_EFFORT", "medium"),
+        ),
+    ]
+
+
+# MODEL_COMPARISON = compare_chess_models()
+# show_table(MODEL_COMPARISON)
+
+# %%
 # live_metrics, live_details, live_predictions = run_live_text_evaluation(EVALUATION_CASES)
 # live_video_scenario = draft_video_scenario(REPLAYED_GAMES["fools-mate"])
 
