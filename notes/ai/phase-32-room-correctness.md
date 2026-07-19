@@ -211,21 +211,29 @@ Four more findings, all fixed.
    deck/lib/liveRoom.ts (pollRoomOnce, createSingleFlight) and is
    tested with delayed and hanging fetches.
 3. Join navigation retries until presenter mode is actually known
-   (actions/joinNavigation.ts, bounded at ~10s): a 500 followed by a
-   successful idle read still sends the attendee to their workspace,
-   a confirmed presenter mode stays put, and an exhausted budget stays
-   put and leaves navigation to the presenter poll. Tested for all
-   three paths plus cancellation.
+   (actions/joinNavigation.ts). The retry is unbounded by design: the
+   presenter poll cannot stand in for this decision because its first
+   successful read of an idle room applies nothing, so any fixed
+   budget would strand an attendee after a long enough outage. The
+   loop ends only with an answer or with the cancellation of the
+   effect that started it (a bounded budget exists for tests). Tested
+   for the 500-then-idle path, confirmed presenter mode, a
+   twelve-failure outage resolving on recovery, and cancellation.
 4. Durable recovery is demonstrated end to end in
-   e2e/z-durability.spec.ts, which runs last and really restarts
-   processes: an edit is read back from GET /canvas, the sync server
-   is killed and respawned and a fresh room serves the edit after a
-   reload, the backend is killed and the badge shows the visible
-   "save failed, retrying" state while the room stays live, and the
-   respawned backend drains the retry loop back to "saved" with the
-   offline-era edit on disk. The scratch state paths travel through
-   Playwright config metadata so respawned processes see the same
-   files.
+   e2e/durability.spec.ts, its own Playwright project: it boots a
+   complete stack on isolated ports (backend 8200, sync 8210, Vite
+   5273, scratch state in a mkdtemp directory) held as exact child
+   process handles in their own process groups. Restarts signal the
+   owned PID group and wait for exit before the replacement binds; no
+   pkill patterns exist, so other worktrees and the shared webServer
+   stack are untouchable by construction. The flow: an edit is read
+   back from GET /canvas, the sync server restarts and a fresh room
+   serves the edit after a reload, stopping the backend surfaces the
+   visible "save failed, retrying" badge while the room stays live,
+   and the restarted backend drains the retry loop back to "saved"
+   with the offline-era edit on disk. The Vite proxy targets follow
+   CHESS_STUDIO_API_PORT / CHESS_STUDIO_SYNC_PORT (defaults 8000 and
+   8010) so the isolated dev server matches.
 
 ## Known issues / tech debt
 

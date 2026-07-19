@@ -1,6 +1,13 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+// The proxy targets follow the same env vars the backend and sync
+// server read, so an isolated stack (the e2e durability project runs
+// one on its own ports) can stand up a matching dev server. Defaults
+// are the documented workshop ports.
+const apiTarget = `http://localhost:${process.env.CHESS_STUDIO_API_PORT ?? "8000"}`;
+const syncTarget = `http://localhost:${process.env.CHESS_STUDIO_SYNC_PORT ?? "8010"}`;
+
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
@@ -16,12 +23,12 @@ export default defineConfig({
     host: true,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: apiTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/sync": {
-        target: "http://localhost:8010",
+        target: syncTarget,
         changeOrigin: true,
         ws: true,
       },

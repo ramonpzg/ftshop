@@ -45,9 +45,20 @@ describe("resolveJoinNavigation", () => {
     expect(await resolveJoinNavigation({ delayMs: 5 })).toBe("workspace");
   });
 
-  test("an exhausted retry budget stays put and leaves navigation to the presenter poll", async () => {
+  test("a bounded retry budget (tests only) stays put when exhausted", async () => {
     globalThis.fetch = presenterFetch([{ status: 500 }]);
     expect(await resolveJoinNavigation({ attempts: 3, delayMs: 5 })).toBe("stay");
+  });
+
+  test("an outage longer than any fixed budget still resolves once the backend returns", async () => {
+    // Twelve failures, then a successful idle read: the default loop
+    // has no budget to exhaust, so the attendee still reaches their
+    // workspace. This is the case where the presenter poll cannot
+    // help, because an idle room's first poll applies nothing.
+    const responses = Array.from({ length: 12 }, () => ({ status: 500 }));
+    responses.push({ status: 200, mode: "idle" } as never);
+    globalThis.fetch = presenterFetch(responses);
+    expect(await resolveJoinNavigation({ delayMs: 2 })).toBe("workspace");
   });
 
   test("cancellation stops the retry loop", async () => {

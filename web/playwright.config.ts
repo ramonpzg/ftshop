@@ -14,13 +14,15 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
-  // The durability spec restarts the backend and sync server processes
-  // and must point the replacements at the same scratch state.
-  metadata: {
-    e2eDbPath,
-    e2eCanvasDir,
-    e2eAssetsDir,
-  },
+  // Two projects, run in order. "app" drives the shared webServer stack
+  // below. "durability" boots and restarts its own stack on isolated
+  // ports (owned child processes, nothing shared), so it can kill
+  // services without touching this stack or anything else running on
+  // the machine.
+  projects: [
+    { name: "app", testIgnore: /durability\.spec\.ts/ },
+    { name: "durability", testMatch: /durability\.spec\.ts/ },
+  ],
   webServer: [
     {
       command: "uv run uvicorn euro_chess_studio.main:app --port 8000",

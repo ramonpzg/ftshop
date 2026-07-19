@@ -3,11 +3,14 @@
  * While the presenter is driving the room, joining must not yank the
  * camera to the workspace: the presenter target has already been (or
  * is about to be) applied, and the revision that carried it will not
- * repeat. Only a successful presenter-state read can settle that, so a
- * failed request is retried rather than treated as permission. If the
- * backend stays unreachable past the retry budget, the safe answer is
- * to stay put: the presenter poll takes over navigation as soon as the
- * backend returns.
+ * repeat. Only a successful presenter-state read can settle that, so
+ * failures retry until an answer arrives or the caller cancels.
+ *
+ * Retrying forever is deliberate. The presenter poll cannot stand in
+ * for this decision: its first successful read of an idle room applies
+ * nothing by design, so giving up here would leave the attendee
+ * wherever the camera happened to be for the rest of the session. The
+ * loop only ends with an answer or with the effect that started it.
  */
 
 import { fetchPresenterState } from "../data/api";
@@ -15,6 +18,7 @@ import { fetchPresenterState } from "../data/api";
 export type JoinNavigation = "workspace" | "stay";
 
 export interface JoinNavigationOptions {
+  /** Retry budget, for tests. The default retries until cancelled. */
   attempts?: number;
   delayMs?: number;
   isCancelled?: () => boolean;
@@ -23,7 +27,7 @@ export interface JoinNavigationOptions {
 export async function resolveJoinNavigation(
   options: JoinNavigationOptions = {},
 ): Promise<JoinNavigation> {
-  const attempts = options.attempts ?? 10;
+  const attempts = options.attempts ?? Number.POSITIVE_INFINITY;
   const delayMs = options.delayMs ?? 1000;
   const isCancelled = options.isCancelled ?? (() => false);
 
