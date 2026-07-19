@@ -24,8 +24,7 @@ export interface CanvasActor {
 interface RecordLike {
   id: string;
   typeName: string;
-  meta?: Record<string, unknown>;
-  props?: Record<string, unknown>;
+  meta?: { owner?: unknown; [key: string]: unknown };
   isLocked?: boolean;
 }
 

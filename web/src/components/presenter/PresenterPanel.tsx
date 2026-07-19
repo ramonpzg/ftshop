@@ -9,7 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
 import { navigateToWorkspace } from "../../actions/navigateToWorkspace";
-import { pageIdForSlug } from "../../actions/seedTldrawDocument";
+import { pageIdForSlug } from "../../lib/tldrawIds";
 import {
   bringToPresenterView,
   createOrGetWorkspace,

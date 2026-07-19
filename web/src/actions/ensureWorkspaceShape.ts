@@ -1,7 +1,7 @@
 import type { Editor, TLShapeId } from "tldraw";
 import { computeWorkspacePosition, WORKSPACE_DIMENSIONS } from "../calculations/layout";
 import type { Workspace } from "../data/api";
-import { pageIdForSlug } from "./seedTldrawDocument";
+import { pageIdForSlug } from "../lib/tldrawIds";
 
 /**
  * Creates the tldraw shape for a workspace the first time it's seen on this

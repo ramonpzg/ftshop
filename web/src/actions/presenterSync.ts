@@ -2,7 +2,7 @@ import type { Editor } from "tldraw";
 import { createOrGetWorkspace, fetchPresenterState, type PresenterState } from "../data/api";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "./joinWorkshop";
 import { navigateToWorkspace } from "./navigateToWorkspace";
-import { pageIdForSlug } from "./seedTldrawDocument";
+import { pageIdForSlug } from "../lib/tldrawIds";
 
 export interface PresenterSyncOptions {
   editor: Editor;

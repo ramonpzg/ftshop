@@ -1,5 +1,5 @@
 import { track, useEditor } from "tldraw";
-import { pageIdForSlug } from "../../actions/seedTldrawDocument";
+import { pageIdForSlug } from "../../lib/tldrawIds";
 import { PAGES } from "../../lib/pages";
 
 export const PageTabs = track(function PageTabs() {

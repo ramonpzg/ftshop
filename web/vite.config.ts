@@ -10,14 +10,20 @@ export default defineConfig({
   },
   server: {
     // Bind all interfaces so attendees on the venue network can reach the
-    // presenter's machine. The backend stays on localhost; everything goes
-    // through this dev server's /api proxy.
+    // presenter's machine. The backend and the sync room stay on
+    // localhost; everything goes through this dev server's proxies, so
+    // every client talks to one origin.
     host: true,
     proxy: {
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+      "/sync": {
+        target: "http://localhost:8010",
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

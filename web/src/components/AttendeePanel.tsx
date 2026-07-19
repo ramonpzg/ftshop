@@ -38,7 +38,11 @@ export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeeP
 
   function goToWorkspace(workspace: WorkspaceWithDetails) {
     if (!editor) return;
-    ensureWorkspaceShape(editor, workspace, workspace.user_name, workspace.page_slug);
+    // Only your own shape is yours to materialize; everyone else's
+    // arrives through the sync room when its owner joins.
+    if (workspace.user_id === currentUserId) {
+      ensureWorkspaceShape(editor, workspace, workspace.user_name, workspace.page_slug);
+    }
     navigateToWorkspace(editor, workspace, workspace.page_slug);
   }
 

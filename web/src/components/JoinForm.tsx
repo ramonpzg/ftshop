@@ -1,23 +1,22 @@
 import { type FormEvent, useState } from "react";
-import type { Editor } from "tldraw";
 import { joinWorkshop, type JoinResult } from "../actions/joinWorkshop";
 import "./JoinForm.css";
 
 interface JoinFormProps {
-  editor: Editor | null;
+  ready: boolean;
   onJoined: (result: JoinResult) => void;
 }
 
-export function JoinForm({ editor, onJoined }: JoinFormProps) {
+export function JoinForm({ ready, onJoined }: JoinFormProps) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idle" | "joining" | "error">("idle");
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!editor || !name.trim()) return;
+    if (!ready || !name.trim()) return;
     setStatus("joining");
     try {
-      const result = await joinWorkshop(editor, name.trim());
+      const result = await joinWorkshop(name.trim());
       onJoined(result);
     } catch {
       setStatus("error");
@@ -36,8 +35,8 @@ export function JoinForm({ editor, onJoined }: JoinFormProps) {
           onChange={(event) => setName(event.target.value)}
           placeholder="Ada"
         />
-        <button type="submit" disabled={!editor || !name.trim() || status === "joining"}>
-          {editor ? "Join" : "Loading canvas..."}
+        <button type="submit" disabled={!ready || !name.trim() || status === "joining"}>
+          {ready ? "Join" : "Loading canvas..."}
         </button>
         {status === "error" && (
           <p className="join-form-error">Could not join. Check the backend is running.</p>

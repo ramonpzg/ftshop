@@ -53,7 +53,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("backend-status").textContent).toBe("Backend: connected");
+      expect(screen.getByTestId("backend-status").textContent).toContain("Backend: connected");
     });
   });
 
@@ -63,7 +63,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("backend-status").textContent).toBe("Backend: unreachable");
+      expect(screen.getByTestId("backend-status").textContent).toContain("Backend: unreachable");
     });
   });
 

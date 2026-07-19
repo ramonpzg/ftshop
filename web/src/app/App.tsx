@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "tldraw";
-import type { SaveStatus } from "../actions/canvasSaveScheduler";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import type { JoinResult } from "../actions/joinWorkshop";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "../actions/joinWorkshop";
@@ -15,16 +14,10 @@ import { ApiError, createOrGetWorkspace, fetchHealth } from "../data/api";
 import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
+import { ROOM_STATUS_LABELS, type RoomStatus } from "../lib/roomStatus";
 import "./App.css";
 
 type BackendStatus = "checking" | "connected" | "unreachable";
-
-const SAVE_LABELS: Record<SaveStatus, string> = {
-  idle: "",
-  saving: "Canvas: saving",
-  saved: "Canvas: saved",
-  error: "Canvas: save failed",
-};
 
 // The presenter opens the app with ?presenter=1. This gates the presenter
 // panel and exempts that client from remote camera moves and the editing
@@ -35,7 +28,7 @@ function detectPresenter(): boolean {
 
 export function App() {
   const [status, setStatus] = useState<BackendStatus>("checking");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>("connecting");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [currentUser, setCurrentUser] = useState<LocalUser | null>(() => loadLocalUser());
   const [attendeeRefreshToken, setAttendeeRefreshToken] = useState(0);
@@ -107,14 +100,12 @@ export function App() {
         <div className="app-shell">
           <div className="status-badge" data-testid="backend-status">
             Backend: {status}
-            {saveStatus !== "idle" && (
-              <span data-testid="save-status" data-save-status={saveStatus}>
-                {" "}
-                | {SAVE_LABELS[saveStatus]}
-              </span>
-            )}
+            <span data-testid="room-status" data-room-status={roomStatus}>
+              {" "}
+              | {ROOM_STATUS_LABELS[roomStatus]}
+            </span>
           </div>
-          <ChessStudioCanvas onEditorMount={setEditor} onSaveStatusChange={setSaveStatus} />
+          <ChessStudioCanvas onEditorMount={setEditor} onRoomStatusChange={setRoomStatus} />
           {isPresenter && (
             <PresenterPanel
               editor={editor}
@@ -130,7 +121,7 @@ export function App() {
             refreshToken={attendeeRefreshToken}
           />
           <SlideControls editor={editor} />
-          {!currentUser && <JoinForm editor={editor} onJoined={handleJoined} />}
+          {!currentUser && <JoinForm ready={editor !== null} onJoined={handleJoined} />}
         </div>
       </PresenterContext.Provider>
     </CurrentUserContext.Provider>
