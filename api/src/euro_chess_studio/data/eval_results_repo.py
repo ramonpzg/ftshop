@@ -24,7 +24,6 @@ def insert_eval_result(
         """,
         (result_id, modality, metric, value, workspace_id, source, created_at),
     )
-    conn.commit()
     row = conn.execute("SELECT * FROM eval_results WHERE id = ?", (result_id,)).fetchone()
     assert row is not None
     return row
@@ -83,4 +82,3 @@ def delete_cached_eval_results(conn: sqlite3.Connection) -> None:
     Computed rows (source='computed') are untouched.
     """
     conn.execute("DELETE FROM eval_results WHERE source = 'cached'")
-    conn.commit()

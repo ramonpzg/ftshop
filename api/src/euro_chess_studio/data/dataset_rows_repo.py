@@ -24,7 +24,6 @@ def insert_dataset_row(
         """,
         (row_id, workspace_id, move_id, shape, json.dumps(payload), created_at),
     )
-    conn.commit()
     row = conn.execute("SELECT * FROM dataset_rows WHERE id = ?", (row_id,)).fetchone()
     assert row is not None
     return row
@@ -59,4 +58,3 @@ def count_dataset_rows(conn: sqlite3.Connection) -> int:
 
 def delete_dataset_rows_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM dataset_rows WHERE workspace_id = ?", (workspace_id,))
-    conn.commit()

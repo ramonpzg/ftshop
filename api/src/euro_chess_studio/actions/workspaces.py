@@ -45,7 +45,7 @@ def create_or_get_workspace(conn: sqlite3.Connection, user_id: str, page_slug: s
     shape_id = workspace_shape_id(user_id, page_slug)
     workspace_id = generate_id("workspace")
     try:
-        return insert_workspace(
+        row = insert_workspace(
             conn,
             workspace_id=workspace_id,
             user_id=user_id,
@@ -53,9 +53,12 @@ def create_or_get_workspace(conn: sqlite3.Connection, user_id: str, page_slug: s
             shape_id=shape_id,
             board_fen=chess.STARTING_FEN,
         )
+        conn.commit()
+        return row
     except sqlite3.IntegrityError:
         # Two requests from the same user raced past the existence check;
         # the UNIQUE(user_id, page_id) constraint let exactly one win.
+        conn.rollback()
         existing = get_workspace_for_user_and_page(conn, user_id, page["id"])
         assert existing is not None
         return existing
@@ -67,6 +70,7 @@ def select_snippet(conn: sqlite3.Connection, workspace_id: str, snippet_id: str)
     if snippet_id not in VALID_SNIPPET_IDS:
         raise InvalidSnippetError(f"unknown snippet id: {snippet_id}")
     update_selected_snippet(conn, workspace_id, snippet_id)
+    conn.commit()
     row = get_workspace(conn, workspace_id)
     assert row is not None
     return row

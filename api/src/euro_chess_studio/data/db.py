@@ -56,7 +56,66 @@ CREATE TABLE IF NOT EXISTS moves (
     is_check INTEGER NOT NULL,
     is_checkmate INTEGER NOT NULL,
     reward INTEGER NOT NULL,
+    -- Who attempted the move: participant, model, fallback, presenter.
+    -- Databases migrated from before provenance existed carry 'unknown';
+    -- those rows are excluded from per-actor metrics rather than guessed.
+    actor TEXT NOT NULL,
+    -- The model that produced the move, when actor is model or fallback.
+    model TEXT,
     created_at TEXT NOT NULL
+);
+
+-- One row per raw model reply, immutable, including replies that never
+-- became a move. The moves table records what happened to the board;
+-- this table records what the model actually said and how it was judged.
+CREATE TABLE IF NOT EXISTS model_attempts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
+    task TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    model TEXT,
+    provider_alias TEXT,
+    prompt_version TEXT,
+    checkpoint TEXT,
+    ply INTEGER,
+    fen TEXT,
+    attempt_number INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    raw_response TEXT,
+    request_ids_json TEXT NOT NULL DEFAULT '[]',
+    json_requested INTEGER NOT NULL DEFAULT 0,
+    parse_ok INTEGER NOT NULL DEFAULT 0,
+    parsed_move TEXT,
+    is_legal INTEGER,
+    applied_move_id TEXT REFERENCES moves(id),
+    error_detail TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- The persisted real-world scenario mapping. The raw suggestion is
+-- immutable once written; participant review lands in the final_*
+-- columns so an edit never overwrites what the model actually proposed.
+CREATE TABLE IF NOT EXISTS scenario_assessments (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
+    attempt_id TEXT REFERENCES model_attempts(id),
+    ply INTEGER NOT NULL,
+    fen TEXT NOT NULL,
+    status TEXT NOT NULL,
+    suggested_assessment TEXT,
+    suggested_real_world TEXT,
+    suggested_video_prompt TEXT,
+    final_assessment TEXT,
+    final_real_world TEXT,
+    final_video_prompt TEXT,
+    model TEXT,
+    provider_alias TEXT,
+    prompt_version TEXT,
+    error_detail TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS dataset_rows (
@@ -93,6 +152,17 @@ CREATE TABLE IF NOT EXISTS eval_results (
     value REAL NOT NULL,
     workspace_id TEXT REFERENCES workspaces(id),
     source TEXT NOT NULL,
+    -- Provenance: what the value measures and over what. Computed rows
+    -- fill numerator/denominator/scope; cached rows carry the fixture's
+    -- note explaining why the number is illustrative.
+    numerator INTEGER,
+    denominator INTEGER,
+    unit TEXT,
+    direction TEXT,
+    definition TEXT,
+    version TEXT,
+    scope_json TEXT,
+    note TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -137,6 +207,25 @@ def init_db(conn: sqlite3.Connection) -> None:
     move_columns = {row[1] for row in conn.execute("PRAGMA table_info(moves)")}
     if "game_id" not in move_columns:
         conn.execute("ALTER TABLE moves ADD COLUMN game_id TEXT REFERENCES games(id)")
+    if "actor" not in move_columns:
+        # Pre-provenance rows genuinely do not record who moved. 'unknown'
+        # keeps them out of per-actor metrics instead of guessing.
+        conn.execute("ALTER TABLE moves ADD COLUMN actor TEXT NOT NULL DEFAULT 'unknown'")
+    if "model" not in move_columns:
+        conn.execute("ALTER TABLE moves ADD COLUMN model TEXT")
+    eval_columns = {row[1] for row in conn.execute("PRAGMA table_info(eval_results)")}
+    for column, column_type in [
+        ("numerator", "INTEGER"),
+        ("denominator", "INTEGER"),
+        ("unit", "TEXT"),
+        ("direction", "TEXT"),
+        ("definition", "TEXT"),
+        ("version", "TEXT"),
+        ("scope_json", "TEXT"),
+        ("note", "TEXT"),
+    ]:
+        if column not in eval_columns:
+            conn.execute(f"ALTER TABLE eval_results ADD COLUMN {column} {column_type}")
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")

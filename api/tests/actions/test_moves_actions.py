@@ -50,6 +50,57 @@ def test_make_move_raises_for_unknown_workspace(tmp_path: Path):
         make_move(conn, "workspace_does_not_exist", "e2e4")
 
 
+def test_make_move_commits_everything_or_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """A failure after the move insert rolls the whole move back: no move
+    row, no dataset rows, board unchanged, visible from a second
+    connection because nothing was committed."""
+    from euro_chess_studio.actions import moves as moves_action
+
+    conn, workspace = make_workspace(tmp_path)
+    conn.commit()
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("simulated mid-transaction failure")
+
+    monkeypatch.setattr(moves_action, "insert_dataset_row", explode)
+    with pytest.raises(RuntimeError, match="simulated"):
+        make_move(conn, workspace["id"], "e2e4")
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        assert other.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+        assert other.execute("SELECT COUNT(*) FROM dataset_rows").fetchone()[0] == 0
+        fen = other.execute("SELECT board_fen FROM workspaces").fetchone()[0]
+        assert fen == chess.STARTING_FEN
+    finally:
+        other.close()
+
+
+def test_make_move_persists_atomically_for_a_second_connection(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    conn.commit()
+    make_move(conn, workspace["id"], "e2e4")
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        assert other.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 1
+        assert other.execute("SELECT COUNT(*) FROM dataset_rows").fetchone()[0] == 6
+        fen = other.execute("SELECT board_fen FROM workspaces").fetchone()[0]
+        assert fen != chess.STARTING_FEN
+    finally:
+        other.close()
+
+
+def test_make_move_records_actor_and_model(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    yours = make_move(conn, workspace["id"], "e2e4")
+    theirs = make_move(conn, workspace["id"], "e7e5", actor="model", model="gemma-4-2b-local")
+    assert yours.move["actor"] == "participant"
+    assert yours.move["model"] is None
+    assert theirs.move["actor"] == "model"
+    assert theirs.move["model"] == "gemma-4-2b-local"
+
+
 def test_make_move_pgn_prefix_grows_across_a_sequence(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     make_move(conn, workspace["id"], "e2e4")

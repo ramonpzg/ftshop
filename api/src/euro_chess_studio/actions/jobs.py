@@ -39,4 +39,7 @@ def run_job(
         payload=output.payload,
         cached=output.cached,
     )
+    # Handlers may have written eval_results; those repos no longer
+    # commit, so the job's whole result persists here or not at all.
+    conn.commit()
     return RunJobResult(job_config=job_config_row, artifact=artifact_row)

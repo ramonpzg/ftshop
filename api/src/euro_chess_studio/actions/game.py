@@ -40,14 +40,14 @@ def model_move(conn: sqlite3.Connection, workspace_id: str) -> MakeMoveResult:
     # board is the whole "different results" demo.
     active = get_active_game(conn, workspace_id)
     opponent_model = active["opponent_model"] if active is not None else None
-    reply = llm_client.chat(
+    outcome = llm_client.chat(
         build_move_messages(fen, legal_moves), json_response=True, model=opponent_model
-    ).content
-    uci = parse_move_reply(reply)
+    )
+    uci = parse_move_reply(outcome.content)
     if uci is None:
-        raise ModelReplyError(f"model reply had no usable move: {reply[:200]}")
+        raise ModelReplyError(f"model reply had no usable move: {outcome.content[:200]}")
 
-    return make_move(conn, workspace_id, uci, mover="model")
+    return make_move(conn, workspace_id, uci, actor="model", model=outcome.model)
 
 
 def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:

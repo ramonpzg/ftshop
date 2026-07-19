@@ -147,11 +147,11 @@ def test_checkmate_by_the_player_wins_the_game(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     # Reversed fool's mate: white (the player) mates on move three.
-    make_move(conn, workspace["id"], "e2e4", mover="player")
-    make_move(conn, workspace["id"], "f7f6", mover="model")
-    make_move(conn, workspace["id"], "d2d4", mover="player")
-    make_move(conn, workspace["id"], "g7g5", mover="model")
-    result = make_move(conn, workspace["id"], "d1h5", mover="player")
+    make_move(conn, workspace["id"], "e2e4", actor="participant")
+    make_move(conn, workspace["id"], "f7f6", actor="model")
+    make_move(conn, workspace["id"], "d2d4", actor="participant")
+    make_move(conn, workspace["id"], "g7g5", actor="model")
+    result = make_move(conn, workspace["id"], "d1h5", actor="participant")
 
     assert result.move["is_checkmate"] == 1
     assert result.game_result == "win"
@@ -163,10 +163,10 @@ def test_checkmate_by_the_model_loses_the_game(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     # Fool's mate: black (the model) mates on move two.
-    make_move(conn, workspace["id"], "f2f3", mover="player")
-    make_move(conn, workspace["id"], "e7e5", mover="model")
-    make_move(conn, workspace["id"], "g2g4", mover="player")
-    result = make_move(conn, workspace["id"], "d8h4", mover="model")
+    make_move(conn, workspace["id"], "f2f3", actor="participant")
+    make_move(conn, workspace["id"], "e7e5", actor="model")
+    make_move(conn, workspace["id"], "g2g4", actor="participant")
+    result = make_move(conn, workspace["id"], "d8h4", actor="model")
 
     assert result.game_result == "loss"
     assert game_status(conn, workspace["id"]).record["losses"] == 1

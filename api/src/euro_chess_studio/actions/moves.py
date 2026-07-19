@@ -23,8 +23,17 @@ class MakeMoveResult:
 
 
 def make_move(
-    conn: sqlite3.Connection, workspace_id: str, uci: str, mover: str = "player"
+    conn: sqlite3.Connection,
+    workspace_id: str,
+    uci: str,
+    actor: str = "participant",
+    model: str | None = None,
+    commit: bool = True,
 ) -> MakeMoveResult:
+    """One attempted move: the move record, the board update, the dataset
+    rows, and any game outcome commit together or not at all. Callers that
+    compose a larger transaction (the model turn) pass commit=False and
+    commit themselves."""
     workspace = get_workspace(conn, workspace_id)
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
@@ -43,49 +52,58 @@ def make_move(
         legal=result.legal, is_check=result.is_check, is_checkmate=result.is_checkmate
     )
 
-    move_row = insert_move(
-        conn,
-        workspace_id=workspace_id,
-        uci=result.uci,
-        san=result.san,
-        fen_before=result.fen_before,
-        fen_after=result.fen_after,
-        is_legal=result.legal,
-        is_check=result.is_check,
-        is_checkmate=result.is_checkmate,
-        reward=reward,
-        game_id=game_id,
-    )
+    try:
+        move_row = insert_move(
+            conn,
+            workspace_id=workspace_id,
+            uci=result.uci,
+            san=result.san,
+            fen_before=result.fen_before,
+            fen_after=result.fen_after,
+            is_legal=result.legal,
+            is_check=result.is_check,
+            is_checkmate=result.is_checkmate,
+            reward=reward,
+            actor=actor,
+            model=model,
+            game_id=game_id,
+        )
 
-    dataset_row_records: list[sqlite3.Row] = []
-    game_result: str | None = None
-    if result.legal:
-        update_board_fen(conn, workspace_id, result.fen_after)
-        prior_sans = list_legal_sans(conn, workspace_id, game_id)[:-1]
-        for row in build_dataset_rows(prior_sans, legal_moves_before, result):
-            dataset_row_records.append(
-                insert_dataset_row(
-                    conn,
-                    workspace_id=workspace_id,
-                    move_id=move_row["id"],
-                    shape=row["shape"],
-                    payload=row["payload"],
+        dataset_row_records: list[sqlite3.Row] = []
+        game_result: str | None = None
+        if result.legal:
+            update_board_fen(conn, workspace_id, result.fen_after)
+            prior_sans = list_legal_sans(conn, workspace_id, game_id)[:-1]
+            for row in build_dataset_rows(prior_sans, legal_moves_before, result):
+                dataset_row_records.append(
+                    insert_dataset_row(
+                        conn,
+                        workspace_id=workspace_id,
+                        move_id=move_row["id"],
+                        shape=row["shape"],
+                        payload=row["payload"],
+                    )
                 )
-            )
-        if game is not None:
-            game_result = _finish_game_if_over(conn, game_id, result, mover)
+            if game is not None:
+                game_result = _finish_game_if_over(conn, game_id, result, actor)
+        if commit:
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
     return MakeMoveResult(move=move_row, dataset_rows=dataset_row_records, game_result=game_result)
 
 
 def _finish_game_if_over(
-    conn: sqlite3.Connection, game_id: str | None, result, mover: str
+    conn: sqlite3.Connection, game_id: str | None, result, actor: str
 ) -> str | None:
-    """Checkmate by the player wins the game, checkmate by the model
-    loses it, a stalemate draws it. Anything else plays on."""
+    """Checkmate by the participant wins the game, checkmate by the model
+    (or its fallback) loses it, a stalemate draws it. Anything else
+    plays on."""
     assert game_id is not None
     if result.is_checkmate:
-        outcome = "win" if mover == "player" else "loss"
+        outcome = "loss" if actor in ("model", "fallback") else "win"
     elif not get_legal_moves(result.fen_after):
         outcome = "draw"
     else:

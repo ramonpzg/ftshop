@@ -33,6 +33,10 @@ class MoveOut(BaseModel):
     is_check: bool
     is_checkmate: bool
     reward: int
+    # Who attempted it (participant, model, fallback; unknown for rows
+    # from before provenance existed) and which model, when applicable.
+    actor: str
+    model: str | None = None
     created_at: str
 
 

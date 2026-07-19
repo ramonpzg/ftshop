@@ -41,7 +41,6 @@ def insert_workspace(
         """,
         (workspace_id, user_id, page_id, shape_id, page_id, board_fen, created_at),
     )
-    conn.commit()
     row = get_workspace(conn, workspace_id)
     assert row is not None
     return row
@@ -78,11 +77,9 @@ def list_workspaces_with_details(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def update_board_fen(conn: sqlite3.Connection, workspace_id: str, board_fen: str) -> None:
     conn.execute("UPDATE workspaces SET board_fen = ? WHERE id = ?", (board_fen, workspace_id))
-    conn.commit()
 
 
 def update_selected_snippet(conn: sqlite3.Connection, workspace_id: str, snippet_id: str) -> None:
     conn.execute(
         "UPDATE workspaces SET selected_snippet_id = ? WHERE id = ?", (snippet_id, workspace_id)
     )
-    conn.commit()
