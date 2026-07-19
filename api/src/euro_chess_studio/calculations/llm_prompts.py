@@ -59,9 +59,12 @@ def build_assess_messages(san_history: list[str], fen: str) -> list[dict]:
     ]
 
 
-def _extract_json(text: str) -> dict | None:
+def extract_json_object(text: str) -> dict | None:
     """Parses a JSON object out of a model reply, tolerating code fences
-    and surrounding prose."""
+    and surrounding prose. Deterministic: fenced block first, then the
+    widest brace span. Also the definition of "valid JSON" that the
+    valid_json_rate metric measures, so the metric and the consumer
+    judge replies identically."""
     candidate = text.strip()
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
     if fence:
@@ -89,7 +92,7 @@ class MoveReplyAnalysis:
 
 
 def analyze_move_reply(text: str) -> MoveReplyAnalysis:
-    parsed = _extract_json(text)
+    parsed = extract_json_object(text)
     if parsed is None or not isinstance(parsed.get("move"), str):
         return MoveReplyAnalysis(parse_ok=False, move_text=None, uci=None)
     move = parsed["move"].strip().lower()
@@ -105,7 +108,7 @@ def parse_move_reply(text: str) -> str | None:
 
 def parse_assess_reply(text: str) -> dict | None:
     """The assessment, real-world mapping, and video prompt, or None."""
-    parsed = _extract_json(text)
+    parsed = extract_json_object(text)
     if parsed is None:
         return None
     assessment = parsed.get("assessment")

@@ -33,6 +33,10 @@ def seed_cached_evals(conn: sqlite3.Connection) -> int:
                 value=entry["value"],
                 workspace_id=None,
                 source="cached",
+                # The fixture's own explanation of why the number is
+                # illustrative. It survives storage, the API, and the
+                # panel; a cached value never poses as a live one.
+                note=entry.get("note"),
             )
             count += 1
     conn.commit()

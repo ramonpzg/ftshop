@@ -21,6 +21,14 @@ def test_get_evals_returns_seeded_cached_metrics_for_a_modality(client: TestClie
     assert all(row["source"] == "cached" for row in body)
 
 
+def test_cached_metric_notes_survive_seeding_storage_and_serialization(client: TestClient):
+    response = client.get("/evals", params={"modality": "text"})
+    cached = [row for row in response.json() if row["source"] == "cached"]
+    assert cached
+    for row in cached:
+        assert row["note"] and "Illustrative" in row["note"]
+
+
 def test_get_evals_returns_computed_metrics_scoped_to_a_workspace(client: TestClient):
     user = client.post("/users", json={"name": "Ada"}).json()
     workspace = client.post(
@@ -32,4 +40,10 @@ def test_get_evals_returns_computed_metrics_scoped_to_a_workspace(client: TestCl
     response = client.get("/evals", params={"modality": "text", "workspace_id": workspace["id"]})
     assert response.status_code == 200
     body = response.json()
-    assert any(row["metric"] == "legal_move_rate" and row["source"] == "computed" for row in body)
+    computed = next(
+        row for row in body if row["metric"] == "legal_move_rate" and row["source"] == "computed"
+    )
+    assert computed["numerator"] == 1
+    assert computed["denominator"] == 1
+    assert computed["definition"]
+    assert computed["scope_json"]

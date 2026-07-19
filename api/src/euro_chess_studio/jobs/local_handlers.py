@@ -3,51 +3,68 @@ Each handler may also persist eval_results, since running the job is what
 makes those numbers real rather than fabricated.
 """
 
+import json
 import sqlite3
 from collections.abc import Callable
+from dataclasses import asdict
 
 from euro_chess_studio.calculations.audio import synthesize_spectrogram
-from euro_chess_studio.calculations.evals import compute_legal_move_rate, compute_valid_json_rate
+from euro_chess_studio.calculations.evals import (
+    MetricResult,
+    compute_legal_move_rate,
+    compute_model_legal_move_rate,
+    compute_valid_json_rate,
+)
 from euro_chess_studio.calculations.video import uniform_frame_indices
-from euro_chess_studio.data.dataset_rows_repo import list_dataset_rows
 from euro_chess_studio.data.eval_results_repo import replace_eval_result
+from euro_chess_studio.data.model_attempts_repo import list_attempts
 from euro_chess_studio.data.moves_repo import list_moves
 from euro_chess_studio.jobs.base import JobConfig, JobOutput
 
 
+def _persist_metric(conn: sqlite3.Connection, workspace_id: str | None, result: MetricResult):
+    """Only available metrics persist; an empty sample stays out of the
+    panel instead of showing up as a misleading zero."""
+    if not result.available or result.value is None:
+        return
+    replace_eval_result(
+        conn,
+        modality="text",
+        metric=result.metric,
+        value=result.value,
+        workspace_id=workspace_id,
+        source="computed",
+        numerator=result.numerator,
+        denominator=result.denominator,
+        unit=result.unit,
+        direction=result.direction,
+        definition=result.definition,
+        version=result.version,
+        scope_json=json.dumps(result.scope),
+    )
+
+
 def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
     moves = list_moves(conn, job.workspace_id) if job.workspace_id else []
-    dataset_rows = list_dataset_rows(conn, job.workspace_id) if job.workspace_id else []
+    attempts = (
+        list_attempts(conn, workspace_id=job.workspace_id, task="move") if job.workspace_id else []
+    )
 
-    legal_move_rate = compute_legal_move_rate(moves)
-    valid_json_rate = compute_valid_json_rate(dataset_rows)
-
-    if legal_move_rate is not None:
-        replace_eval_result(
-            conn,
-            modality="text",
-            metric="legal_move_rate",
-            value=legal_move_rate,
-            workspace_id=job.workspace_id,
-            source="computed",
-        )
-    if valid_json_rate is not None:
-        replace_eval_result(
-            conn,
-            modality="text",
-            metric="valid_json_rate",
-            value=valid_json_rate,
-            workspace_id=job.workspace_id,
-            source="computed",
-        )
+    results = [
+        compute_legal_move_rate(moves, actor="participant"),
+        compute_model_legal_move_rate(attempts),
+        compute_valid_json_rate(attempts, task="move"),
+    ]
+    for result in results:
+        _persist_metric(conn, job.workspace_id, result)
 
     return JobOutput(
         modality="text",
         kind="prompt_eval",
         payload={
             "move_count": len(moves),
-            "legal_move_rate": legal_move_rate,
-            "valid_json_rate": valid_json_rate,
+            "model_attempt_count": len(attempts),
+            "metrics": [asdict(result) for result in results],
         },
     )
 

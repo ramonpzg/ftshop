@@ -20,13 +20,54 @@ def make_conn(tmp_path: Path):
     return conn
 
 
-def test_text_prompt_eval_computes_from_real_moves(tmp_path: Path):
+def test_text_prompt_eval_separates_participant_and_model_metrics(tmp_path: Path):
+    from euro_chess_studio.data.model_attempts_repo import insert_attempt
+
     conn = make_conn(tmp_path)
     user = join_workshop(conn, "Ada")
     workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    # Participant: two legal, one illegal.
     make_move(conn, workspace["id"], "e2e4")
-    make_move(conn, workspace["id"], "e7e6")  # legal
+    make_move(conn, workspace["id"], "e7e6")
     make_move(conn, workspace["id"], "e2e5")  # illegal (already moved)
+    # Model: one illegal reply, one non-JSON reply, one applied move.
+    insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        attempt_number=1,
+        status="illegal",
+        raw_response='{"move": "a1a8"}',
+        json_requested=True,
+        parse_ok=True,
+        parsed_move="a1a8",
+        is_legal=False,
+    )
+    insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        attempt_number=2,
+        status="parse_failed",
+        raw_response="I would castle early.",
+        json_requested=True,
+    )
+    insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        attempt_number=3,
+        status="applied",
+        raw_response='{"move": "d2d4"}',
+        json_requested=True,
+        parse_ok=True,
+        parsed_move="d2d4",
+        is_legal=True,
+    )
+    conn.commit()
 
     runner = LocalRunner()
     output = runner.run(
@@ -35,12 +76,42 @@ def test_text_prompt_eval_computes_from_real_moves(tmp_path: Path):
 
     assert output.modality == "text"
     assert output.payload["move_count"] == 3
-    assert output.payload["legal_move_rate"] == pytest.approx(2 / 3)
-    assert output.payload["valid_json_rate"] == 1.0
+    assert output.payload["model_attempt_count"] == 3
+    metrics = {entry["metric"]: entry for entry in output.payload["metrics"]}
+    # Participant moves never count for the model and vice versa.
+    assert metrics["legal_move_rate"]["value"] == pytest.approx(2 / 3)
+    assert metrics["legal_move_rate"]["scope"] == {"actor": "participant"}
+    assert metrics["model_legal_move_rate"]["value"] == pytest.approx(1 / 3)
+    assert metrics["model_legal_move_rate"]["denominator"] == 3
+    # The non-JSON reply lowers valid_json_rate, measured on raw replies.
+    assert metrics["valid_json_rate"]["value"] == pytest.approx(2 / 3)
 
     persisted = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
-    metrics = {row["metric"]: row["value"] for row in persisted}
-    assert metrics["legal_move_rate"] == pytest.approx(2 / 3)
+    by_metric = {row["metric"]: row for row in persisted}
+    stored = by_metric["model_legal_move_rate"]
+    assert stored["numerator"] == 1
+    assert stored["denominator"] == 3
+    assert stored["direction"] == "higher_is_better"
+    assert '"actor": "model"' in stored["scope_json"]
+    assert stored["definition"]
+
+
+def test_text_prompt_eval_with_no_data_reports_unavailable_and_persists_nothing(
+    tmp_path: Path,
+):
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+
+    runner = LocalRunner()
+    output = runner.run(
+        conn, JobConfig(job_type="text.prompt_eval", params={}, workspace_id=workspace["id"])
+    )
+
+    for entry in output.payload["metrics"]:
+        assert entry["available"] is False
+        assert entry["value"] is None
+    assert list_eval_results(conn, modality="text", workspace_id=workspace["id"]) == []
 
 
 def test_text_reward_eval_sums_real_rewards(tmp_path: Path):

@@ -1,4 +1,5 @@
-"""SQLite access for the eval_results table. No business logic here."""
+"""SQLite access for the eval_results table. No business logic here;
+the caller owns the transaction."""
 
 import sqlite3
 from datetime import UTC, datetime
@@ -14,15 +15,42 @@ def insert_eval_result(
     value: float,
     workspace_id: str | None,
     source: str,
+    numerator: int | None = None,
+    denominator: int | None = None,
+    unit: str | None = None,
+    direction: str | None = None,
+    definition: str | None = None,
+    version: str | None = None,
+    scope_json: str | None = None,
+    note: str | None = None,
 ) -> sqlite3.Row:
     result_id = generate_id("eval")
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
         """
-        INSERT INTO eval_results (id, modality, metric, value, workspace_id, source, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO eval_results
+            (id, modality, metric, value, workspace_id, source, numerator,
+             denominator, unit, direction, definition, version, scope_json,
+             note, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (result_id, modality, metric, value, workspace_id, source, created_at),
+        (
+            result_id,
+            modality,
+            metric,
+            value,
+            workspace_id,
+            source,
+            numerator,
+            denominator,
+            unit,
+            direction,
+            definition,
+            version,
+            scope_json,
+            note,
+            created_at,
+        ),
     )
     row = conn.execute("SELECT * FROM eval_results WHERE id = ?", (result_id,)).fetchone()
     assert row is not None
@@ -37,6 +65,14 @@ def replace_eval_result(
     value: float,
     workspace_id: str | None,
     source: str,
+    numerator: int | None = None,
+    denominator: int | None = None,
+    unit: str | None = None,
+    direction: str | None = None,
+    definition: str | None = None,
+    version: str | None = None,
+    scope_json: str | None = None,
+    note: str | None = None,
 ) -> sqlite3.Row:
     """Insert an eval result, replacing any previous row for the same
     (modality, metric, workspace, source). Re-running an eval updates the
@@ -56,6 +92,14 @@ def replace_eval_result(
         value=value,
         workspace_id=workspace_id,
         source=source,
+        numerator=numerator,
+        denominator=denominator,
+        unit=unit,
+        direction=direction,
+        definition=definition,
+        version=version,
+        scope_json=scope_json,
+        note=note,
     )
 
 

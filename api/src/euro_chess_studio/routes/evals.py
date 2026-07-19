@@ -16,6 +16,16 @@ class EvalResultOut(BaseModel):
     value: float
     workspace_id: str | None
     source: str
+    # Provenance: computed rows carry sample counts and the metric
+    # definition; cached rows carry the fixture's note.
+    numerator: int | None = None
+    denominator: int | None = None
+    unit: str | None = None
+    direction: str | None = None
+    definition: str | None = None
+    version: str | None = None
+    scope_json: str | None = None
+    note: str | None = None
     created_at: str
 
 

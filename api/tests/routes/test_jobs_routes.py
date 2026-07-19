@@ -52,4 +52,12 @@ def test_post_job_text_eval_against_a_real_workspace(client: TestClient):
         "/jobs", json={"job_type": "text.prompt_eval", "workspace_id": workspace["id"]}
     )
     assert response.status_code == 200
-    assert response.json()["artifact"]["payload"]["legal_move_rate"] == 1.0
+    metrics = {
+        entry["metric"]: entry for entry in response.json()["artifact"]["payload"]["metrics"]
+    }
+    assert metrics["legal_move_rate"]["value"] == 1.0
+    assert metrics["legal_move_rate"]["numerator"] == 1
+    assert metrics["legal_move_rate"]["denominator"] == 1
+    # No model attempts yet: the model metrics are explicitly
+    # unavailable, not zero and not perfect.
+    assert metrics["model_legal_move_rate"]["available"] is False
