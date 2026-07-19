@@ -1,8 +1,9 @@
 # Workshop polish phase prompts
 
 These prompts turn the July 2026 workshop review into five implementation
-phases. Run them in order. Each phase gets its own branch, review, and explicit
-acceptance before the next phase starts.
+phases plus one supplemental deck-fallback phase. Run them in order. Each
+phase gets its own branch, review, and explicit acceptance before the next
+phase starts.
 
 | Phase | Branch | Main outcome | Review findings |
 | --- | --- | --- | --- |
@@ -10,6 +11,7 @@ acceptance before the next phase starts.
 | [2](p2-truthful-evaluation.md) | `phase-33-truthful-evaluation` | Chat Completions, model attempts, datasets, scenarios, and metrics mean what the UI says | 5-8 plus model-call correction |
 | [3](p3-learning-experience.md) | `phase-34-learning-experience` | Outcome-first demos expose the full adaptation loop inside a realistic 90-minute plan | 9-12 plus revised teaching order |
 | [4](p4-deck-identity-copy.md) | `phase-35-deck-identity-copy` | The deck has its own restrained visual language and the product copy matches Ramon's voice | 13-15 |
+| [4b](p4b-deck-model-fallbacks.md) | `phase-35b-deck-model-fallbacks` | The deck can compare cached or live Local/API outputs without depending on the whiteboard | Supplemental fallback |
 | [5](p5-release-readiness.md) | `phase-36-release-readiness` | Architecture, failure handling, automated checks, preflight, and rehearsal support a real room | 16-19 |
 
 ## How to use them
