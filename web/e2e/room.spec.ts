@@ -198,6 +198,11 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
   // Presenter moves to the presentation page and brings the room along.
   await presenter.click('[data-testid="page-tab-presentation"]');
   await presenter.click("text=Bring everyone to presenter view");
+  // Slide stepping only broadcasts while the client knows presenter
+  // mode is active; wait for that state to land before using Next.
+  await expect(presenter.locator('[data-presenter-mode="presenter"]')).toBeVisible({
+    timeout: 10_000,
+  });
 
   await attendee.page.waitForFunction(
     () => window.chessStudioEditor?.getCurrentPageId() === "page:presentation",
@@ -205,10 +210,22 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
     { timeout: 10_000 },
   );
 
-  // Prev/Next in presenter mode broadcasts the frame target. Let the
-  // 250ms zoom animation settle before treating the presenter's
-  // viewport as the reference.
+  // Prev/Next in presenter mode broadcasts the frame target.
   await presenter.click('[data-testid="slide-controls"] button:has-text("Next")');
+  // The broadcast is server-side truth; require it before checking
+  // that anyone followed.
+  await expect
+    .poll(
+      async () => {
+        const response = await presenter.request.get("/api/presenter");
+        const state = (await response.json()) as { target_frame_id: string | null };
+        return state.target_frame_id;
+      },
+      { timeout: 10_000 },
+    )
+    .not.toBeNull();
+  // Let the 250ms zoom animation settle before treating the
+  // presenter's viewport as the reference.
   await presenter.waitForTimeout(700);
   const presenterView = await presenter.evaluate(() =>
     window.chessStudioEditor?.getViewportPageBounds(),

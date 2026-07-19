@@ -10,7 +10,7 @@ import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { SlideControls } from "../components/tldraw/SlideControls";
-import { ApiError, createOrGetWorkspace, fetchHealth } from "../data/api";
+import { ApiError, createOrGetWorkspace, fetchHealth, fetchPresenterState } from "../data/api";
 import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
@@ -76,10 +76,18 @@ export function App() {
     if (!editor || !currentUser) return;
     let cancelled = false;
     createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG)
-      .then((workspace) => {
+      .then(async (workspace) => {
         if (cancelled) return;
         ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
-        navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
+        // While the presenter is driving the room, joining must not
+        // yank this client's camera to its workspace: the presenter
+        // target has already been (or is about to be) applied, and the
+        // revision that carried it will not repeat.
+        const state = await fetchPresenterState().catch(() => null);
+        if (cancelled) return;
+        if (state?.mode !== "presenter") {
+          navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
+        }
         setAttendeeRefreshToken((token) => token + 1);
       })
       .catch((error: unknown) => {
@@ -116,7 +124,11 @@ export function App() {
     <CurrentUserContext.Provider value={currentUser}>
       <PresenterContext.Provider value={{ locked, resetToken, isPresenter, presenterMode }}>
         <div className="app-shell">
-          <div className="status-badge" data-testid="backend-status">
+          <div
+            className="status-badge"
+            data-testid="backend-status"
+            data-presenter-mode={presenterMode}
+          >
             Backend: {status}
             <span data-testid="room-status" data-room-status={roomStatus}>
               {" "}

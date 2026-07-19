@@ -177,6 +177,15 @@ afterwards).
 
 ## Gotchas
 
+One race found by the e2e suite and fixed in App's join effect: a
+late joiner during an active presentation used to be pulled to the
+presenter's view by the first poll and then yanked back to their own
+workspace when the join flow's navigateToWorkspace resolved, after
+which the already-consumed revision never re-applied. The join effect
+now checks presenter state and skips its camera move while mode is
+"presenter". If remote navigation ever looks flaky again, start there.
+
+
 - bun.lock was edited by hand (offline environment, no registry).
   `bun install` accepted and normalized it; if you touch dependencies
   on a networked machine, just use bun's own resolver.
