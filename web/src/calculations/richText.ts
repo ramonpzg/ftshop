@@ -11,10 +11,12 @@ export interface RichTextDoc {
 export function richTextFromLines(text: string): RichTextDoc {
   return {
     type: "doc",
-    content: text.split("\n").map((line) =>
-      line.length > 0
-        ? { type: "paragraph" as const, content: [{ type: "text" as const, text: line }] }
-        : { type: "paragraph" as const },
-    ),
+    content: text
+      .split("\n")
+      .map((line) =>
+        line.length > 0
+          ? { type: "paragraph" as const, content: [{ type: "text" as const, text: line }] }
+          : { type: "paragraph" as const },
+      ),
   };
 }

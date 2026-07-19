@@ -7,7 +7,11 @@ import {
   downgradeFutureSchema,
   migrateCanvasDocument,
 } from "../../src/calculations/canvasMigrations";
-import { DECK_SHAPE_ID, modalityPanelShapeId, pageIdForSlug } from "../../src/calculations/canvasIds";
+import {
+  DECK_SHAPE_ID,
+  modalityPanelShapeId,
+  pageIdForSlug,
+} from "../../src/calculations/canvasIds";
 import { createRoomSchema, runtimeSchemaSequences } from "../../sync-server/schema";
 
 const SEQUENCES = runtimeSchemaSequences();
@@ -32,7 +36,10 @@ function expectValidRecords(snapshot: CanvasDocumentSnapshot) {
 function oldSnapshot(): CanvasDocumentSnapshot {
   const noteProps = {
     color: "violet",
-    richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "authored" }] }] },
+    richText: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "authored" }] }],
+    },
     size: "m",
     font: "draw",
     align: "middle",
@@ -46,7 +53,13 @@ function oldSnapshot(): CanvasDocumentSnapshot {
   };
   return {
     store: {
-      "document:document": { id: "document:document", typeName: "document", gridSize: 10, name: "", meta: {} },
+      "document:document": {
+        id: "document:document",
+        typeName: "document",
+        gridSize: 10,
+        name: "",
+        meta: {},
+      },
       [pageIdForSlug("presentation")]: {
         id: pageIdForSlug("presentation"),
         typeName: "page",
@@ -94,7 +107,14 @@ function oldSnapshot(): CanvasDocumentSnapshot {
         isLocked: false,
         opacity: 1,
         meta: {},
-        props: { w: 1240, h: 900, workspaceId: "ws1", userId: "user1", userName: "Ada", pageSlug: "chess-machine" },
+        props: {
+          w: 1240,
+          h: 900,
+          workspaceId: "ws1",
+          userId: "user1",
+          userName: "Ada",
+          pageSlug: "chess-machine",
+        },
       },
       "shape:mystery": {
         id: "shape:mystery",
@@ -130,7 +150,13 @@ describe("migrateCanvasDocument", () => {
     ]);
 
     // The two missing pages appear, seeded; the three existing ones stay.
-    for (const slug of ["presentation", "chess-machine", "painting-pieces", "board-sound", "real-world-video"]) {
+    for (const slug of [
+      "presentation",
+      "chess-machine",
+      "painting-pieces",
+      "board-sound",
+      "real-world-video",
+    ]) {
       expect(snapshot.store[pageIdForSlug(slug)]).toBeDefined();
     }
     // Panels appear even though the pages already have content.

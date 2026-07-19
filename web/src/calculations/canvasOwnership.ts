@@ -57,7 +57,11 @@ export function canCreateRecord(actor: CanvasActor, record: RecordLike): boolean
   return actorOwns(actor, record);
 }
 
-export function canChangeRecord(actor: CanvasActor, before: RecordLike, after: RecordLike): boolean {
+export function canChangeRecord(
+  actor: CanvasActor,
+  before: RecordLike,
+  after: RecordLike,
+): boolean {
   if (actor.isPresenter) return true;
   if (STRUCTURAL_TYPE_NAMES.has(before.typeName)) return false;
   // tldraw itself updates asset records (for example resolved video

@@ -22,10 +22,7 @@ import {
   ownerForNewShape,
 } from "../calculations/canvasOwnership";
 
-export function registerCanvasPermissions(
-  editor: Editor,
-  getActor: () => CanvasActor,
-): () => void {
+export function registerCanvasPermissions(editor: Editor, getActor: () => CanvasActor): () => void {
   const disposers = [
     editor.sideEffects.registerBeforeChangeHandler("shape", (prev, next, source) => {
       if (source !== "user") return next;

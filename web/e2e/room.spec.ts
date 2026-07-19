@@ -79,7 +79,10 @@ async function createNote(page: Page, id: string, x: number, y: number): Promise
 }
 
 function hasShape(page: Page, id: string) {
-  return page.evaluate((shapeId) => window.chessStudioEditor?.getShape(shapeId as never) !== undefined, id);
+  return page.evaluate(
+    (shapeId) => window.chessStudioEditor?.getShape(shapeId as never) !== undefined,
+    id,
+  );
 }
 
 test("two browsers edit concurrently, reload, and both edits remain", async ({ browser }) => {
