@@ -33,7 +33,7 @@ startup and is idempotent.
 | `just start-backend` / `just start-frontend` | Run just one side |
 | `just test` | Backend `pytest` + frontend `bun test` (fast, no real browser) |
 | `just test-backend` / `just test-frontend` | Run just one suite |
-| `just test-e2e` | Playwright smoke tests against real backend + frontend processes |
+| `just test-e2e` | Playwright smoke tests; currently requires `/opt/pw-browsers/chromium` |
 | `just lint` | `ruff check` + Biome lint |
 | `just typecheck` | `ty check` + `tsc --noEmit` |
 | `just format` | `ruff format` + Biome format |
@@ -237,6 +237,10 @@ how the tldraw canvas and backend state relate. In short:
   dev database. They exercise the same custom-shape
   double-click-to-edit interaction used throughout the app (see
   "Interacting with workspace shapes" below).
+- The current Playwright config hardcodes `/opt/pw-browsers/chromium`.
+  Portable browser discovery and setup are deferred to phase 36. On a
+  machine without that executable, `just test-e2e` fails before the
+  browser tests start.
 
 ## Interacting with workspace shapes
 

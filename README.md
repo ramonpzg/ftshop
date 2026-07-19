@@ -61,7 +61,7 @@ just start            Run API :8000 and web :5173
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just test             Run backend and frontend tests
-just test-e2e         Run Playwright smoke tests
+just test-e2e         Run Playwright smoke tests; see the limitation below
 just lint             Run Ruff and Biome
 just typecheck        Run ty and TypeScript checks
 just format           Format API and web code
@@ -82,6 +82,10 @@ Commit throughout a phase. Commits should be coherent, tested at the relevant
 scope, and written like a concise development log. Push the phase branch for
 review. A finished phase has no relevant untracked or uncommitted files and
 includes its `notes/ai/` handover and `notes/hu/` learning guide.
+
+The current Playwright configuration has a machine-specific Chromium path.
+Phase 36 owns the portable browser setup. Until then, `just test-e2e` only runs
+where `/opt/pw-browsers/chromium` exists.
 
 ## Documentation
 

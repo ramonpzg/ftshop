@@ -21,7 +21,7 @@ just start        # backend :8000 + frontend :5173
 just deck         # Slidev :3030
 just session-notebook # standalone JupyterLab notebook
 just test         # pytest + bun test
-just test-e2e     # playwright smoke tests (needs both servers down)
+just test-e2e     # Playwright; currently needs /opt/pw-browsers/chromium
 just lint         # ruff + biome
 just typecheck    # ty + tsc
 just format       # ruff format + biome format
