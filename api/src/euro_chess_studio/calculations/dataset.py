@@ -1,8 +1,19 @@
 """Pure functions that turn one applied move into the dataset row shapes
 described in the workshop: the same chess position, encoded the way each
 training approach actually consumes it.
+
+Every field in these rows is real: the move class comes from the
+documented vocabulary in move_vocab.py, and the shaped reward is called
+move_reward because that is what it is. See docs/datasets.md for each
+format's input, target, when the target becomes known, and its training
+objective.
 """
 
+from euro_chess_studio.calculations.move_vocab import (
+    MOVE_VOCABULARY,
+    VOCABULARY_SIZE,
+    move_class_index,
+)
 from euro_chess_studio.calculations.reward import compute_reward
 from euro_chess_studio.chess.board import MoveResult
 
@@ -63,22 +74,30 @@ def build_dataset_rows(
                 "note": (
                     "The serious supervised path encodes the board as a stack of "
                     "8x8 binary planes, one per piece type and color, not as a FEN "
-                    "string. This row shows the shape, not the full tensor."
+                    "string. This row shows the tensor's shape, not its values; the "
+                    "class index is real and invertible via the vocabulary formula."
                 ),
                 "tensor_shape": [8, 8, 12],
-                "target_move_class": move.uci,
+                "move_vocabulary": MOVE_VOCABULARY,
+                "vocabulary_size": VOCABULARY_SIZE,
+                "target_move_class": move_class_index(move.uci),
+                "target_uci": move.uci,
             },
         },
         {
-            "shape": "policy_value_to_move",
+            "shape": "policy_move_reward",
             "payload": {
                 "note": (
-                    "The serious engine path predicts a policy (a distribution over "
-                    "legal moves) and a value (how good the position is). This row "
-                    "shows a one-hot illustration, not a trained network's output."
+                    "The policy target is one-hot on the move actually played; a "
+                    "search-derived distribution needs an engine this app does not "
+                    "run. move_reward is the immediate shaped reward for this move, "
+                    "not a position value: judging who is winning needs the final "
+                    "game outcome or an engine evaluation, and neither is invented "
+                    "here. Works for unfinished games because nothing in the row "
+                    "waits on the result."
                 ),
                 "policy_target": {u: (1.0 if u == move.uci else 0.0) for u in legal_moves_before},
-                "value_target": max(-1.0, min(1.0, reward / 10)),
+                "move_reward": reward,
             },
         },
         {

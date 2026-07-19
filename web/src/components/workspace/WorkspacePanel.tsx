@@ -599,7 +599,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
           <Section
             id="dataset"
             title="Dataset"
-            tip="Every move becomes training rows: PGN prefix, FEN to move, legal-moves context, board tensor, policy and value, RL trajectory."
+            tip="Every move becomes training rows: PGN prefix, FEN to move, legal-moves context, board tensor, policy and move reward, RL trajectory."
             icon={<Database size={12} weight="bold" />}
             isEditing={isEditing}
           >

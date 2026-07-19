@@ -194,7 +194,7 @@ def test_full_export_carries_every_shape_with_provenance(
         "fen_to_move",
         "fen_legal_moves_to_move",
         "board_tensor_to_move_class",
-        "policy_value_to_move",
+        "policy_move_reward",
         "rl_trajectory",
     }
     assert all(line["workspace_id"] == workspace_id for line in lines)
