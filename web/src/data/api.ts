@@ -42,6 +42,24 @@ export function fetchHealth(): Promise<HealthStatus> {
   return request<HealthStatus>("/health");
 }
 
+export interface RoomHealth {
+  status: string;
+  /** The sync room's persistence state toward the backend disk:
+   * idle (nothing to save yet), saving, saved, or error (retrying). */
+  persist: "idle" | "saving" | "saved" | "error";
+  sessions: number;
+}
+
+/** The sync server's health endpoint. Not under /api: the room is its
+ * own process, reached through the dev server's /sync proxy. */
+export async function fetchRoomHealth(): Promise<RoomHealth> {
+  const response = await fetch("/sync/health");
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<RoomHealth>;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -254,22 +272,44 @@ export function selectSnippet(workspaceId: string, snippetId: string): Promise<W
   });
 }
 
+export interface PresenterTargetBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface PresenterState {
   mode: string;
   locked: boolean;
   active_page_slug: string | null;
   focused_user_id: string | null;
   updated_at: string;
+  /** Monotonic; bumped by the backend on every presenter-state change.
+   * Clients order camera updates on this alone. */
+  revision: number;
+  target_frame_id: string | null;
+  target_bounds: PresenterTargetBounds | null;
 }
 
-export function fetchPresenterState(): Promise<PresenterState> {
-  return request<PresenterState>("/presenter");
+export interface PresenterTarget {
+  pageSlug: string;
+  frameId?: string;
+  bounds?: PresenterTargetBounds;
 }
 
-export function bringToPresenterView(pageSlug: string): Promise<PresenterState> {
+export function fetchPresenterState(signal?: AbortSignal): Promise<PresenterState> {
+  return request<PresenterState>("/presenter", { signal });
+}
+
+export function bringToPresenterView(target: PresenterTarget): Promise<PresenterState> {
   return request<PresenterState>("/presenter/bring-to-presenter-view", {
     method: "POST",
-    body: JSON.stringify({ page_slug: pageSlug }),
+    body: JSON.stringify({
+      page_slug: target.pageSlug,
+      frame_id: target.frameId ?? null,
+      bounds: target.bounds ?? null,
+    }),
   });
 }
 

@@ -11,9 +11,18 @@ const e2eAssetsDir = path.join(os.tmpdir(), `euro-chess-studio-e2e-${e2eStamp}-a
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  timeout: 60_000,
   fullyParallel: false,
   workers: 1,
+  // Two projects, run in order. "app" drives the shared webServer stack
+  // below. "durability" boots and restarts its own stack on isolated
+  // ports (owned child processes, nothing shared), so it can kill
+  // services without touching this stack or anything else running on
+  // the machine.
+  projects: [
+    { name: "app", testIgnore: /durability\.spec\.ts/ },
+    { name: "durability", testMatch: /durability\.spec\.ts/ },
+  ],
   webServer: [
     {
       command: "uv run uvicorn euro_chess_studio.main:app --port 8000",
@@ -28,6 +37,18 @@ export default defineConfig({
       },
     },
     {
+      // The sync room. It waits for the backend itself (retrying
+      // GET /canvas), so parallel startup is safe.
+      command: "bun sync-server/index.ts",
+      url: "http://localhost:8010/health",
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        CHESS_STUDIO_API_URL: "http://localhost:8000",
+        CHESS_STUDIO_SYNC_PORT: "8010",
+      },
+    },
+    {
       command: "bun run dev",
       url: "http://localhost:5173",
       reuseExistingServer: false,
@@ -37,7 +58,11 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5173",
     launchOptions: {
-      executablePath: "/opt/pw-browsers/chromium",
+      // Playwright's own browser discovery by default. The previous
+      // hardcoded /opt/pw-browsers/chromium only existed on one
+      // machine; that machine can still opt in through this env var.
+      // The full release command surface is phase 36's job.
+      executablePath: process.env.CHESS_STUDIO_CHROMIUM ?? undefined,
     },
   },
 });

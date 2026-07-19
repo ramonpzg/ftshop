@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "tldraw";
-import type { SaveStatus } from "../actions/canvasSaveScheduler";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import type { JoinResult } from "../actions/joinWorkshop";
 import { PRIMARY_WORKSPACE_PAGE_SLUG } from "../actions/joinWorkshop";
@@ -11,20 +10,20 @@ import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { SlideControls } from "../components/tldraw/SlideControls";
-import { ApiError, createOrGetWorkspace, fetchHealth } from "../data/api";
+import { resolveJoinNavigation } from "../actions/joinNavigation";
+import { ApiError, createOrGetWorkspace, fetchHealth, fetchRoomHealth } from "../data/api";
 import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
+import {
+  type CanvasPersistStatus,
+  PERSIST_LABELS,
+  ROOM_STATUS_LABELS,
+  type RoomStatus,
+} from "../lib/roomStatus";
 import "./App.css";
 
 type BackendStatus = "checking" | "connected" | "unreachable";
-
-const SAVE_LABELS: Record<SaveStatus, string> = {
-  idle: "",
-  saving: "Canvas: saving",
-  saved: "Canvas: saved",
-  error: "Canvas: save failed",
-};
 
 // The presenter opens the app with ?presenter=1. This gates the presenter
 // panel and exempts that client from remote camera moves and the editing
@@ -35,15 +34,57 @@ function detectPresenter(): boolean {
 
 export function App() {
   const [status, setStatus] = useState<BackendStatus>("checking");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>("connecting");
+  const [persistStatus, setPersistStatus] = useState<CanvasPersistStatus | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [currentUser, setCurrentUser] = useState<LocalUser | null>(() => loadLocalUser());
   const [attendeeRefreshToken, setAttendeeRefreshToken] = useState(0);
   const [locked, setLocked] = useState(false);
   const [resetToken, setResetToken] = useState(0);
   const [isPresenter] = useState(detectPresenter);
+  const [presenterMode, setPresenterMode] = useState("idle");
+  const [notice, setNotice] = useState<string | null>(null);
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
+
+  // Concise, transient message when a remote navigation degrades (for
+  // example the presenter's frame was deleted).
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // Deliberate test-and-debug hook: the Playwright suite drives real
+  // multi-client scenarios through the live editor.
+  useEffect(() => {
+    (window as unknown as { chessStudioEditor?: Editor | null }).chessStudioEditor = editor;
+  }, [editor]);
+
+  // "Room: live" only says the WebSocket is up. Durability is the sync
+  // server's persistence toward the backend disk, polled separately so
+  // a dying backend shows up as "save failed, retrying" instead of
+  // hiding behind a healthy-looking room.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      fetchRoomHealth()
+        .then((health) => {
+          if (cancelled) return;
+          setPersistStatus(health.persist in PERSIST_LABELS ? health.persist : null);
+        })
+        .catch(() => {
+          // Sync server unreachable; the room status badge covers that.
+          if (!cancelled) setPersistStatus(null);
+        });
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,12 +107,22 @@ export function App() {
   useEffect(() => {
     if (!editor || !currentUser) return;
     let cancelled = false;
+    const navigationAbort = new AbortController();
     createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG)
-      .then((workspace) => {
+      .then(async (workspace) => {
         if (cancelled) return;
         ensureWorkspaceShape(editor, workspace, currentUser.name, PRIMARY_WORKSPACE_PAGE_SLUG);
-        navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
         setAttendeeRefreshToken((token) => token + 1);
+        // Retries until presenter mode is actually known: a transient
+        // backend failure must neither move the camera unsafely nor
+        // strand an idle-room attendee on the wrong page. The abort
+        // wiring ends the loop and any in-flight request when this
+        // effect is torn down.
+        const navigation = await resolveJoinNavigation({ signal: navigationAbort.signal });
+        if (cancelled) return;
+        if (navigation === "workspace") {
+          navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
+        }
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -82,6 +133,7 @@ export function App() {
       });
     return () => {
       cancelled = true;
+      navigationAbort.abort();
     };
   }, [editor, currentUser]);
 
@@ -93,6 +145,8 @@ export function App() {
       isPresenter,
       getCurrentUserId: () => currentUserRef.current?.id ?? null,
       onLockedChange: setLocked,
+      onStateChange: (state) => setPresenterMode(state.mode),
+      onNotice: setNotice,
     });
   }, [editor, isPresenter]);
 
@@ -103,24 +157,41 @@ export function App() {
 
   return (
     <CurrentUserContext.Provider value={currentUser}>
-      <PresenterContext.Provider value={{ locked, resetToken, isPresenter }}>
+      <PresenterContext.Provider
+        value={{ locked, resetToken, isPresenter, presenterMode, reportNotice: setNotice }}
+      >
         <div className="app-shell">
-          <div className="status-badge" data-testid="backend-status">
+          <div
+            className="status-badge"
+            data-testid="backend-status"
+            data-presenter-mode={presenterMode}
+          >
             Backend: {status}
-            {saveStatus !== "idle" && (
-              <span data-testid="save-status" data-save-status={saveStatus}>
+            <span data-testid="room-status" data-room-status={roomStatus}>
+              {" "}
+              | {ROOM_STATUS_LABELS[roomStatus]}
+            </span>
+            {persistStatus !== null && (
+              <span data-testid="persist-status" data-persist-status={persistStatus}>
                 {" "}
-                | {SAVE_LABELS[saveStatus]}
+                | {PERSIST_LABELS[persistStatus]}
+              </span>
+            )}
+            {notice && (
+              <span data-testid="presenter-notice" className="status-notice">
+                {" "}
+                | {notice}
               </span>
             )}
           </div>
-          <ChessStudioCanvas onEditorMount={setEditor} onSaveStatusChange={setSaveStatus} />
+          <ChessStudioCanvas onEditorMount={setEditor} onRoomStatusChange={setRoomStatus} />
           {isPresenter && (
             <PresenterPanel
               editor={editor}
               currentUser={currentUser}
               locked={locked}
               onLockedChange={setLocked}
+              onModeChange={setPresenterMode}
               onPageReset={() => setResetToken((token) => token + 1)}
             />
           )}
@@ -130,7 +201,7 @@ export function App() {
             refreshToken={attendeeRefreshToken}
           />
           <SlideControls editor={editor} />
-          {!currentUser && <JoinForm editor={editor} onJoined={handleJoined} />}
+          {!currentUser && <JoinForm ready={editor !== null} onJoined={handleJoined} />}
         </div>
       </PresenterContext.Provider>
     </CurrentUserContext.Provider>

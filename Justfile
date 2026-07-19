@@ -72,11 +72,20 @@ start:
     set -euo pipefail
     trap 'kill 0' EXIT
     (cd api && uv run uvicorn euro_chess_studio.main:app --reload --port 8000) &
+    (cd web && bun run sync-server) &
     (cd web && bun run dev) &
-    wait
+    # First exit takes the stack down: a room without its backend, or a
+    # frontend without its room, is worse than a visible failure. The
+    # complete release command surface is phase 36's item.
+    wait -n
 
 start-backend:
     cd api && uv run uvicorn euro_chess_studio.main:app --reload --port 8000
+
+# The canvas sync room on port 8010. Loads the snapshot from the backend,
+# runs canvas migrations, and persists every change back through it.
+start-sync:
+    cd web && bun run sync-server
 
 # Fake OpenAI endpoint with configurable latency. Point the backend at
 # it: OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:9999 just start-backend
@@ -94,6 +103,7 @@ start-frontend:
 test:
     cd api && uv run pytest
     cd web && bun test
+    cd deck && bun test
 
 test-backend:
     cd api && uv run pytest

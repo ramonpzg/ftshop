@@ -3,17 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { JoinResult } from "../../src/actions/joinWorkshop";
 import { JoinForm } from "../../src/components/JoinForm";
 
-function fakeEditor() {
-  return {
-    getShape: mock(() => undefined),
-    createShape: mock(() => {}),
-    updateShape: mock(() => {}),
-    setCurrentPage: mock(() => {}),
-    getShapePageBounds: mock(() => ({ x: 0, y: 0, w: 900, h: 560 })),
-    zoomToBounds: mock(() => {}),
-  };
-}
-
 function routedFetch() {
   return mock(async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -46,21 +35,20 @@ afterEach(() => {
 });
 
 describe("JoinForm", () => {
-  test("disables submit until the canvas has mounted", () => {
-    render(<JoinForm editor={null} onJoined={() => {}} />);
+  test("disables submit until the room has connected", () => {
+    render(<JoinForm ready={false} onJoined={() => {}} />);
     expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
   });
 
   test("disables submit until a name is entered", () => {
-    render(<JoinForm editor={fakeEditor() as never} onJoined={() => {}} />);
+    render(<JoinForm ready onJoined={() => {}} />);
     expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
   });
 
-  test("joins and calls onJoined with the result", async () => {
+  test("joins, saves the local user, and calls onJoined with the result", async () => {
     globalThis.fetch = routedFetch();
     const onJoined = mock((_result: JoinResult) => {});
-    const editor = fakeEditor();
-    render(<JoinForm editor={editor as never} onJoined={onJoined} />);
+    render(<JoinForm ready onJoined={onJoined} />);
 
     fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ada" } });
     fireEvent.click(screen.getByRole("button"));
@@ -70,7 +58,9 @@ describe("JoinForm", () => {
     });
     const [result] = onJoined.mock.calls[0];
     expect(result.user.name).toBe("Ada");
-    expect(editor.createShape).toHaveBeenCalledTimes(1);
-    expect(editor.setCurrentPage).toHaveBeenCalledTimes(1);
+    expect(result.workspace.shape_id).toBe("shape:workspace-user_1-chess-machine");
+    // The shape itself is created after the room reconnects with the new
+    // identity, not here; joining only registers and remembers the user.
+    expect(localStorage.getItem("euro-chess-studio:current-user")).toContain("user_1");
   });
 });

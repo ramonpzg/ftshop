@@ -32,7 +32,10 @@ live before anyone else joins.
 Presenter actions reach attendee browsers within a few seconds; each
 client polls presenter state. Lock editing makes attendee canvases
 read-only. Bring everyone to presenter view pulls their cameras to the
-page you are on.
+exact region you are looking at, and Prev / Next keeps them on your
+slide frame while presenter mode is active. Someone joining late lands
+on your current view, not a blank page. Send users to their workspace
+releases their cameras and returns each to their own board.
 
 The presenter panel's Games section is your room monitor: who is
 playing, how much clock they have, who finished and how. When the
@@ -43,9 +46,13 @@ click each, no shell.
 
 Start the deck too: `just deck` (port 3030). The Presentation page
 embeds it; the Open link on that panel gives you the deck in its own
-tab with presenter mode and speaker notes. The LiveRoom slide needs
-the backend up. Its development-origin correction is part of phase 32;
-until then, verify it manually rather than assuming the panel is live.
+tab with presenter mode and speaker notes. The LiveRoom slide talks to
+the backend through the deck's own /api proxy, so it works from port
+3030 and from any attendee machine that can reach yours. Backend down
+shows a terse offline hint; a drop mid-talk keeps the last numbers
+visible with a reconnecting note. Attendees viewing the embedded deck
+panel get your machine's address automatically when the stored URL
+points at localhost.
 
 The week before: run the load test once on the actual laptop
 (`just mock-llm`, backend pointed at it, `just load-test 40`). It
@@ -60,8 +67,8 @@ Land here by default. The page carries an eleven-frame slide deck
 seeded from the session plan; fill the frames with your content and
 assets before the session. Use the Prev / Next controls (bottom right)
 or PageUp / PageDown from a clicker to step through frames. Everything
-you author is saved to the backend as you edit; the badge top left
-should read "Canvas: saved".
+you author lives in the shared room and persists through the backend
+as you edit; the badge top left should read "Room: live".
 
 Tell attendees to open the app and enter their name now, so workspace
 creation isn't blocking the room later.
@@ -192,9 +199,13 @@ before Q&A or a second run.
   backend (attendees will need to rejoin, that's a full data wipe,
   not a per-page reset). Your authored slides are untouched: the canvas
   lives in `data/canvas/snapshot.json`, not in the database.
-- Deck damaged mid-session (accidental mass delete): stop the server,
-  copy `data/canvas/snapshot.prev.json` over `snapshot.json`, start
-  again. That backup holds the state from just before the last save.
+- Deck damaged mid-session: attendees cannot delete or restructure
+  your authored content (ownership rules block it in their clients),
+  so this now takes the presenter doing it. If it happens, stop the
+  whole stack including the sync server, copy
+  `data/canvas/snapshot.prev.json` over `snapshot.json`, start again.
+  The room holds the document in memory, so restoring the file while
+  the sync server runs would just get overwritten.
 - App unusable or the network is unavailable: `just session-notebook`
   opens `notebooks/full-session.ipynb` in JupyterLab. It is a separate
   pragmatic asset, not an iframe. Optional live cells still depend on

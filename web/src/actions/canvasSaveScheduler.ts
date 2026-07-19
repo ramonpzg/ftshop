@@ -5,8 +5,11 @@ export type SaveStatus = "idle" | "saving" | "saved" | "error";
 export interface CanvasSaveScheduler {
   /** Call whenever the document changed. Debounces the actual save. */
   markDirty(): void;
-  /** Save now if dirty, and wait for any in-flight save. For unload handlers. */
-  flush(): Promise<void>;
+  /** Save now if dirty, and wait for any in-flight save. Resolves true
+   * when nothing dirty remains; false when a save failed and unsaved
+   * changes are still pending. Callers that shut down afterwards must
+   * treat false as data loss about to happen. */
+  flush(): Promise<boolean>;
   status(): SaveStatus;
   dispose(): void;
 }
@@ -95,6 +98,7 @@ export function createSaveScheduler(options: SchedulerOptions): CanvasSaveSchedu
         if (inFlight) await inFlight;
         if (currentStatus === "error") break;
       }
+      return !dirty;
     },
     status() {
       return currentStatus;

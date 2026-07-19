@@ -102,7 +102,10 @@ CREATE TABLE IF NOT EXISTS presenter_state (
     locked INTEGER NOT NULL,
     active_page_slug TEXT,
     focused_user_id TEXT REFERENCES users(id),
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    target_frame_id TEXT,
+    target_bounds_json TEXT
 );
 """
 
@@ -137,4 +140,11 @@ def init_db(conn: sqlite3.Connection) -> None:
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")
+    presenter_columns = {row[1] for row in conn.execute("PRAGMA table_info(presenter_state)")}
+    if "revision" not in presenter_columns:
+        conn.execute("ALTER TABLE presenter_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+    if "target_frame_id" not in presenter_columns:
+        conn.execute("ALTER TABLE presenter_state ADD COLUMN target_frame_id TEXT")
+    if "target_bounds_json" not in presenter_columns:
+        conn.execute("ALTER TABLE presenter_state ADD COLUMN target_bounds_json TEXT")
     conn.commit()

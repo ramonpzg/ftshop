@@ -25,39 +25,91 @@ other. `just start` runs both.
   `data/localUser.ts` (localStorage for the joined user's identity).
 - `actions/`, things that mutate state or trigger behavior:
   `joinWorkshop`, `ensureWorkspaceShape`, `navigateToWorkspace`,
-  `seedTldrawDocument`. These are the only places that touch a live
-  tldraw `Editor` instance to create or move shapes.
+  `presenterSync`, `presenterNavigation`, `registerCanvasPermissions`.
+  These are the only places that touch a live tldraw `Editor` instance
+  to create, move, or guard shapes. Document seeding is no longer a
+  client action; the sync server's migrations own it.
 - `components/`, React components. They call actions and render data;
   they don't contain calculation logic themselves.
 
-## The tldraw canvas vs. backend state
+## The shared canvas: a sync room
 
-The canvas document (pages, shapes, authored slides) is persisted
-through the backend. On mount the frontend fetches the saved snapshot
-from `GET /canvas`, loads it into a store it creates itself, and then
-saves every document change back with a debounced `PUT /canvas`. The
-snapshot lives at `data/canvas/snapshot.json`, written atomically with
-a one-step rolling backup. Assets dropped onto the canvas (images,
-video, audio) upload through a `TLAssetStore` to `POST /canvas/assets`
-and land in `data/assets/`.
+The canvas document (pages, shapes, authored slides) is one shared
+multiplayer room, hosted by a small Bun process (`web/sync-server/`)
+running tldraw's own `TLSocketRoom` from `@tldraw/sync-core`. Clients
+connect with `@tldraw/sync`'s `useSync` over a WebSocket at `/sync`,
+proxied by the Vite dev server so every browser, localhost or LAN,
+talks to the app's origin. Conflict resolution is per record inside
+tldraw's sync engine (push/pull/rebase); two browsers editing at once
+merge instead of overwriting each other. Clients hold no local
+persistence: reload and reconnect always resume from the server
+document, and offline edits rebase on top of it when the socket comes
+back.
+
+Durable state still belongs to the backend. At boot the sync server
+loads `GET /canvas`, runs the canvas migrations (below), and refuses
+to open the room if either fails, leaving the stored snapshot alone.
+Every document change persists back through a debounced `PUT /canvas`.
+The snapshot lives at `data/canvas/snapshot.json` in the same
+`{store, schema}` format as before, written atomically with a one-step
+rolling backup. Assets dropped onto the canvas (images, video, audio)
+upload through a `TLAssetStore` to `POST /canvas/assets` and land in
+`data/assets/`.
 
 Files, not SQLite, on purpose: `just reset-db` wipes workshop state
 between rehearsals without touching the deck, `just reset-canvas`
-does the reverse, and both the snapshot and the assets can be
-committed to git alongside the code. Because the source of truth is on
-the server, the presenter's authored content survives dev-server
-restarts and browser or machine changes, and attendees connecting over
-the venue network see the same document.
+does the reverse (stop the stack first: the room holds the document in
+memory), and both the snapshot and the assets can be committed to git
+alongside the code.
 
-If the initial snapshot fetch fails, the canvas refuses to mount and
-saving stays disabled, so a freshly seeded fallback document can never
-overwrite the real one. The status badge shows saving / saved / save
-failed at all times.
+The status badge separates liveness from durability: the room state
+(connecting, live, offline retrying, sync failed) comes from the
+WebSocket, and the canvas persistence state (saving, saved, save
+failed retrying) is polled from the sync server's health endpoint, so
+a dying backend is visible even while the room itself stays up. Stale
+and conflicted are not states this design can produce, because a
+reconnecting client rebases its changes instead of uploading a whole
+stale document.
 
-The backend also owns everything that needs to survive a canvas reset
-or be shared across a real multi-client future: users, workspaces,
-moves, dataset rows, job configs, artifacts, eval results, presenter
-state.
+The backend also owns everything that must survive a canvas reset:
+users, workspaces, moves, dataset rows, job configs, artifacts, eval
+results, presenter state.
+
+## Canvas ownership
+
+Every page and shape carries its owner in `meta.owner`; no rule is
+inferred from colors or labels. The presenter owns workshop structure
+(pages, seeded content, slide frames, the deck and modality panels; a
+record with no owner counts as presenter-owned). An attendee owns
+their workspace shape and whatever they draw. The pure rules live in
+`web/src/calculations/canvasOwnership.ts`; every client enforces them
+on its own local changes through tldraw store side effects
+(`registerCanvasPermissions`), so a normal attendee client cannot
+delete or restructure authored content or another attendee's work.
+At the socket, sessions that never identified a joined user connect
+read-only. There is no authentication in v0: a hand-rolled hostile
+client is out of scope and documented as such, unchanged from the
+previous release.
+
+## Canvas migrations
+
+The document records its workshop version in the document record's
+meta. Ordered, idempotent migrations
+(`web/src/calculations/canvasMigrations.ts`) run on the sync server at
+room load: ensure the five pages, ensure modality panels even on pages
+that already have content, ensure the deck panel, stamp ownership.
+Running twice is a no-op; legacy shape types that are still registered
+(the notebook panel) pass through untouched; a thrown migration aborts
+the room instead of overwriting the last valid snapshot. Documents the
+runtime cannot represent are refused outright rather than half-loaded:
+record or shape types absent from the schema, workshop versions above
+the runtime's, and any schema sequence the runtime does not know all
+fail with an actionable error while the disk snapshot stays intact. A
+compatibility pre-step down-converts the three known tldraw 5.2.2
+schema sequences (the runtime is pinned at 5.1.1). After migration and
+before the room opens, every record runs through tldraw's own migrator
+and the real validators (sync-server/schema.ts), so a malformed record
+of a known type is caught at boot instead of reaching clients.
 
 The two are linked by one convention: a workspace's tldraw shape id is
 generated identically on both sides
@@ -89,7 +141,10 @@ so tldraw's own canvas layer handles selection and dragging normally.
   of.
 - `DeckShapeUtil`, the Slidev iframe on the presentation page. The
   editable URL is browser-local so a presenter can point it at the
-  machine hosting the deck.
+  machine hosting the deck; a localhost URL viewed from a LAN machine
+  is rewritten at render time to the host the app was opened on
+  (`calculations/deckUrl.ts`), so attendees see the presenter's deck
+  rather than their own missing one.
 - `NotebookShapeUtil`, compatibility support for old snapshots. New
   canvases do not seed it. It renders a standalone-Jupyter handoff
   rather than an iframe and can be removed after old snapshots no
@@ -140,19 +195,26 @@ consistency, and so on). Every cached fixture carries a `note`
 explaining why it's illustrative. The eval panel renders whatever the
 API returns; no component hardcodes a metric value.
 
-## Collaborative sync readiness
+## Presenter navigation
 
-v0 is local single-user, but the domain model doesn't assume it:
-- Every workspace has an explicit `user_id` owner, checked client-side
-  (`CurrentUserContext`) to style someone else's workspace read-only.
-  This is **not** an enforcement boundary, v0 has no auth, so it's
-  purely a UI affordance modeling what a sync-aware permissions layer
-  would need to check server-side later.
-- Presenter state (`presenter_state` table) is a single source of
-  truth already separate from any one client's local state, ready to
-  be broadcast over a sync channel instead of just polled.
-- The tldraw canvas is a swappable persistence layer: today the app
-  creates its own store, loads the server snapshot, and saves changes
-  back over HTTP. tldraw sync replaces exactly that store-creation
-  and save loop with a synced store; shapes, actions, and components
-  stay untouched. The asset store is already the shape sync expects.
+Presenter state carries an explicit navigation target: page slug,
+optional frame id, camera bounds captured at click time, and a
+monotonically increasing revision bumped by the backend on every
+presenter-state change. Clients poll and order on the revision alone:
+the first completed poll applies the current target (late joiners land
+where the room is), afterwards only strictly newer revisions apply, so
+repeated or slow polls can never move a camera backwards. Target
+resolution is a pure calculation (`calculations/presenterTarget.ts`):
+frame bounds first, captured bounds if the frame is gone, page fit
+with a concise notice after that. The presenter's own camera is never
+driven remotely.
+
+## Network shape
+
+Three processes on the workshop host: FastAPI (8000), the sync room
+(8010), Vite (5173), plus Slidev (3030) when the deck runs. The two
+dev servers bind the LAN and proxy everything a browser needs:
+`/api` and `/sync` on 5173, `/api` on 3030. Browsers only ever talk to
+the origin they loaded from; backend CORS lists just the documented
+localhost development origins because proxied requests are
+server-to-server, where CORS does not apply.

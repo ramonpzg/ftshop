@@ -1,6 +1,6 @@
 import type { Editor, TLShapeId } from "tldraw";
 import type { Workspace } from "../data/api";
-import { pageIdForSlug } from "./seedTldrawDocument";
+import { pageIdForSlug } from "../lib/tldrawIds";
 
 /** Switches to a workspace's page and centers the camera on its shape.
  * Zoom caps at 100% so a large monitor doesn't blow the panel up. */

@@ -14,9 +14,12 @@ just install
 just start
 ```
 
-`just start` runs the backend (`uvicorn`, port 8000) and frontend
-(`vite`, port 5173) together and stops both on Ctrl-C. Open
-http://localhost:5173.
+`just start` runs the backend (`uvicorn`, port 8000), the canvas sync
+room (Bun, port 8010), and the frontend (`vite`, port 5173) together
+and stops all three on Ctrl-C. Open http://localhost:5173. Attendees
+on the venue network use the Network URL Vite prints; the dev server
+proxies `/api` and `/sync` to the local backend and room, so nothing
+else needs to be reachable from other machines.
 
 On backend startup the app initializes `euro_chess_studio.db` at the
 repo root, seeds the five pages, and seeds the cached illustrative eval
@@ -29,11 +32,11 @@ startup and is idempotent.
 | Command | What it does |
 |---|---|
 | `just install` | Install frontend and backend dependencies |
-| `just start` | Run backend + frontend together |
-| `just start-backend` / `just start-frontend` | Run just one side |
-| `just test` | Backend `pytest` + frontend `bun test` (fast, no real browser) |
+| `just start` | Run backend + sync room + frontend together |
+| `just start-backend` / `just start-frontend` / `just start-sync` | Run just one piece |
+| `just test` | Backend `pytest` + web and deck `bun test` (fast, no real browser) |
 | `just test-backend` / `just test-frontend` | Run just one suite |
-| `just test-e2e` | Playwright smoke tests; currently requires `/opt/pw-browsers/chromium` |
+| `just test-e2e` | Playwright multi-client suite; uses Playwright's own browser cache, `CHESS_STUDIO_CHROMIUM` overrides the executable |
 | `just lint` | `ruff check` + Biome lint |
 | `just typecheck` | `ty check` + `tsc --noEmit` |
 | `just format` | `ruff format` + Biome format |
@@ -50,10 +53,23 @@ startup and is idempotent.
 clean demo state without restarting the backend. It never touches the
 canvas: workshop state and authored slides reset independently.
 
-## Canvas persistence
+## The shared room and canvas persistence
 
-The tldraw document is not stored in the browser. It loads from the
-backend on mount and saves back on every change, debounced. On disk:
+The tldraw document is one multiplayer room hosted by the sync server
+(`web/sync-server/`, tldraw's TLSocketRoom). Browsers connect over a
+WebSocket at `/sync` and edit the same document; conflicts resolve per
+record, so concurrent attendees merge instead of overwriting each
+other. Reload and reconnect always resume from the server document.
+Nothing is persisted in the browser.
+
+Ownership is enforced in every client: attendees can edit their own
+workspace and drawings, and cannot delete or restructure the
+presenter's pages, frames, notes, or panels. The presenter client
+(?presenter=1) can edit everything. Before joining, a session is
+read-only at the socket.
+
+The sync server loads the document from the backend at boot, runs the
+canvas migrations, and persists every change back, debounced. On disk:
 
 - `data/canvas/snapshot.json` is the document. Commit it to version
   your slide deck. `snapshot.prev.json` is an automatic one-step
@@ -61,11 +77,21 @@ backend on mount and saves back on every change, debounced. On disk:
 - `data/assets/` holds files dropped onto the canvas (images, video,
   audio). Commit the ones you want to keep.
 
-Stop the server, come back tomorrow, switch browsers, or serve the app
-over the venue network: the deck is the same, because the file is the
-source of truth. The status badge (top left) shows saving / saved /
-save failed at all times. If the badge says save failed, the backend is
-down; edits keep retrying until it comes back.
+Stop the stack, come back tomorrow, switch browsers, or serve the app
+over the venue network: the deck is the same, because the server owns
+the truth. The status badge (top left) shows two separate facts. Room
+state: connecting, live, offline (retrying), sync failed; stale and
+conflicted cannot occur under the sync engine's rebase model. Canvas
+persistence, polled from the sync server: saving, saved, or save
+failed (retrying). "Room: live" only means the WebSocket is up; if the
+backend dies, the room keeps serving clients while the badge reads
+"Canvas: save failed, retrying" until disk writes succeed again. A
+sync server asked to shut down with unsaved changes retries briefly,
+then exits nonzero and says so.
+
+`just reset-canvas` deletes the snapshot files. Run it with the stack
+stopped: the room holds the document in memory and would immediately
+persist it right back.
 
 ## Environment variables
 
@@ -184,8 +210,13 @@ The deck's content plan, slide by slide, with image prompts and
 component notes, is `docs/deck-plan.md`. Slides live in
 `deck/slides.md`; the Vue components (the live room dashboard, the
 dataset shape cycler, the reward meter, the modality grid) are in
-`deck/components/`. LiveRoom talks to the backend at localhost:8000
-and shows a terse offline hint when it is down.
+`deck/components/`. LiveRoom talks to the backend through the deck's
+own `/api` proxy (`deck/vite.config.ts`), so it works from port 3030
+and from LAN machines. Backend down before any data shows a terse
+offline hint; down after data keeps the stale list visible with a
+reconnecting note. The Slidev server binds the LAN; an attendee
+viewing the embedded deck panel gets the presenter's hostname
+substituted automatically when the stored URL points at localhost.
 
 ## The standalone notebook
 
@@ -198,6 +229,23 @@ The notebook can use `data/processed/text/chess_sft.jsonl` when the app
 has exported it. It is a pragmatic presenter and take-home asset, not a
 required application fallback or a browser integration. Notebook
 content will receive its own review after the five hardening phases.
+
+## tldraw version pin
+
+The tldraw stack is pinned at 5.1.1 across `tldraw`, `@tldraw/sync`,
+and `@tldraw/sync-core` because the sync protocol and store schema
+must share one version. `@tldraw/assets` stays at 5.2.2 (static URL
+maps only). If you upgrade, move every tldraw package in one commit
+and check the canvas migration pre-step in
+`web/src/calculations/canvasMigrations.ts`: it knows the exact schema
+sequences that differ between 5.1.1 and 5.2.2 and refuses anything
+newer it cannot prove safe. The same policy applies to record and
+shape types, unknown schema sequences, and workshop versions above the
+runtime's: refuse to load with an actionable error instead of opening
+a room that clients cannot render. Before the room opens, every
+migrated record is also validated through the real tldraw validators,
+so a structurally broken record of a known type fails at boot too. In
+every case the disk snapshot stays untouched.
 
 ## tldraw license note
 
@@ -231,16 +279,18 @@ how the tldraw canvas and backend state relate. In short:
   contexts, ResizeObserver, IndexedDB) for that to work reliably. Real
   canvas interaction is covered by the Playwright e2e suite instead
   (see below), and by manual verification during development.
-- Frontend e2e tests (`web/e2e/`) launch real backend and frontend
-  processes via Playwright's `webServer` config, pointed at a scratch
-  SQLite file in the OS temp directory so they never touch your local
-  dev database. They exercise the same custom-shape
-  double-click-to-edit interaction used throughout the app (see
-  "Interacting with workspace shapes" below).
-- The current Playwright config hardcodes `/opt/pw-browsers/chromium`.
-  Portable browser discovery and setup are deferred to phase 36. On a
-  machine without that executable, `just test-e2e` fails before the
-  browser tests start.
+- Frontend e2e tests (`web/e2e/`) launch the real backend, sync room,
+  and frontend via Playwright's `webServer` config, pointed at scratch
+  SQLite and canvas directories in the OS temp directory so they never
+  touch your local state. `room.spec.ts` drives two and three browser
+  contexts against one room for the multi-client acceptance cases;
+  `smoke.spec.ts` covers the single-client basics, including the
+  custom-shape double-click-to-edit interaction (see "Interacting with
+  workspace shapes" below).
+- Playwright discovers its browser from its own cache by default. Set
+  `CHESS_STUDIO_CHROMIUM` to point at a specific executable (the old
+  hardcoded `/opt/pw-browsers/chromium` machine sets exactly that).
+  The complete release command surface is phase 36's item.
 
 ## Interacting with workspace shapes
 
@@ -256,13 +306,17 @@ double-click would.
 
 ## Known limitations (v0)
 
-- No auth. Anyone can join with any name; "your workspace is
-  read-only to others" is a client-side UI affordance, not a security
-  boundary (see `docs/architecture.md`).
-- No live multi-client sync. Two browsers both talking to the same
-  backend will see each other's users and workspaces (real, not
-  simulated), but there's no push channel, each client only sees
-  updates when it re-fetches.
+- No auth. Anyone can join with any name, and anyone who adds
+  `?presenter=1` gets presenter rights. Ownership rules are enforced
+  in every normal client and unidentified sessions are read-only at
+  the socket, but a hand-rolled WebSocket client could bypass the
+  per-shape rules. That is an accepted boundary for a room of workshop
+  attendees, not a security model.
+- One room. The sync server hosts a single workshop document; there is
+  no room routing and no need for it.
+- The sync server's in-memory clock resets on restart; clients
+  resynchronize from scratch when it comes back, which is invisible
+  beyond a brief reconnect.
 - Several eval metrics (centipawn loss, image/audio/video quality
   scores) are seeded from cached fixtures, not computed live, because
   they need infrastructure (Stockfish, a trained judge model) that's

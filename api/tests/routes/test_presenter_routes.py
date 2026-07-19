@@ -62,3 +62,34 @@ def test_reset_page(client: TestClient):
     assert state["workspace"]["board_fen"] == (
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     )
+
+
+def test_bring_to_presenter_view_with_target_round_trips(client: TestClient):
+    response = client.post(
+        "/presenter/bring-to-presenter-view",
+        json={
+            "page_slug": "presentation",
+            "frame_id": "shape:seed-presentation-16",
+            "bounds": {"x": 0, "y": 1400, "w": 1600, "h": 900},
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["target_frame_id"] == "shape:seed-presentation-16"
+    assert body["target_bounds"] == {"x": 0.0, "y": 1400.0, "w": 1600.0, "h": 900.0}
+    assert body["revision"] >= 1
+
+    # A later update without a target clears it and moves the revision on.
+    followup = client.post("/presenter/send-to-workspaces").json()
+    assert followup["revision"] > body["revision"]
+    assert followup["target_frame_id"] is None
+    assert followup["target_bounds"] is None
+
+
+def test_presenter_state_upgrade_patches_old_databases(client: TestClient):
+    # The client fixture created a fresh DB with the new columns; the GET
+    # exposes them with safe defaults.
+    body = client.get("/presenter").json()
+    assert body["revision"] == 0
+    assert body["target_frame_id"] is None
+    assert body["target_bounds"] is None

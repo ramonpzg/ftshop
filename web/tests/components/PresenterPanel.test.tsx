@@ -10,6 +10,7 @@ function makeEditor() {
     createShape: mock(() => {}),
     updateShape: mock(() => {}),
     getShapePageBounds: mock(() => ({ x: 0, y: 0, w: 900, h: 560 })),
+    getViewportPageBounds: mock(() => ({ x: 120, y: 340, w: 1280, h: 720 })),
     zoomToBounds: mock(() => {}),
   };
 }
@@ -171,7 +172,7 @@ describe("PresenterPanel", () => {
     });
   });
 
-  test("bring to presenter view broadcasts the presenter's current page", async () => {
+  test("bring to presenter view broadcasts the page and the exact camera bounds", async () => {
     const { fetchMock, calls } = routedFetch(false);
     globalThis.fetch = fetchMock;
     const editor = makeEditor();
@@ -188,10 +189,14 @@ describe("PresenterPanel", () => {
     fireEvent.click(screen.getByText("Bring everyone to presenter view"));
 
     await waitFor(() => {
-      expect(editor.setCurrentPage).toHaveBeenCalledTimes(1);
+      expect(calls.some((c) => c.includes("bring-to-presenter-view"))).toBe(true);
     });
     const bringCall = calls.find((c) => c.includes("bring-to-presenter-view"));
     expect(bringCall).toContain("board-sound");
+    // The viewport captured at click time travels as the shared target.
+    expect(bringCall).toContain('"bounds":{"x":120,"y":340,"w":1280,"h":720}');
+    // The presenter is already looking at this view; their camera stays put.
+    expect(editor.setCurrentPage).not.toHaveBeenCalled();
   });
 
   test("reset page asks for confirmation before wiping games", async () => {
