@@ -15,13 +15,19 @@
       </div>
     </div>
 
-    <div v-if="offline" class="room-offline">
+    <div v-if="phase === 'unavailable'" class="room-offline" data-phase="unavailable">
       Backend offline. Start it with <code>just start</code>, this panel finds it on its own.
     </div>
 
-    <div v-else-if="!room" class="room-offline">Looking for the room.</div>
+    <div v-else-if="phase === 'connecting'" class="room-offline" data-phase="connecting">
+      Looking for the room.
+    </div>
 
-    <transition-group v-else name="game-row" tag="div" class="room-games">
+    <div v-else-if="phase === 'recovering'" class="room-stale" data-phase="recovering">
+      Reconnecting. Numbers may be stale.
+    </div>
+
+    <transition-group v-if="room" name="game-row" tag="div" class="room-games" data-phase="connected">
       <div
         v-for="game in visibleGames"
         :key="game.id"
@@ -40,15 +46,19 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { applyPollResult, INITIAL_LIVE_ROOM_STATE } from "../lib/liveRoom";
 
 const props = defineProps({
-  apiBase: { type: String, default: "http://localhost:8000" },
+  // Same-origin path proxied by the Slidev dev server to the backend,
+  // so the deck reaches FastAPI from port 3030 without CORS.
+  apiBase: { type: String, default: "/api" },
   maxGames: { type: Number, default: 8 },
 });
 
-const room = ref(null);
-const offline = ref(false);
-const fetchedAt = ref(0);
+const state = ref(INITIAL_LIVE_ROOM_STATE);
+const room = computed(() => state.value.room);
+const phase = computed(() => state.value.phase);
+const fetchedAt = computed(() => state.value.fetchedAt);
 const now = ref(Date.now());
 let poll = null;
 let tick = null;
@@ -57,11 +67,10 @@ async function load() {
   try {
     const response = await fetch(`${props.apiBase}/presenter/games`);
     if (!response.ok) throw new Error(String(response.status));
-    room.value = await response.json();
-    fetchedAt.value = Date.now();
-    offline.value = false;
+    const payload = await response.json();
+    state.value = applyPollResult(state.value, { ok: true, room: payload, at: Date.now() });
   } catch {
-    offline.value = true;
+    state.value = applyPollResult(state.value, { ok: false });
   }
 }
 
@@ -147,6 +156,12 @@ onUnmounted(() => {
 }
 
 .room-offline code {
+  color: #f59e0b;
+}
+
+.room-stale {
+  padding: 10px 0 4px;
+  font-size: 0.8rem;
   color: #f59e0b;
 }
 

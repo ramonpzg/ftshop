@@ -46,9 +46,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="EuroSciPy Chess Studio API", lifespan=lifespan)
 
+# The documented workshop origins only. LAN attendees never appear here:
+# their browsers talk to the Vite dev server (5173) or the Slidev dev
+# server (3030), and those servers proxy /api to this backend
+# server-side, where CORS does not apply. The list exists for direct
+# localhost access during development and rehearsal.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3030",
+        "http://127.0.0.1:3030",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )

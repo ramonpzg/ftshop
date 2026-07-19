@@ -1,5 +1,6 @@
 import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useState } from "react";
+import { resolveDeckUrl } from "../../calculations/deckUrl";
 import { usePresenterState } from "../../lib/presenterContext";
 import "./DeckPanel.css";
 
@@ -19,6 +20,9 @@ const DECK_URL_KEY = "euro-chess-studio:deck-url";
 export function DeckPanel({ defaultUrl, isEditing }: DeckPanelProps) {
   const { isPresenter } = usePresenterState();
   const [url, setUrl] = useState(() => localStorage.getItem(DECK_URL_KEY) ?? defaultUrl);
+  // An attendee on the LAN gets a localhost deck URL rewritten to the
+  // presenter's host; the shape's stored URL stays untouched.
+  const displayUrl = resolveDeckUrl(url, window.location.hostname);
 
   function handleUrlChange(value: string) {
     setUrl(value);
@@ -41,7 +45,7 @@ export function DeckPanel({ defaultUrl, isEditing }: DeckPanelProps) {
         <span className="deck-panel-hint-inline">Blank? Run: just deck</span>
         <a
           className="deck-panel-open"
-          href={url}
+          href={displayUrl}
           target="_blank"
           rel="noreferrer"
           title="Open the deck in its own tab. Presenter mode and speaker notes live there."
@@ -50,7 +54,7 @@ export function DeckPanel({ defaultUrl, isEditing }: DeckPanelProps) {
         </a>
         {!isEditing && <span className="deck-panel-hint">Double-click to open</span>}
       </header>
-      <iframe className="deck-panel-frame" src={url} title="Workshop deck" />
+      <iframe className="deck-panel-frame" src={displayUrl} title="Workshop deck" />
     </div>
   );
 }

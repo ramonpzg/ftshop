@@ -55,6 +55,7 @@ start-frontend:
 test:
     cd api && uv run pytest
     cd web && bun test
+    cd deck && bun test
 
 test-backend:
     cd api && uv run pytest
