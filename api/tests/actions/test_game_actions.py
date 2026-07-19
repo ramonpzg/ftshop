@@ -7,9 +7,24 @@ from euro_chess_studio.actions import game
 from euro_chess_studio.actions.game import ModelReplyError, assess_position, model_move
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
+from euro_chess_studio.data.llm_client import ChatOutcome
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.users_repo import insert_user
 from euro_chess_studio.data.workspaces_repo import get_workspace, insert_workspace
+
+
+def fake_outcome(content: str, provider_alias: str = "opponent") -> ChatOutcome:
+    return ChatOutcome(
+        content=content,
+        model="gpt-5.6-luna",
+        provider_alias=provider_alias,
+        attempts=1,
+        request_ids=(),
+        json_mode_requested=True,
+        json_mode_sent=True,
+        json_mode_dropped=False,
+        reasoning_effort_dropped=False,
+    )
 
 
 def make_workspace(tmp_path: Path):
@@ -27,7 +42,7 @@ def make_workspace(tmp_path: Path):
 
 def test_model_move_applies_a_legal_reply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     conn, workspace = make_workspace(tmp_path)
-    monkeypatch.setattr(game.llm_client, "chat", lambda *a, **k: '{"move": "e2e4"}')
+    monkeypatch.setattr(game.llm_client, "chat", lambda *a, **k: fake_outcome('{"move": "e2e4"}'))
 
     result = model_move(conn, workspace["id"])
 
@@ -44,7 +59,7 @@ def test_model_move_records_an_illegal_reply_without_advancing(
     conn, workspace = make_workspace(tmp_path)
     # Well-formed UCI, illegal from the start position. The environment
     # catches the model; the board must not move.
-    monkeypatch.setattr(game.llm_client, "chat", lambda *a, **k: '{"move": "e2e5"}')
+    monkeypatch.setattr(game.llm_client, "chat", lambda *a, **k: fake_outcome('{"move": "e2e5"}'))
 
     result = model_move(conn, workspace["id"])
 
@@ -56,7 +71,9 @@ def test_model_move_records_an_illegal_reply_without_advancing(
 
 def test_model_move_raises_on_unusable_reply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     conn, workspace = make_workspace(tmp_path)
-    monkeypatch.setattr(game.llm_client, "chat", lambda *a, **k: "I would castle early.")
+    monkeypatch.setattr(
+        game.llm_client, "chat", lambda *a, **k: fake_outcome("I would castle early.")
+    )
 
     with pytest.raises(ModelReplyError):
         model_move(conn, workspace["id"])
@@ -67,9 +84,10 @@ def test_assess_position_returns_parsed_payload(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setattr(
         game.llm_client,
         "video_prompt_chat",
-        lambda *a, **k: (
+        lambda *a, **k: fake_outcome(
             '{"assessment": "Level.", "real_world": "Monday standup.", '
-            '"video_prompt": "A team meets around a plain table."}'
+            '"video_prompt": "A team meets around a plain table."}',
+            provider_alias="video_prompt",
         ),
     )
 
@@ -92,7 +110,7 @@ def test_model_move_plays_with_the_games_chosen_opponent(
 
     def fake_chat(*args, **kwargs):
         seen_models.append(kwargs.get("model"))
-        return '{"move": "e7e5"}'
+        return fake_outcome('{"move": "e7e5"}')
 
     monkeypatch.setattr(game.llm_client, "chat", fake_chat)
     start_game(
@@ -117,7 +135,7 @@ def test_model_move_without_a_game_uses_the_default_model(
 
     def fake_chat(*args, **kwargs):
         seen_models.append(kwargs.get("model"))
-        return '{"move": "e2e4"}'
+        return fake_outcome('{"move": "e2e4"}')
 
     monkeypatch.setattr(game.llm_client, "chat", fake_chat)
     model_move(conn, workspace["id"])

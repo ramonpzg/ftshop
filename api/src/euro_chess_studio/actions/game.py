@@ -42,7 +42,7 @@ def model_move(conn: sqlite3.Connection, workspace_id: str) -> MakeMoveResult:
     opponent_model = active["opponent_model"] if active is not None else None
     reply = llm_client.chat(
         build_move_messages(fen, legal_moves), json_response=True, model=opponent_model
-    )
+    ).content
     uci = parse_move_reply(reply)
     if uci is None:
         raise ModelReplyError(f"model reply had no usable move: {reply[:200]}")
@@ -58,7 +58,9 @@ def assess_position(conn: sqlite3.Connection, workspace_id: str) -> dict:
 
     active = get_active_game(conn, workspace_id)
     sans = list_legal_sans(conn, workspace_id, active["id"] if active else None)
-    reply = llm_client.video_prompt_chat(build_assess_messages(sans, workspace["board_fen"]))
+    reply = llm_client.video_prompt_chat(
+        build_assess_messages(sans, workspace["board_fen"])
+    ).content
     parsed = parse_assess_reply(reply)
     if parsed is None:
         raise ModelReplyError(f"model reply had no usable assessment: {reply[:200]}")
