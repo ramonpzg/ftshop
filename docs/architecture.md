@@ -155,16 +155,74 @@ so tldraw's own canvas layer handles selection and dragging normally.
 - `chess/board.py`, the only place that touches `python-chess`
   directly. Legal-move checking and move application.
 - `calculations/`, pure functions: the reward function, dataset row
-  construction, eval metric math (legal move rate, valid JSON rate),
-  the audio spectrogram toy calculation, video frame sampling.
-- `data/`, one `sqlite3`-backed repository module per table. No
-  business logic; only reads and writes.
+  construction, the move vocabulary, eval metric math, model
+  capability decisions (`model_catalog.py`), prompt construction and
+  reply parsing, the audio spectrogram toy calculation, video frame
+  sampling.
+- `data/`, one `sqlite3`-backed repository module per table, plus the
+  Chat Completions transport (`llm_client.py`). No business logic;
+  only reads and writes. Repositories on the game path do not commit:
+  the action that composes them owns the transaction.
 - `actions/`, orchestration: `join_workshop`, `create_or_get_workspace`,
-  `make_move`, `run_job`, the four presenter actions. These compose
-  calculations and data-access calls and are what the routes call.
+  `make_move`, `model_turn`, `suggest_scenario`, `run_job`, the four
+  presenter actions. These compose calculations and data-access calls,
+  decide what commits together, and are what the routes call.
 - `jobs/`, the job runner abstraction (see below).
 - `routes/`, one FastAPI router per resource, thin: parse the
   request, call an action, serialize the result.
+
+### Transactions
+
+`make_move` persists the move record, the board update, the dataset
+rows, and any game outcome as one transaction; a failure rolls all of
+it back, so a half-persisted move cannot exist. The model turn extends
+this: the applied move and its attempt record commit together, while
+failed attempts commit individually as they happen because a failed
+reply is evidence that must survive the turn failing. The lazy timeout
+check commits on its own; a flag fall is a fact about the wall clock,
+not part of whichever action noticed it.
+
+### The Chat Completions boundary
+
+Every text-model call (opponent moves, scenario assessments, future
+text jobs) goes through `data/llm_client.py`, which only ever calls
+`/chat/completions`. Two typed settings profiles exist: `opponent`
+(`OPENAI_*`) and `video_prompt` (`VIDEO_PROMPT_*` with documented
+fallbacks), so local Gemma can play the board while hosted Luna writes
+scenes in the same process without sharing endpoints, models, or
+capabilities. Capability decisions (does this model accept
+`reasoning_effort`, JSON mode) live in the typed catalog in
+`calculations/model_catalog.py`, not in string checks at call sites.
+The transport returns a `ChatOutcome` carrying content plus the
+provenance callers persist: model, provider alias, attempt count,
+request ids, and whether a capability fallback fired.
+
+### Model attempts and the model turn
+
+The `moves` table records what happened to the board, with an `actor`
+column (participant, model, fallback; `unknown` for rows migrated from
+before provenance existed). The `model_attempts` table records what
+the model actually said: one immutable row per raw reply, with model,
+provider alias, prompt version, ply, fen, parse and legality judgment,
+request ids, and the applied move if one resulted. `actions/
+model_turn.py` is an explicit state machine over those attempts:
+transport failure, empty, unparsable, invalid syntax, illegal, or
+applied. After the configured limit, a model that answered garbage is
+answered with a deterministic fallback (first legal move in UCI order,
+actor `fallback`), and a provider that never answered yields an
+explicit `unavailable` outcome with a client-side retry. The board can
+never be silently stuck on the model's turn.
+
+### Scenario mappings
+
+`scenario_assessments` persists the three-field real-world mapping
+(assessment, real_world, video_prompt) per game and ply. The raw model
+suggestion is written once and never updated; participant review
+(accept or edit) fills separate final columns. Failed calls insert an
+explicit failed row without touching prior records, so reload always
+restores the latest good mapping and recovery is simply asking again.
+Exports (`chess_scenarios.jsonl`) carry both raw and approved values
+with model, provider alias, and prompt version.
 
 ## Job runner
 
@@ -186,14 +244,41 @@ job type X"; they never know or care which runner answered.
 ## Why some eval numbers are cached and some are computed
 
 `GET /evals` returns rows with a `source` of either `computed` or
-`cached`. `computed` rows come from real data (a workspace's actual
-moves, run through `text.prompt_eval`). `cached` rows are seeded from
-`artifacts/cached/{modality}/evals.json` on every backend startup.
-These are the metrics that need infrastructure v0 doesn't have
-(Stockfish for centipawn loss, a trained model to judge image style
-consistency, and so on). Every cached fixture carries a `note`
-explaining why it's illustrative. The eval panel renders whatever the
-API returns; no component hardcodes a metric value.
+`cached`, and every row carries its provenance: numerator,
+denominator, unit, direction, a definition sentence, a definition
+version, and the scope filters that produced the sample.
+
+`computed` rows are real measurements with honest denominators:
+
+- `legal_move_rate` counts one actor's recorded move attempts
+  (participant by default). Model output and participant fumbling
+  never share a denominator; rows migrated from before actor
+  provenance existed are labelled `unknown` and excluded rather than
+  guessed.
+- `model_legal_move_rate` counts received model replies (from
+  `model_attempts`) that contained a legal move. Transport failures
+  stay out of the denominator because the model never answered; every
+  retry counts; fallback moves are excluded by actor.
+- `valid_json_rate` parses the stored raw replies of JSON-requesting
+  tasks with the same extractor the app uses to consume replies. It
+  measures model output, not the application's own serialization.
+
+An empty sample is an explicit unavailable result: the eval job
+reports it in its payload but persists nothing, so the panel never
+shows a fabricated zero or a perfect score over nothing. The
+calculations accept model, game, and checkpoint filters, which is the
+contract the phase-34 before/after comparison builds on: same frozen
+input set, both model versions identified.
+
+`cached` rows are seeded from `artifacts/cached/{modality}/evals.json`
+on every backend startup. These are the metrics that need
+infrastructure v0 doesn't have (Stockfish for centipawn loss, a
+trained model to judge image style consistency, and so on). Every
+cached fixture carries a `note` explaining why it's illustrative, and
+that note survives seeding, storage, the API, and rendering: the panel
+shows it under the value, so a cached number can never pose as live.
+The eval panel renders whatever the API returns; no component
+hardcodes a metric value.
 
 ## Presenter navigation
 

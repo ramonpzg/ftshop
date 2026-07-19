@@ -88,9 +88,13 @@ workspace here automatically.
   minutes by default, up to thirty in the picker). The configured model
   answers every move, its moves feed the same dataset rows, and the
   Analysis section refreshes after each exchange with a position read
-  plus the real-world scenario mapping. If the model picks an illegal
-  move, celebrate: the environment caught it, reward -1, that is the
-  RL slide happening live.
+  plus the real-world scenario mapping, persisted with its model and
+  prompt version so a reload restores it and Accept/Edit records the
+  review. If the model picks an illegal move, celebrate: the
+  environment caught it, the failed attempt lands in model_attempts
+  for the eval, the turn retries, and after the retry budget the board
+  plays a labelled fallback move instead of stalling. That is the RL
+  slide happening live.
 - The two-game beat: with OPPONENT_MODELS set (see local-dev.md), the
   model picker sits next to the clock. Play one five-minute game
   against the configured small model, then the configured frontier

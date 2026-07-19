@@ -104,6 +104,11 @@ startup, never overriding the shell, never committed):
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.6-luna` |
 | `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
+| `VIDEO_PROMPT_API_KEY` | Scene-writing calls when the opponent runs elsewhere | falls back to `OPENAI_API_KEY` |
+| `VIDEO_PROMPT_BASE_URL` | Scene-writing endpoint | falls back to `OPENAI_BASE_URL` |
+| `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
+| `MODEL_TURN_MAX_ATTEMPTS` | Model-turn retries before the deterministic fallback | 2 (clamped 1-5) |
+| `OPENAI_RECENT_KEY_401_RETRY` | Set to `1` right after creating or rotating a key: allows one or two retries of the exact generic-permissions 401 seen during key propagation | unset (401 fails immediately) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
 
@@ -126,11 +131,25 @@ one model, Start game grows a picker; each match remembers its
 opponent, and start over keeps it.
 
 The shared text client calls `/chat/completions`. It does not use the
-Responses API. It retries rate limits and server failures, and it also
-keeps the narrowly bounded retry for the generic permissions `401`
-observed while a new project key was propagating. Explicit invalid-key
-and access-denial responses fail immediately. Errors retain the
-provider request ID when one is returned.
+Responses API. It retries rate limits, server failures, and transport
+failures with backoff and Retry-After. The narrowly bounded retry for
+the generic permissions `401` observed while a new project key was
+propagating now needs evidence: the same credential already succeeded
+in this process, or `OPENAI_RECENT_KEY_401_RETRY=1` was set after
+creating or rotating a key. Explicit invalid-key and access-denial
+responses fail immediately. Errors retain every provider request ID.
+Model capabilities live in a typed catalog: local Gemma through
+llama.cpp never receives `reasoning_effort`, hosted Luna does, and a
+provider that rejects `response_format` or `reasoning_effort` by name
+gets one retry without that field, recorded in attempt provenance.
+
+If the model opponent starts answering garbage during a session, the
+board does not stall: after `MODEL_TURN_MAX_ATTEMPTS` failed replies
+the game plays the first legal move in UCI order, recorded as a
+fallback rather than a model move. If the provider cannot be reached
+at all, the turn reports itself unavailable and the workspace offers
+a retry button. Rehearse both with the mock LLM's `--move-mode
+illegal` and `--move-mode invalid` flags.
 
 Everything degrades cleanly when unset: buttons disable with a hint,
 nothing errors.
