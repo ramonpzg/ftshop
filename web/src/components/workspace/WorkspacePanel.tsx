@@ -4,7 +4,6 @@ import {
   ChartBar,
   ChatText,
   Code,
-  Copy,
   Database,
   Horse,
   Package,
@@ -22,8 +21,6 @@ import {
   ApiError,
   apiErrorDetail,
   type Artifact,
-  type Assessment,
-  assessPosition,
   type DatasetExport,
   type DatasetRow,
   type EvalResult,
@@ -41,6 +38,7 @@ import {
   type LlmStatus,
   makeMove,
   modelMove,
+  type ModelTurnResponse,
   type MoveResponse,
   runJob,
   selectSnippet,
@@ -59,6 +57,7 @@ import {
 } from "../../lib/gameClock";
 import { usePresenterState } from "../../lib/presenterContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
+import { ScenarioSection } from "./ScenarioSection";
 import "./WorkspacePanel.css";
 
 interface WorkspacePanelProps {
@@ -146,8 +145,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [banter, setBanter] = useState<string | null>(null);
   const banterIndex = useRef(0);
   const [modelThinking, setModelThinking] = useState(false);
-  const [analysis, setAnalysis] = useState<Assessment | null>(null);
-  const [analysisState, setAnalysisState] = useState<"idle" | "loading" | "error">("idle");
+  // Incremented after each applied model turn so the scenario section
+  // asks for a fresh read.
+  const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
+  // Set when the model's turn ended without a move (provider
+  // unreachable). The retry button is the manual recovery.
+  const [modelUnavailable, setModelUnavailable] = useState(false);
   const [lastExport, setLastExport] = useState<DatasetExport | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
@@ -259,11 +262,16 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }, [game?.id, fen, isOwnWorkspace, isEditing]);
 
-  function applyMoveResponse(response: MoveResponse, mover: "you" | "model") {
+  function applyMoveResponse(response: MoveResponse, mover: "you" | "model" | "fallback") {
     const move = response.move;
     const label = move.san ?? move.uci;
     setLastMove({
-      label: mover === "model" ? `Model: ${label}` : label,
+      label:
+        mover === "model"
+          ? `Model: ${label}`
+          : mover === "fallback"
+            ? `Fallback: ${label}`
+            : label,
       legal: move.is_legal,
       reward: move.reward,
     });
@@ -285,6 +293,28 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     return move.is_legal;
   }
 
+  /** One completed model turn from the state machine. */
+  function applyModelTurn(response: ModelTurnResponse) {
+    if (response.outcome === "unavailable" || response.move === null) {
+      setModelUnavailable(true);
+      setGameNotice(response.detail ?? "Model unavailable. No move was played.");
+      return;
+    }
+    setModelUnavailable(false);
+    applyMoveResponse(
+      {
+        move: response.move,
+        dataset_rows: response.dataset_rows,
+        game_result: response.game_result,
+      },
+      response.outcome === "fallback_move" ? "fallback" : "model",
+    );
+    if (response.outcome === "fallback_move" && response.detail) {
+      setGameNotice(response.detail);
+    }
+    setScenarioRefreshKey((key) => key + 1);
+  }
+
   async function refreshGameStatus() {
     const status = await fetchGameStatus(workspaceId).catch(() => null);
     if (status) applyGameStatus(status);
@@ -297,25 +327,10 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     await refreshGameStatus();
   }
 
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-
-  async function refreshAnalysis() {
-    setAnalysisState("loading");
-    try {
-      setAnalysis(await assessPosition(workspaceId));
-      setAnalysisState("idle");
-      setAnalysisError(null);
-    } catch (error) {
-      setAnalysisState("error");
-      setAnalysisError(apiErrorDetail(error));
-    }
-  }
-
   async function triggerModelReply() {
     setModelThinking(true);
     try {
-      const response = await modelMove(workspaceId);
-      applyMoveResponse(response, "model");
+      applyModelTurn(await modelMove(workspaceId));
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         await handleClockExpired();
@@ -325,17 +340,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       // base URL looks identical to "no reply" unless it is spelled out.
       const detail = apiErrorDetail(error);
       setGameNotice(detail ? `Model error: ${detail.slice(0, 160)}` : "Model: no usable reply.");
+      setModelUnavailable(true);
     } finally {
       setModelThinking(false);
     }
-    void refreshAnalysis();
   }
 
   async function handleStartGame() {
     setGameNotice(null);
     setBanter(null);
     setLastMove(null);
-    setAnalysis(null);
+    setModelUnavailable(false);
     const status = await startGame(workspaceId, timeLimit, opponentModel ?? undefined).catch(
       (error) => {
         const detail = apiErrorDetail(error);
@@ -349,7 +364,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   async function handleStartOver() {
     setConfirmingStartOver(false);
     setLastMove(null);
-    setAnalysis(null);
+    setModelUnavailable(false);
     const status = await startOver(workspaceId).catch(() => null);
     if (status) {
       applyGameStatus(status, { board: true });
@@ -522,6 +537,16 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       : "Model is thinking"}
                   </span>
                 )}
+                {modelUnavailable && !modelThinking && (
+                  <button
+                    type="button"
+                    onClick={() => void triggerModelReply()}
+                    title="The model's turn ended without a move. Ask again."
+                    data-testid="retry-model-move"
+                  >
+                    Retry model move
+                  </button>
+                )}
               </div>
             )}
             {record && record.wins + record.losses + record.draws > 0 && (
@@ -612,48 +637,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
             icon={<ChatText size={12} weight="bold" />}
             isEditing={isEditing}
           >
-            <div className="workspace-analysis" data-testid="analysis-panel">
-              {analysis ? (
-                <>
-                  <p className="workspace-analysis-text">{analysis.assessment}</p>
-                  {analysis.real_world && (
-                    <p className="workspace-analysis-real-world">{analysis.real_world}</p>
-                  )}
-                  <div className="workspace-analysis-video-prompt">
-                    <p>{analysis.video_prompt}</p>
-                    <button
-                      type="button"
-                      onClick={() => void navigator.clipboard.writeText(analysis.video_prompt)}
-                      title="Copy video prompt"
-                      aria-label="Copy video prompt"
-                    >
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                  <span className="workspace-analysis-model">{analysis.model}</span>
-                </>
-              ) : (
-                <p className="workspace-analysis-empty">
-                  {llmReady
-                    ? "Play a move, get a read on the position and its real-world twin."
-                    : "Set OPENAI_API_KEY on the backend to enable analysis."}
-                </p>
-              )}
-              {analysisState === "loading" && (
-                <p className="workspace-analysis-empty">Assessing position</p>
-              )}
-              {analysisState === "error" && (
-                <p className="workspace-analysis-empty">
-                  Assessment failed{analysisError ? `: ${analysisError.slice(0, 160)}` : ""}. Next
-                  move retries.
-                </p>
-              )}
-              {isOwnWorkspace && isEditing && llmReady && !game && (
-                <button type="button" className="workspace-assess-button" onClick={refreshAnalysis}>
-                  Assess position
-                </button>
-              )}
-            </div>
+            <ScenarioSection
+              workspaceId={workspaceId}
+              llmReady={llmReady}
+              canAct={isOwnWorkspace && isEditing && !locked}
+              refreshKey={scenarioRefreshKey}
+            />
           </Section>
           <Section
             id="artifact"

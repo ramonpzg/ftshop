@@ -32,11 +32,36 @@ function makeShape(overrides: Partial<WorkspaceShape["props"]> = {}): WorkspaceS
   };
 }
 
+const SUGGESTED_SCENARIO = {
+  id: "scenario_1",
+  workspace_id: "workspace_1",
+  game_id: null,
+  ply: 0,
+  status: "suggested",
+  assessment: "Level.",
+  real_world: "A new hire watches the routine.",
+  video_prompt: "A documentary shot follows an analyst.",
+  suggested_assessment: "Level.",
+  suggested_real_world: "A new hire watches the routine.",
+  suggested_video_prompt: "A documentary shot follows an analyst.",
+  model: "gpt-5.6-luna",
+  provider_alias: "video_prompt",
+  prompt_version: "assess-v1",
+  created_at: "now",
+};
+
 function routedFetch(
-  opts: { expiredAway?: boolean; checkOnMove?: boolean; opponentModels?: string[] } = {},
+  opts: {
+    expiredAway?: boolean;
+    checkOnMove?: boolean;
+    opponentModels?: string[];
+    scenario?: Record<string, unknown> | null;
+    modelTurn?: "model_move" | "fallback_move" | "unavailable";
+  } = {},
 ) {
   let lastArtifact: Record<string, unknown> | null = null;
   let activeGame: Record<string, unknown> | null = null;
+  let scenario: Record<string, unknown> | null = opts.scenario ?? null;
   let losses = 0;
   const history: Record<string, unknown>[] = [];
   if (opts.expiredAway) {
@@ -58,6 +83,80 @@ function routedFetch(
   });
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith("/scenario")) {
+      return new Response(JSON.stringify(scenario));
+    }
+    if (url.endsWith("/assess")) {
+      scenario = { ...SUGGESTED_SCENARIO };
+      return new Response(JSON.stringify(scenario));
+    }
+    if (url.endsWith("/review")) {
+      const body = JSON.parse(String(init?.body));
+      const current = scenario ?? SUGGESTED_SCENARIO;
+      scenario = body.accept
+        ? { ...current, status: "accepted" }
+        : {
+            ...current,
+            status: "edited",
+            assessment: body.assessment,
+            real_world: body.real_world,
+            video_prompt: body.video_prompt,
+          };
+      return new Response(JSON.stringify(scenario));
+    }
+    if (url.endsWith("/model-move")) {
+      const outcome = opts.modelTurn ?? "model_move";
+      if (outcome === "unavailable") {
+        return new Response(
+          JSON.stringify({
+            outcome,
+            move: null,
+            dataset_rows: [],
+            game_result: null,
+            attempts: [
+              {
+                attempt_number: 1,
+                actor: "model",
+                status: "transport_failed",
+                parsed_move: null,
+                is_legal: null,
+                model: "gpt-5.6-luna",
+                error_detail: "could not reach provider",
+              },
+            ],
+            detail: "gpt-5.6-luna could not be reached after 2 attempts. No move was played.",
+          }),
+        );
+      }
+      const fallback = outcome === "fallback_move";
+      return new Response(
+        JSON.stringify({
+          outcome,
+          move: {
+            id: "move_model",
+            workspace_id: "workspace_1",
+            ply: 1,
+            uci: fallback ? "a7a6" : "e7e5",
+            san: fallback ? "a6" : "e5",
+            fen_before: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+            fen_after: "rnbqkbnr/1ppppppp/p7/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+            is_legal: true,
+            is_check: false,
+            is_checkmate: false,
+            reward: 1,
+            actor: fallback ? "fallback" : "model",
+            model: "gpt-5.6-luna",
+            created_at: "now",
+          },
+          dataset_rows: [],
+          game_result: null,
+          attempts: [],
+          detail: fallback
+            ? "gpt-5.6-luna did not produce a legal move in 2 attempts. Fallback played a7a6 (first legal move in UCI order)."
+            : null,
+        }),
+      );
+    }
     if (url.endsWith("/llm/status")) {
       return new Response(
         JSON.stringify({
@@ -140,6 +239,8 @@ function routedFetch(
             is_check: isCheck,
             is_checkmate: false,
             reward: legal ? 1 : -1,
+            actor: "participant",
+            model: null,
             created_at: "now",
           },
           dataset_rows: legal
@@ -454,6 +555,110 @@ describe("WorkspacePanel", () => {
 
     await waitFor(() => screen.getByTestId("game-banter"));
     expect(screen.getByTestId("game-banter").textContent).toContain("Check");
+  });
+
+  test("a persisted scenario is restored on load", async () => {
+    globalThis.fetch = routedFetch({
+      scenario: { ...SUGGESTED_SCENARIO, status: "accepted" },
+    }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-provenance"));
+    expect(screen.getByText("Level.")).toBeTruthy();
+    expect(screen.getByTestId("scenario-provenance").textContent).toContain("accepted");
+    expect(screen.getByTestId("scenario-provenance").textContent).toContain("assess-v1");
+  });
+
+  test("accepting a suggestion records the review without losing the raw text", async () => {
+    globalThis.fetch = routedFetch({ scenario: SUGGESTED_SCENARIO }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-accept"));
+    fireEvent.click(screen.getByTestId("scenario-accept"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("scenario-provenance").textContent).toContain("accepted");
+    });
+    expect(screen.getByText("Level.")).toBeTruthy();
+  });
+
+  test("editing a suggestion saves the participant's text", async () => {
+    globalThis.fetch = routedFetch({ scenario: SUGGESTED_SCENARIO }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-start-edit"));
+    fireEvent.click(screen.getByTestId("scenario-start-edit"));
+    fireEvent.change(screen.getByLabelText("Assessment"), {
+      target: { value: "Sharper than it looks." },
+    });
+    fireEvent.click(screen.getByTestId("scenario-save-edit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("scenario-provenance").textContent).toContain("edited");
+    });
+    expect(screen.getByText("Sharper than it looks.")).toBeTruthy();
+  });
+
+  test("a fallback model move advances the board and says what happened", async () => {
+    globalThis.fetch = routedFetch({ modelTurn: "fallback_move" }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("game-notice").textContent).toContain("Fallback played a7a6");
+    });
+    expect(screen.getByTestId("move-status").textContent).toContain("Fallback: a6");
+  });
+
+  test("an unavailable model turn shows a retry action instead of hanging", async () => {
+    const fetchMock = routedFetch({ modelTurn: "unavailable" });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => screen.getByTestId("retry-model-move"));
+    expect(screen.getByTestId("game-notice").textContent).toContain("No move was played");
+
+    const callsBefore = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).endsWith("/model-move"),
+    ).length;
+    fireEvent.click(screen.getByTestId("retry-model-move"));
+    await waitFor(() => {
+      const callsAfter = fetchMock.mock.calls.filter((call) =>
+        String(call[0]).endsWith("/model-move"),
+      ).length;
+      expect(callsAfter).toBe(callsBefore + 1);
+    });
   });
 
   test("running a job shows the resulting artifact", async () => {

@@ -338,3 +338,25 @@
 .workspace-export-status a {
   color: #212529;
 }
+
+.workspace-scenario-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.workspace-scenario-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workspace-scenario-edit textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  border: 1px solid var(--panel-border, #d0d0d0);
+  border-radius: 4px;
+  resize: vertical;
+}

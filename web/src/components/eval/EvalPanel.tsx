@@ -14,10 +14,20 @@ export function EvalPanel({ results }: EvalPanelProps) {
   return (
     <ul className="eval-panel" data-testid="eval-panel">
       {results.map((result) => (
-        <li key={result.id} className="eval-row">
+        <li key={result.id} className="eval-row" title={result.definition ?? undefined}>
           <span className="eval-metric">{metricLabel(result.metric)}</span>
           <span className="eval-value">{formatMetricValue(result.value)}</span>
+          {result.numerator !== null && result.denominator !== null && (
+            <span className="eval-count" data-testid={`eval-count-${result.metric}`}>
+              {result.numerator}/{result.denominator}
+            </span>
+          )}
           <span className={`eval-source eval-source-${result.source}`}>{result.source}</span>
+          {result.source === "cached" && result.note && (
+            <span className="eval-note" data-testid={`eval-note-${result.metric}`}>
+              {result.note}
+            </span>
+          )}
         </li>
       ))}
     </ul>

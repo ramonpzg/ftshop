@@ -109,6 +109,11 @@ export interface Move {
   is_check: boolean;
   is_checkmate: boolean;
   reward: number;
+  /** Who attempted it: participant, model, fallback, or unknown for
+   * rows from before provenance existed. */
+  actor: string;
+  /** The model that produced it, when an actor is model or fallback. */
+  model: string | null;
   created_at: string;
 }
 
@@ -182,8 +187,30 @@ export function fetchLlmStatus(): Promise<LlmStatus> {
   return request<LlmStatus>("/llm/status");
 }
 
-export function modelMove(workspaceId: string): Promise<MoveResponse> {
-  return request<MoveResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
+export interface ModelTurnAttempt {
+  attempt_number: number;
+  actor: string;
+  status: string;
+  parsed_move: string | null;
+  is_legal: boolean | null;
+  model: string | null;
+  error_detail: string | null;
+}
+
+export interface ModelTurnResponse {
+  /** "model_move": the model's reply was applied. "fallback_move": it
+   * kept failing and the deterministic fallback moved. "unavailable":
+   * transport never delivered a reply and nothing moved. */
+  outcome: "model_move" | "fallback_move" | "unavailable";
+  move: Move | null;
+  dataset_rows: DatasetRow[];
+  game_result: string | null;
+  attempts: ModelTurnAttempt[];
+  detail: string | null;
+}
+
+export function modelMove(workspaceId: string): Promise<ModelTurnResponse> {
+  return request<ModelTurnResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
 }
 
 export interface Game {
@@ -250,15 +277,51 @@ export function flagTimeout(workspaceId: string): Promise<GameStatus> {
   return request<GameStatus>(`/workspaces/${workspaceId}/game/timeout`, { method: "POST" });
 }
 
-export interface Assessment {
-  assessment: string;
-  real_world: string;
-  video_prompt: string;
-  model: string;
+export interface Scenario {
+  id: string;
+  workspace_id: string;
+  game_id: string | null;
+  ply: number;
+  /** suggested, accepted, or edited. Failed suggestions never come
+   * back from these endpoints; the error path reports them. */
+  status: string;
+  /** Effective text: participant-approved when reviewed, the raw
+   * suggestion otherwise. */
+  assessment: string | null;
+  real_world: string | null;
+  video_prompt: string | null;
+  suggested_assessment: string | null;
+  suggested_real_world: string | null;
+  suggested_video_prompt: string | null;
+  model: string | null;
+  provider_alias: string | null;
+  prompt_version: string | null;
+  created_at: string;
 }
 
-export function assessPosition(workspaceId: string): Promise<Assessment> {
-  return request<Assessment>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
+/** Asks for a fresh suggestion; the backend persists it with its raw
+ * reply and provenance before answering. */
+export function assessPosition(workspaceId: string): Promise<Scenario> {
+  return request<Scenario>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
+}
+
+/** The latest persisted non-failed scenario, for reload. */
+export function fetchScenario(workspaceId: string): Promise<Scenario | null> {
+  return request<Scenario | null>(`/workspaces/${workspaceId}/scenario`);
+}
+
+export interface ScenarioReview {
+  accept: boolean;
+  assessment?: string;
+  real_world?: string;
+  video_prompt?: string;
+}
+
+export function reviewScenario(scenarioId: string, review: ScenarioReview): Promise<Scenario> {
+  return request<Scenario>(`/scenarios/${scenarioId}/review`, {
+    method: "POST",
+    body: JSON.stringify(review),
+  });
 }
 
 export function fetchWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
@@ -443,6 +506,16 @@ export interface EvalResult {
   value: number;
   workspace_id: string | null;
   source: string;
+  /** Computed rows carry sample counts and the metric definition;
+   * cached rows carry the fixture's note. */
+  numerator: number | null;
+  denominator: number | null;
+  unit: string | null;
+  direction: string | null;
+  definition: string | null;
+  version: string | null;
+  scope_json: string | null;
+  note: string | null;
   created_at: string;
 }
 
