@@ -86,7 +86,22 @@ describe("createSaveScheduler", () => {
   test("flush saves immediately without waiting for the debounce", async () => {
     const { harness, scheduler } = makeHarness({ debounceMs: 10_000 });
     scheduler.markDirty();
-    await scheduler.flush();
+    const clean = await scheduler.flush();
+    expect(clean).toBe(true);
+    expect(harness.saves.length).toBe(1);
+    scheduler.dispose();
+  });
+
+  test("flush reports false when the save fails and dirty state remains", async () => {
+    const { harness, scheduler } = makeHarness({ debounceMs: 10_000 });
+    harness.failNext.count = 10;
+    scheduler.markDirty();
+    const clean = await scheduler.flush();
+    expect(clean).toBe(false);
+    expect(scheduler.status()).toBe("error");
+    // A later flush after the backend recovers drains the dirty state.
+    harness.failNext.count = 0;
+    expect(await scheduler.flush()).toBe(true);
     expect(harness.saves.length).toBe(1);
     scheduler.dispose();
   });

@@ -38,7 +38,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
  * nothing is selected, since tldraw uses them to nudge shapes.
  */
 export const SlideControls = track(function SlideControls({ editor }: SlideControlsProps) {
-  const { isPresenter, presenterMode } = usePresenterState();
+  const { isPresenter, presenterMode, reportNotice } = usePresenterState();
   const indexRef = useRef(-1);
   const [index, setIndexState] = useState(-1);
   const pageId = editor?.getCurrentPageId();
@@ -64,12 +64,16 @@ export const SlideControls = track(function SlideControls({ editor }: SlideContr
       setIndex(next);
       editor.zoomToBounds(bounds, { inset: 48, animation: { duration: 250 } });
       // While the room is in presenter mode, stepping also moves the
-      // shared target, so attendees follow Prev/Next.
+      // shared target, so attendees follow Prev/Next. A failed
+      // broadcast means the room stayed behind; the presenter must see
+      // that, not present to an empty slide.
       if (isPresenter && presenterMode === "presenter") {
-        broadcastSlideTarget(editor, slides[next].id).catch(() => {});
+        broadcastSlideTarget(editor, slides[next].id).catch(() => {
+          reportNotice("Slide broadcast failed. Attendees did not follow.");
+        });
       }
     },
-    [editor, setIndex, isPresenter, presenterMode],
+    [editor, setIndex, isPresenter, presenterMode, reportNotice],
   );
 
   useEffect(() => {

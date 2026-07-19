@@ -10,11 +10,22 @@ import { JoinForm } from "../components/JoinForm";
 import { PresenterPanel } from "../components/presenter/PresenterPanel";
 import { ChessStudioCanvas } from "../components/tldraw/ChessStudioCanvas";
 import { SlideControls } from "../components/tldraw/SlideControls";
-import { ApiError, createOrGetWorkspace, fetchHealth, fetchPresenterState } from "../data/api";
+import {
+  ApiError,
+  createOrGetWorkspace,
+  fetchHealth,
+  fetchPresenterState,
+  fetchRoomHealth,
+} from "../data/api";
 import { clearLocalUser, type LocalUser, loadLocalUser } from "../data/localUser";
 import { CurrentUserContext } from "../lib/currentUserContext";
 import { PresenterContext } from "../lib/presenterContext";
-import { ROOM_STATUS_LABELS, type RoomStatus } from "../lib/roomStatus";
+import {
+  type CanvasPersistStatus,
+  PERSIST_LABELS,
+  ROOM_STATUS_LABELS,
+  type RoomStatus,
+} from "../lib/roomStatus";
 import "./App.css";
 
 type BackendStatus = "checking" | "connected" | "unreachable";
@@ -29,6 +40,7 @@ function detectPresenter(): boolean {
 export function App() {
   const [status, setStatus] = useState<BackendStatus>("checking");
   const [roomStatus, setRoomStatus] = useState<RoomStatus>("connecting");
+  const [persistStatus, setPersistStatus] = useState<CanvasPersistStatus | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [currentUser, setCurrentUser] = useState<LocalUser | null>(() => loadLocalUser());
   const [attendeeRefreshToken, setAttendeeRefreshToken] = useState(0);
@@ -53,6 +65,31 @@ export function App() {
   useEffect(() => {
     (window as unknown as { chessStudioEditor?: Editor | null }).chessStudioEditor = editor;
   }, [editor]);
+
+  // "Room: live" only says the WebSocket is up. Durability is the sync
+  // server's persistence toward the backend disk, polled separately so
+  // a dying backend shows up as "save failed, retrying" instead of
+  // hiding behind a healthy-looking room.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      fetchRoomHealth()
+        .then((health) => {
+          if (cancelled) return;
+          setPersistStatus(health.persist in PERSIST_LABELS ? health.persist : null);
+        })
+        .catch(() => {
+          // Sync server unreachable; the room status badge covers that.
+          if (!cancelled) setPersistStatus(null);
+        });
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,10 +119,12 @@ export function App() {
         // While the presenter is driving the room, joining must not
         // yank this client's camera to its workspace: the presenter
         // target has already been (or is about to be) applied, and the
-        // revision that carried it will not repeat.
+        // revision that carried it will not repeat. Only a successful
+        // response confirming a non-presenter mode may navigate; an
+        // unreachable backend must not be read as permission.
         const state = await fetchPresenterState().catch(() => null);
         if (cancelled) return;
-        if (state?.mode !== "presenter") {
+        if (state !== null && state.mode !== "presenter") {
           navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
         }
         setAttendeeRefreshToken((token) => token + 1);
@@ -122,7 +161,9 @@ export function App() {
 
   return (
     <CurrentUserContext.Provider value={currentUser}>
-      <PresenterContext.Provider value={{ locked, resetToken, isPresenter, presenterMode }}>
+      <PresenterContext.Provider
+        value={{ locked, resetToken, isPresenter, presenterMode, reportNotice: setNotice }}
+      >
         <div className="app-shell">
           <div
             className="status-badge"
@@ -134,6 +175,12 @@ export function App() {
               {" "}
               | {ROOM_STATUS_LABELS[roomStatus]}
             </span>
+            {persistStatus !== null && (
+              <span data-testid="persist-status" data-persist-status={persistStatus}>
+                {" "}
+                | {PERSIST_LABELS[persistStatus]}
+              </span>
+            )}
             {notice && (
               <span data-testid="presenter-notice" className="status-notice">
                 {" "}

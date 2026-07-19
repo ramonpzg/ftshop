@@ -37,8 +37,10 @@ test("the room serves the document and survives a reload in a fresh session", as
   await pageA.goto("/");
   await pageA.waitForSelector("#join-name");
   // The five pages come from the sync room's migrations; the badge
-  // reaching live means this client holds the server document.
+  // reaching live means this client holds the server document, and the
+  // separate persistence badge confirms the room wrote it to disk.
   await expect(pageA.locator('[data-room-status="live"]')).toBeVisible({ timeout: 15_000 });
+  await expect(pageA.locator('[data-persist-status="saved"]')).toBeVisible({ timeout: 15_000 });
   await contextA.close();
 
   // A brand-new context has no local storage or IndexedDB. Everything

@@ -13,7 +13,9 @@ import { createRoomSchema, runtimeSchemaSequences } from "./schema";
 export interface WorkshopRoom {
   room: TLSocketRoom<TLRecord>;
   persistStatus(): SaveStatus;
-  flush(): Promise<void>;
+  /** Resolves true when the document is fully persisted; false when
+   * unsaved changes remain after a failed save. */
+  flush(): Promise<boolean>;
   appliedMigrations: string[];
 }
 
@@ -25,7 +27,7 @@ export async function openWorkshopRoom(backend: CanvasBackend): Promise<Workshop
 
   // A thrown migration also aborts the boot. The stored snapshot has not
   // been written to, so the last valid document survives untouched.
-  const { snapshot, applied } = migrateCanvasDocument(stored, runtimeSchemaSequences());
+  const { snapshot, applied, changed } = migrateCanvasDocument(stored, runtimeSchemaSequences());
 
   const schema = createRoomSchema();
   let scheduler: ReturnType<typeof createSaveScheduler> | null = null;
@@ -49,11 +51,16 @@ export async function openWorkshopRoom(backend: CanvasBackend): Promise<Workshop
     retryMs: 3000,
   });
 
-  if (applied.length > 0) {
-    // Persist the migrated document right away so the file on disk is
-    // valid for this runtime even if no one ever draws.
+  if (changed) {
+    // Persist right away whenever migration altered anything, including
+    // a schema down-conversion with no named steps, so the file on disk
+    // is valid for this runtime even if no one ever draws. The backend
+    // answered the load moments ago; if this write fails, opening the
+    // room anyway would run it on a document the disk cannot represent.
     scheduler.markDirty();
-    await scheduler.flush();
+    if (!(await scheduler.flush())) {
+      throw new Error("could not persist the migrated canvas; refusing to open the room");
+    }
   }
 
   return {

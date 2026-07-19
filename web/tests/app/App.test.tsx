@@ -14,6 +14,9 @@ const { App } = await import("../../src/app/App");
 function routedFetch(healthStatus: number) {
   return mock(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.endsWith("/sync/health")) {
+      return new Response(JSON.stringify({ status: "ok", persist: "saved", sessions: 1 }));
+    }
     if (url.endsWith("/health")) {
       return healthStatus === 200
         ? new Response(JSON.stringify({ status: "ok" }))
@@ -54,6 +57,10 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("backend-status").textContent).toContain("Backend: connected");
+    });
+    // Durability is reported separately from the WebSocket state.
+    await waitFor(() => {
+      expect(screen.getByTestId("persist-status").textContent).toContain("Canvas: saved");
     });
   });
 

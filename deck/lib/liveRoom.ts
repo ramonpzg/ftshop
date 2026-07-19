@@ -45,3 +45,27 @@ export function applyPollResult(state: LiveRoomState, result: PollResult): LiveR
   }
   return { ...state, phase: "unavailable" };
 }
+
+/**
+ * Latest-wins ordering for overlapping polls. Each request takes a
+ * token at start; only the holder of the newest token may apply its
+ * result, so a slow response from three polls ago cannot overwrite
+ * fresher data or a recovery state.
+ */
+export interface LatestGate {
+  begin(): number;
+  isCurrent(token: number): boolean;
+}
+
+export function createLatestGate(): LatestGate {
+  let sequence = 0;
+  return {
+    begin() {
+      sequence += 1;
+      return sequence;
+    },
+    isCurrent(token: number) {
+      return token === sequence;
+    },
+  };
+}

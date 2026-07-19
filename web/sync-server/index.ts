@@ -83,8 +83,20 @@ const server = Bun.serve<SessionData>({
 console.log(`[sync] room open on :${server.port}, persisting to ${API_URL}`);
 
 async function shutdown() {
-  await workshop.flush();
-  process.exit(0);
+  // A failed final write is data loss, not a detail: retry briefly, and
+  // if dirty state remains, say so loudly and exit nonzero so nothing
+  // upstream mistakes this for a clean stop.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await workshop.flush()) {
+      process.exit(0);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  console.error(
+    "[sync] shutdown with UNSAVED canvas changes: the backend refused the final write.",
+    "The on-disk snapshot is stale. Restart the backend and the sync server before trusting it.",
+  );
+  process.exit(1);
 }
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());

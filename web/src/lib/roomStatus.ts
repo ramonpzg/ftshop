@@ -12,3 +12,16 @@ export const ROOM_STATUS_LABELS: Record<RoomStatus, string> = {
   offline: "Room: offline, retrying",
   error: "Room: sync failed. Reload.",
 };
+
+/** What the sync room reports about writing the document to disk.
+ * "Room: live" only means the WebSocket is up; durability is this. */
+export type CanvasPersistStatus = "idle" | "saving" | "saved" | "error";
+
+export const PERSIST_LABELS: Record<CanvasPersistStatus, string> = {
+  // Nothing has changed since the room loaded the document; the disk
+  // already holds it.
+  idle: "Canvas: saved",
+  saving: "Canvas: saving",
+  saved: "Canvas: saved",
+  error: "Canvas: save failed, retrying",
+};

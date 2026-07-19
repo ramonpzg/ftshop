@@ -132,6 +132,42 @@ export function downgradeFutureSchema(
   return changed;
 }
 
+/**
+ * Refuses records this runtime cannot represent: a record, shape,
+ * binding, or asset type absent from the runtime schema would pass
+ * through migration only to be rejected by the room's validators or,
+ * worse, shipped to clients that cannot render it. Failing here keeps
+ * the stored snapshot untouched and the error message actionable. The
+ * realistic source of such a record is running an older build against
+ * a canvas authored by a newer one.
+ */
+export function assertKnownRecordTypes(
+  store: StoreRecords,
+  runtimeSequences: Record<string, number>,
+): void {
+  for (const record of Object.values(store)) {
+    if (!(`com.tldraw.${record.typeName}` in runtimeSequences)) {
+      throw new CanvasMigrationError(
+        `unknown record type ${record.typeName} (${record.id}); refusing to load`,
+      );
+    }
+    const isSubtyped = ["shape", "asset", "binding"].includes(record.typeName);
+    const subtype = record.type;
+    if (
+      isSubtyped &&
+      !(
+        typeof subtype === "string" &&
+        `com.tldraw.${record.typeName}.${subtype}` in runtimeSequences
+      )
+    ) {
+      throw new CanvasMigrationError(
+        `unknown ${record.typeName} type ${String(subtype)} (${record.id}); ` +
+          "this canvas needs a newer build, refusing to load",
+      );
+    }
+  }
+}
+
 function seedShapeRecords(slug: string): CanvasRecord[] {
   const pageId = pageIdForSlug(slug);
   const records: CanvasRecord[] = [];
@@ -282,8 +318,17 @@ export function migrateCanvasDocument(
       };
 
   const downgraded = input ? downgradeFutureSchema(snapshot, runtimeSequences) : false;
+  assertKnownRecordTypes(snapshot.store, runtimeSequences);
 
   const startVersion = readVersion(snapshot.store);
+  if (startVersion > CANVAS_DOCUMENT_VERSION) {
+    // A document from a newer build. Silently "succeeding" here would
+    // open the room on content this runtime does not understand.
+    throw new CanvasMigrationError(
+      `canvas is at workshop version ${startVersion}, newer than this ` +
+        `runtime's ${CANVAS_DOCUMENT_VERSION}; refusing to load`,
+    );
+  }
   const applied: string[] = [];
   for (const migration of CANVAS_MIGRATIONS) {
     if (migration.version <= startVersion) continue;

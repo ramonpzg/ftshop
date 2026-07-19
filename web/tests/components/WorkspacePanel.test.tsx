@@ -261,7 +261,13 @@ describe("WorkspacePanel", () => {
     render(
       <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
         <PresenterContext.Provider
-          value={{ locked: true, resetToken: 0, isPresenter: false, presenterMode: "idle" }}
+          value={{
+            locked: true,
+            resetToken: 0,
+            isPresenter: false,
+            presenterMode: "idle",
+            reportNotice: () => {},
+          }}
         >
           <WorkspacePanel shape={makeShape()} isEditing={true} />
         </PresenterContext.Provider>

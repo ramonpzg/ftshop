@@ -150,6 +150,46 @@ fan-out; if that worries you, a rehearsal with a handful of real
 browsers is the honest check. Nothing in this phase changed backend
 throughput characteristics.
 
+## Review findings addressed after the first pass
+
+Ramon's review surfaced nine findings; all are fixed on this branch.
+
+1. Durability is now visible separately from liveness: the app polls
+   the sync server's health endpoint and shows Canvas: saving / saved /
+   save failed (retrying) next to the room state. "Room: live" no
+   longer hides a dying backend.
+2. flush() reports whether dirty state remains (Promise<boolean>). The
+   sync server's shutdown retries three times and exits nonzero with a
+   loud message when unsaved changes remain; boot refuses to open the
+   room if the initial migrated persist fails.
+3. A presenter revision is consumed only after the view successfully
+   applied. A transient failure (the send-to-workspace workspace
+   lookup) retries the same revision on the next poll instead of
+   stranding the attendee, and no longer produces an unhandled
+   rejection.
+4. The join effect navigates to the workspace only when a successful
+   presenter-state response confirms a non-presenter mode; an
+   unreachable backend is no longer read as permission to move the
+   camera.
+5. Workshop versions above the runtime's are rejected before the room
+   opens, and the boot persist triggers on `changed` (including
+   schema-only down-conversions), not just on named migrations.
+6. Unknown record and shape types now fail the load loudly with the
+   disk snapshot untouched, instead of being passed through to
+   validators and clients that cannot represent them. The
+   "preservation" test now uses the registered legacy notebook panel;
+   the unknown-type, forward-version, and downgrade-only cases have
+   their own tests. This supersedes the earlier claim that unknown
+   types pass through.
+7. LiveRoom polls resolve latest-wins through a token gate; a slow old
+   response can no longer overwrite fresher data or the recovery
+   state.
+8. A failed slide broadcast surfaces "Slide broadcast failed. Attendees
+   did not follow." through the notice area instead of being swallowed.
+9. `just start` uses `wait -n`: the first service to exit takes the
+   stack down instead of leaving a half-alive room. The complete
+   release command surface remains phase 36's item.
+
 ## Known issues / tech debt
 
 - `TLSocketRoom`'s `initialSnapshot` and `onDataChange` options are

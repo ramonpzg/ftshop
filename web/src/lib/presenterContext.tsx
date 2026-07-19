@@ -9,6 +9,10 @@ export interface PresenterContextValue {
   /** The room's shared mode from presenter state: idle, presenter, or
    * workspaces. Slide controls broadcast targets only while "presenter". */
   presenterMode: string;
+  /** Surfaces a concise transient message in the status area. Used for
+   * failures the presenter must not stay blind to, like a slide
+   * broadcast that never reached the room. */
+  reportNotice: (notice: string) => void;
 }
 
 export const PresenterContext = createContext<PresenterContextValue>({
@@ -16,6 +20,7 @@ export const PresenterContext = createContext<PresenterContextValue>({
   resetToken: 0,
   isPresenter: false,
   presenterMode: "idle",
+  reportNotice: () => {},
 });
 
 export function usePresenterState(): PresenterContextValue {

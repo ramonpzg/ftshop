@@ -79,12 +79,15 @@ canvas migrations, and persists every change back, debounced. On disk:
 
 Stop the stack, come back tomorrow, switch browsers, or serve the app
 over the venue network: the deck is the same, because the server owns
-the truth. The status badge (top left) shows the room states that can
-occur: connecting, live, offline (retrying), sync failed. Stale and
-conflicted cannot occur under the sync engine's rebase model. If the
-backend goes down while the room is up, clients keep working against
-the room and the room retries its disk writes until the backend
-returns.
+the truth. The status badge (top left) shows two separate facts. Room
+state: connecting, live, offline (retrying), sync failed; stale and
+conflicted cannot occur under the sync engine's rebase model. Canvas
+persistence, polled from the sync server: saving, saved, or save
+failed (retrying). "Room: live" only means the WebSocket is up; if the
+backend dies, the room keeps serving clients while the badge reads
+"Canvas: save failed, retrying" until disk writes succeed again. A
+sync server asked to shut down with unsaved changes retries briefly,
+then exits nonzero and says so.
 
 `just reset-canvas` deletes the snapshot files. Run it with the stack
 stopped: the room holds the document in memory and would immediately
@@ -236,7 +239,11 @@ maps only). If you upgrade, move every tldraw package in one commit
 and check the canvas migration pre-step in
 `web/src/calculations/canvasMigrations.ts`: it knows the exact schema
 sequences that differ between 5.1.1 and 5.2.2 and refuses anything
-newer it cannot prove safe.
+newer it cannot prove safe. The same gate applies to record and shape
+types: a snapshot containing a type this runtime does not know (for
+example one authored by a newer build, or a workshop version above the
+runtime's) refuses to load with an actionable error instead of opening
+a room that clients cannot render. The disk snapshot stays untouched.
 
 ## tldraw license note
 

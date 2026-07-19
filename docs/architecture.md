@@ -62,10 +62,14 @@ does the reverse (stop the stack first: the room holds the document in
 memory), and both the snapshot and the assets can be committed to git
 alongside the code.
 
-The status badge shows the states the room can be in: connecting,
-live, offline (retrying), sync failed. Stale and conflicted are not
-states this design can produce, because a reconnecting client rebases
-its changes instead of uploading a whole stale document.
+The status badge separates liveness from durability: the room state
+(connecting, live, offline retrying, sync failed) comes from the
+WebSocket, and the canvas persistence state (saving, saved, save
+failed retrying) is polled from the sync server's health endpoint, so
+a dying backend is visible even while the room itself stays up. Stale
+and conflicted are not states this design can produce, because a
+reconnecting client rebases its changes instead of uploading a whole
+stale document.
 
 The backend also owns everything that must survive a canvas reset:
 users, workspaces, moves, dataset rows, job configs, artifacts, eval
@@ -94,11 +98,15 @@ meta. Ordered, idempotent migrations
 (`web/src/calculations/canvasMigrations.ts`) run on the sync server at
 room load: ensure the five pages, ensure modality panels even on pages
 that already have content, ensure the deck panel, stamp ownership.
-Running twice is a no-op; unknown shape types pass through untouched; a
-thrown migration aborts the room instead of overwriting the last valid
-snapshot. A compatibility pre-step down-converts the three known
-tldraw 5.2.2 schema sequences (the runtime is pinned at 5.1.1) and
-fails loudly on anything else from the future.
+Running twice is a no-op; legacy shape types that are still registered
+(the notebook panel) pass through untouched; a thrown migration aborts
+the room instead of overwriting the last valid snapshot. Documents the
+runtime cannot represent are refused outright rather than half-loaded:
+record or shape types absent from the schema, workshop versions above
+the runtime's, and unknown from-the-future tldraw sequences all fail
+with an actionable error while the disk snapshot stays intact. A
+compatibility pre-step down-converts the three known tldraw 5.2.2
+schema sequences (the runtime is pinned at 5.1.1).
 
 The two are linked by one convention: a workspace's tldraw shape id is
 generated identically on both sides

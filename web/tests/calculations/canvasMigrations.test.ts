@@ -116,10 +116,10 @@ function oldSnapshot(): CanvasDocumentSnapshot {
           pageSlug: "chess-machine",
         },
       },
-      "shape:mystery": {
-        id: "shape:mystery",
+      "shape:legacy-notebook": {
+        id: "shape:legacy-notebook",
         typeName: "shape",
-        type: "mystery-widget",
+        type: "notebook-panel",
         parentId: pageIdForSlug("presentation"),
         index: "a7",
         x: 9,
@@ -127,8 +127,8 @@ function oldSnapshot(): CanvasDocumentSnapshot {
         rotation: 0,
         isLocked: false,
         opacity: 1,
-        meta: { owner: "user1" },
-        props: { anything: true },
+        meta: { owner: "presenter" },
+        props: { w: 900, h: 420, pageSlug: "presentation" },
       },
     },
     schema: { schemaVersion: 2, sequences: { ...SEQUENCES } },
@@ -170,8 +170,9 @@ describe("migrateCanvasDocument", () => {
     const workspace = snapshot.store["shape:workspace-user1-chess-machine"];
     expect((workspace.meta as { owner: string }).owner).toBe("user1");
 
-    // The unknown shape type is untouched, byte for byte.
-    expect(snapshot.store["shape:mystery"]).toEqual(before.store["shape:mystery"]);
+    // The legacy shape type (registered, no longer seeded) is
+    // untouched, byte for byte.
+    expect(snapshot.store["shape:legacy-notebook"]).toEqual(before.store["shape:legacy-notebook"]);
 
     // The input was not mutated.
     expect(input).toEqual(before);
@@ -198,22 +199,64 @@ describe("migrateCanvasDocument", () => {
     expectValidRecords(snapshot);
   });
 
-  test("every record a migration creates passes the real tldraw validators", () => {
+  test("every record in the migrated document passes the real tldraw validators", () => {
     const { snapshot } = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
-    // The unknown type stands outside the schema by construction.
-    const known = structuredClone(snapshot);
-    delete known.store["shape:mystery"];
-    expectValidRecords(known);
+    expectValidRecords(snapshot);
   });
 
   test("the migrated document loads through tldraw's own snapshot migrator", () => {
     const { snapshot } = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
-    delete snapshot.store["shape:mystery"];
     const result = SCHEMA.migrateStoreSnapshot({
       store: snapshot.store as never,
       schema: snapshot.schema as never,
     });
     expect(result.type).toBe("success");
+  });
+
+  test("a shape type this runtime has never heard of fails loudly, input untouched", () => {
+    const input = oldSnapshot();
+    input.store["shape:mystery"] = {
+      id: "shape:mystery",
+      typeName: "shape",
+      type: "mystery-widget",
+      parentId: pageIdForSlug("presentation"),
+      index: "a8",
+      x: 9,
+      y: 9,
+      rotation: 0,
+      isLocked: false,
+      opacity: 1,
+      meta: {},
+      props: { anything: true },
+    };
+    const before = structuredClone(input);
+    // Passing it through would only defer the failure to the room's
+    // validators or to clients that cannot render it; refusing keeps
+    // the stored snapshot intact and the message actionable.
+    expect(() => migrateCanvasDocument(input, SEQUENCES)).toThrow(CanvasMigrationError);
+    expect(() => migrateCanvasDocument(input, SEQUENCES)).toThrow(/mystery-widget/);
+    expect(input).toEqual(before);
+  });
+
+  test("a document from a newer workshop version is rejected, not silently accepted", () => {
+    const first = migrateCanvasDocument(oldSnapshot(), SEQUENCES);
+    const future = structuredClone(first.snapshot);
+    (future.store["document:document"].meta as Record<string, unknown>).workshopCanvasVersion = 14;
+    expect(() => migrateCanvasDocument(future, SEQUENCES)).toThrow(/workshop version 14/);
+  });
+
+  test("a schema down-conversion alone still reports changed for persistence", () => {
+    // Fully migrated document, but saved by the newer tldraw: the note
+    // sequence is one ahead and the note carries the renamed field.
+    const current = migrateCanvasDocument(oldSnapshot(), SEQUENCES).snapshot;
+    current.schema.sequences["com.tldraw.shape.note"] = SEQUENCES["com.tldraw.shape.note"] + 1;
+    const props = current.store["shape:authored-note"].props as Record<string, unknown>;
+    delete props.textFirstEditedBy;
+    props.textLastEditedBy = null;
+
+    const result = migrateCanvasDocument(current, SEQUENCES);
+    expect(result.applied).toEqual([]);
+    expect(result.changed).toBe(true);
   });
 
   test("the repository's authored 5.2.2 snapshot migrates and loads under this runtime", () => {

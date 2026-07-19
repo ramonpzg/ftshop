@@ -261,3 +261,44 @@ describe("startPresenterSync", () => {
     stop();
   });
 });
+
+test("a failed workspace lookup does not consume the revision; the next poll retries", async () => {
+  let workspaceCalls = 0;
+  globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/presenter")) {
+      return new Response(JSON.stringify({ ...baseState, mode: "workspaces", revision: 5 }));
+    }
+    if (url.endsWith("/workspaces")) {
+      workspaceCalls += 1;
+      if (workspaceCalls === 1) return new Response("boom", { status: 500 });
+      return new Response(
+        JSON.stringify({
+          id: "ws1",
+          user_id: "u1",
+          page_id: "p1",
+          shape_id: "shape:workspace-u1-chess-machine",
+          position_index: 0,
+          selected_snippet_id: null,
+          board_fen: "startpos",
+        }),
+      );
+    }
+    return new Response("not found", { status: 404 });
+  }) as unknown as typeof fetch;
+
+  const attendee = makeEditor();
+  const stop = startPresenterSync({
+    editor: attendee as never,
+    isPresenter: false,
+    getCurrentUserId: () => "u1",
+    onLockedChange: () => {},
+    intervalMs: 15,
+  });
+  await wait(120);
+  // The transient 500 left revision 5 unconsumed, so a later poll
+  // retried it and this attendee still reached their workspace.
+  expect(workspaceCalls).toBeGreaterThanOrEqual(2);
+  expect(attendee.currentPage).toBe("page:chess-machine");
+  stop();
+});

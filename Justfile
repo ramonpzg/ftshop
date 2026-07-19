@@ -29,7 +29,10 @@ start:
     (cd api && uv run uvicorn euro_chess_studio.main:app --reload --port 8000) &
     (cd web && bun run sync-server) &
     (cd web && bun run dev) &
-    wait
+    # First exit takes the stack down: a room without its backend, or a
+    # frontend without its room, is worse than a visible failure. The
+    # complete release command surface is phase 36's item.
+    wait -n
 
 start-backend:
     cd api && uv run uvicorn euro_chess_studio.main:app --reload --port 8000

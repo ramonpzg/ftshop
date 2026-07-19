@@ -54,3 +54,30 @@ describe("LiveRoom state machine", () => {
     expect(state.room).toEqual(ROOM);
   });
 });
+
+describe("createLatestGate", () => {
+  test("only the newest token may apply", async () => {
+    const { createLatestGate } = await import("../lib/liveRoom");
+    const gate = createLatestGate();
+    const slow = gate.begin();
+    const fast = gate.begin();
+    expect(gate.isCurrent(fast)).toBe(true);
+    expect(gate.isCurrent(slow)).toBe(false);
+  });
+
+  test("a stale success cannot overwrite a newer failure's recovery state", async () => {
+    const { createLatestGate } = await import("../lib/liveRoom");
+    const gate = createLatestGate();
+    let state = applyPollResult(INITIAL_LIVE_ROOM_STATE, { ok: true, room: ROOM, at: 1000 });
+
+    const stale = gate.begin(); // poll starts, will resolve late
+    const fresh = gate.begin(); // next poll starts and fails first
+    if (gate.isCurrent(fresh)) state = applyPollResult(state, { ok: false });
+    expect(state.phase).toBe("recovering");
+
+    // The stale response finally lands; the gate discards it.
+    if (gate.isCurrent(stale)) state = applyPollResult(state, { ok: true, room: ROOM, at: 900 });
+    expect(state.phase).toBe("recovering");
+    expect(state.fetchedAt).toBe(1000);
+  });
+});

@@ -109,9 +109,19 @@ export function startPresenterSync(options: PresenterSyncOptions): () => void {
         lastAppliedRevision = Math.max(lastAppliedRevision ?? 0, state.revision);
         return;
       }
-      lastAppliedRevision = state.revision;
-      if (!isPresenter) {
+      if (isPresenter) {
+        lastAppliedRevision = state.revision;
+        return;
+      }
+      // The revision is consumed only after the view actually applied.
+      // A transient failure (say, the workspace lookup during
+      // send-to-workspace) leaves it unconsumed, so the next poll
+      // retries the same target instead of leaving this client behind.
+      try {
         await applyPresenterView(editor, state, getCurrentUserId(), onNotice);
+        lastAppliedRevision = state.revision;
+      } catch {
+        // next tick retries this revision
       }
     } finally {
       inFlight = false;

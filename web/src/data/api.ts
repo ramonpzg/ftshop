@@ -42,6 +42,24 @@ export function fetchHealth(): Promise<HealthStatus> {
   return request<HealthStatus>("/health");
 }
 
+export interface RoomHealth {
+  status: string;
+  /** The sync room's persistence state toward the backend disk:
+   * idle (nothing to save yet), saving, saved, or error (retrying). */
+  persist: "idle" | "saving" | "saved" | "error";
+  sessions: number;
+}
+
+/** The sync server's health endpoint. Not under /api: the room is its
+ * own process, reached through the dev server's /sync proxy. */
+export async function fetchRoomHealth(): Promise<RoomHealth> {
+  const response = await fetch("/sync/health");
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<RoomHealth>;
+}
+
 export interface User {
   id: string;
   name: string;
