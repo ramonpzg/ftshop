@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,10 +24,31 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // window.chessStudioEditor is declared globally in room.spec.ts.
 
-const API_PORT = 8200;
-const SYNC_PORT = 8210;
-const WEB_PORT = 5273;
-const APP_URL = `http://localhost:${WEB_PORT}`;
+// Ports are OS-allocated at startup, so two worktrees running this
+// spec at once cannot claim each other's services. Restarts reuse the
+// same port (the sync server and Vite proxy were configured with it);
+// if anything else grabs it in that window, the child fails to bind
+// and waitForReady sees the exited child instead of accepting a
+// foreign responder.
+let apiPort = 0;
+let syncPort = 0;
+let webPort = 0;
+const appUrl = () => `http://localhost:${webPort}`;
+
+function allocatePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("no port allocated"));
+        return;
+      }
+      server.close(() => resolve(address.port));
+    });
+  });
+}
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), "euro-chess-durability-"));
 const services: Set<ChildProcess> = new Set();
@@ -65,9 +87,17 @@ async function stopService(child: ChildProcess): Promise<void> {
   }
 }
 
-async function waitForHttp(url: string, timeoutMs: number) {
+/** Readiness belongs to the spawned child: if it exits (for example
+ * because something else won the port), this throws instead of
+ * accepting a 200 from whoever answers the URL. */
+async function waitForReady(child: ChildProcess, url: string, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(
+        `service for ${url} exited with code ${child.exitCode} before becoming ready`,
+      );
+    }
     try {
       const response = await fetch(url);
       if (response.ok) return;
@@ -82,7 +112,7 @@ async function waitForHttp(url: string, timeoutMs: number) {
 function startBackend() {
   const child = spawnService(
     "uv",
-    ["run", "uvicorn", "euro_chess_studio.main:app", "--port", String(API_PORT)],
+    ["run", "uvicorn", "euro_chess_studio.main:app", "--port", String(apiPort)],
     path.resolve(HERE, "../../api"),
     {
       CHESS_STUDIO_DB_PATH: path.join(scratch, "db.sqlite"),
@@ -90,34 +120,39 @@ function startBackend() {
       CHESS_STUDIO_ASSETS_DIR: path.join(scratch, "assets"),
     },
   );
-  return { child, ready: waitForHttp(`http://localhost:${API_PORT}/health`, 30_000) };
+  return { child, ready: waitForReady(child, `http://localhost:${apiPort}/health`, 30_000) };
 }
 
 function startSync() {
   const child = spawnService("bun", ["sync-server/index.ts"], path.resolve(HERE, ".."), {
-    CHESS_STUDIO_API_URL: `http://localhost:${API_PORT}`,
-    CHESS_STUDIO_SYNC_PORT: String(SYNC_PORT),
+    CHESS_STUDIO_API_URL: `http://localhost:${apiPort}`,
+    CHESS_STUDIO_SYNC_PORT: String(syncPort),
   });
-  return { child, ready: waitForHttp(`http://localhost:${SYNC_PORT}/health`, 60_000) };
+  return { child, ready: waitForReady(child, `http://localhost:${syncPort}/health`, 60_000) };
 }
 
 function startWeb() {
   const child = spawnService(
     path.resolve(HERE, "../node_modules/.bin/vite"),
-    ["--port", String(WEB_PORT), "--strictPort"],
+    ["--port", String(webPort), "--strictPort"],
     path.resolve(HERE, ".."),
     {
-      CHESS_STUDIO_API_PORT: String(API_PORT),
-      CHESS_STUDIO_SYNC_PORT: String(SYNC_PORT),
+      CHESS_STUDIO_API_PORT: String(apiPort),
+      CHESS_STUDIO_SYNC_PORT: String(syncPort),
     },
   );
-  return { child, ready: waitForHttp(APP_URL, 30_000) };
+  return { child, ready: waitForReady(child, appUrl(), 30_000) };
 }
 
 let backend: ChildProcess;
 let sync: ChildProcess;
 
 test.beforeAll(async () => {
+  [apiPort, syncPort, webPort] = await Promise.all([
+    allocatePort(),
+    allocatePort(),
+    allocatePort(),
+  ]);
   const backendStart = startBackend();
   backend = backendStart.child;
   await backendStart.ready;
@@ -143,7 +178,7 @@ async function createNote(page: Page, id: string): Promise<void> {
 }
 
 async function canvasContains(page: Page, id: string): Promise<boolean> {
-  const response = await page.request.get(`${APP_URL}/api/canvas`);
+  const response = await page.request.get(`${appUrl()}/api/canvas`);
   if (!response.ok()) return false;
   const body = (await response.json()) as { snapshot: { store: Record<string, unknown> } | null };
   return body.snapshot !== null && id in body.snapshot.store;
@@ -154,7 +189,7 @@ test("an edit persists to the backend, survives a sync-server restart, and the b
 }) => {
   test.setTimeout(180_000);
 
-  await page.goto(APP_URL);
+  await page.goto(appUrl());
   await page.waitForSelector("#join-name");
   await page.fill("#join-name", `Durable-${Date.now()}`);
   await page.click('button[type="submit"]');

@@ -215,15 +215,23 @@ Four more findings, all fixed.
    presenter poll cannot stand in for this decision because its first
    successful read of an idle room applies nothing, so any fixed
    budget would strand an attendee after a long enough outage. The
-   loop ends only with an answer or with the cancellation of the
-   effect that started it (a bounded budget exists for tests). Tested
-   for the 500-then-idle path, confirmed presenter mode, a
-   twelve-failure outage resolving on recovery, and cancellation.
+   loop ends only with an answer or with the abort of the effect that
+   started it (a bounded budget exists for tests). Each attempt runs
+   under its own request timeout (default 4s) and is wired to the
+   caller's AbortSignal, so a stalled request neither freezes the loop
+   nor outlives the App effect. Tested for the 500-then-idle path,
+   confirmed presenter mode, a twelve-failure outage resolving on
+   recovery, a hang cut off by the request timeout, a hang ended by
+   the caller's abort, and an already-aborted signal.
 4. Durable recovery is demonstrated end to end in
    e2e/durability.spec.ts, its own Playwright project: it boots a
-   complete stack on isolated ports (backend 8200, sync 8210, Vite
-   5273, scratch state in a mkdtemp directory) held as exact child
-   process handles in their own process groups. Restarts signal the
+   complete stack on OS-allocated ports (net.listen(0) per service,
+   scratch state in a mkdtemp directory) held as exact child process
+   handles in their own process groups, so two worktrees can run the
+   spec at once without claiming each other's services. Readiness
+   belongs to the spawned child: waitForReady throws when the child
+   exits (say, after losing a port race) instead of accepting a 200
+   from a foreign responder. Restarts signal the
    owned PID group and wait for exit before the replacement binds; no
    pkill patterns exist, so other worktrees and the shared webServer
    stack are untouchable by construction. The flow: an edit is read

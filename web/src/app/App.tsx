@@ -107,6 +107,7 @@ export function App() {
   useEffect(() => {
     if (!editor || !currentUser) return;
     let cancelled = false;
+    const navigationAbort = new AbortController();
     createOrGetWorkspace(currentUser.id, PRIMARY_WORKSPACE_PAGE_SLUG)
       .then(async (workspace) => {
         if (cancelled) return;
@@ -114,8 +115,10 @@ export function App() {
         setAttendeeRefreshToken((token) => token + 1);
         // Retries until presenter mode is actually known: a transient
         // backend failure must neither move the camera unsafely nor
-        // strand an idle-room attendee on the wrong page.
-        const navigation = await resolveJoinNavigation({ isCancelled: () => cancelled });
+        // strand an idle-room attendee on the wrong page. The abort
+        // wiring ends the loop and any in-flight request when this
+        // effect is torn down.
+        const navigation = await resolveJoinNavigation({ signal: navigationAbort.signal });
         if (cancelled) return;
         if (navigation === "workspace") {
           navigateToWorkspace(editor, workspace, PRIMARY_WORKSPACE_PAGE_SLUG);
@@ -130,6 +133,7 @@ export function App() {
       });
     return () => {
       cancelled = true;
+      navigationAbort.abort();
     };
   }, [editor, currentUser]);
 

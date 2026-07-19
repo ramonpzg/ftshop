@@ -297,8 +297,8 @@ export interface PresenterTarget {
   bounds?: PresenterTargetBounds;
 }
 
-export function fetchPresenterState(): Promise<PresenterState> {
-  return request<PresenterState>("/presenter");
+export function fetchPresenterState(signal?: AbortSignal): Promise<PresenterState> {
+  return request<PresenterState>("/presenter", { signal });
 }
 
 export function bringToPresenterView(target: PresenterTarget): Promise<PresenterState> {

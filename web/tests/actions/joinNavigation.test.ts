@@ -24,6 +24,19 @@ function presenterFetch(responses: Array<{ status: number; mode?: string }>) {
   }) as unknown as typeof fetch;
 }
 
+/** A fetch that never resolves until its signal aborts, standing in
+ * for a stalled connection. */
+function hangingFetch(onHang?: (count: number) => void) {
+  let hangs = 0;
+  return mock((_input: RequestInfo | URL, init?: RequestInit) => {
+    hangs += 1;
+    onHang?.(hangs);
+    return new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+    });
+  }) as unknown as typeof fetch;
+}
+
 afterEach(() => {
   mock.restore();
 });
@@ -61,18 +74,61 @@ describe("resolveJoinNavigation", () => {
     expect(await resolveJoinNavigation({ delayMs: 2 })).toBe("workspace");
   });
 
-  test("cancellation stops the retry loop", async () => {
-    globalThis.fetch = presenterFetch([{ status: 500 }]);
+  test("a stalled request is cut off by the per-request timeout and the next attempt proceeds", async () => {
+    // First request hangs forever; the request timeout aborts it and
+    // the loop retries. The second attempt answers idle.
     let calls = 0;
-    const navigation = await resolveJoinNavigation({
-      attempts: 10,
-      delayMs: 5,
-      isCancelled: () => {
-        calls += 1;
-        return calls > 2;
-      },
+    globalThis.fetch = mock((_input: RequestInfo | URL, init?: RequestInit) => {
+      calls += 1;
+      if (calls === 1) {
+        return new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        });
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            mode: "idle",
+            locked: false,
+            active_page_slug: null,
+            focused_user_id: null,
+            updated_at: "now",
+            revision: 1,
+            target_frame_id: null,
+            target_bounds: null,
+          }),
+        ),
+      );
+    }) as unknown as typeof fetch;
+
+    const navigation = await resolveJoinNavigation({ delayMs: 2, requestTimeoutMs: 20 });
+    expect(navigation).toBe("workspace");
+    expect(calls).toBe(2);
+  });
+
+  test("aborting the caller's signal ends a hanging request instead of outliving the effect", async () => {
+    globalThis.fetch = hangingFetch();
+    const controller = new AbortController();
+    const pending = resolveJoinNavigation({
+      signal: controller.signal,
+      requestTimeoutMs: 60_000,
     });
-    expect(navigation).toBe("stay");
-    expect(calls).toBeLessThanOrEqual(4);
+    setTimeout(() => controller.abort(), 15);
+    const started = Date.now();
+    expect(await pending).toBe("stay");
+    // The hang did not run out its 60s timeout; the abort ended it.
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  test("an already-aborted signal returns immediately without fetching", async () => {
+    let calls = 0;
+    globalThis.fetch = mock(async () => {
+      calls += 1;
+      return new Response("boom", { status: 500 });
+    }) as unknown as typeof fetch;
+    const controller = new AbortController();
+    controller.abort();
+    expect(await resolveJoinNavigation({ signal: controller.signal })).toBe("stay");
+    expect(calls).toBe(0);
   });
 });
