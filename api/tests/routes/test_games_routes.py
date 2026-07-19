@@ -203,14 +203,14 @@ def test_full_export_carries_every_shape_with_provenance(
 def test_start_game_records_the_chosen_opponent(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-2b-it,openai/gpt-5.5")
+    monkeypatch.setenv("OPPONENT_MODELS", "google/gemma-4-2b-it,openai/gpt-5.6")
     workspace_id = make_workspace(client)
 
     status = client.get("/llm/status").json()
     assert status["opponent_models"] == [
         "google/gemma-4-2b-it",
-        "openai/gpt-5.5",
-        "gpt-5.5-mini",
+        "openai/gpt-5.6",
+        "gpt-5.6-luna",
     ]
 
     response = client.post(

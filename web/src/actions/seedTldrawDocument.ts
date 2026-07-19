@@ -22,10 +22,6 @@ function modalityPanelShapeId(slug: string) {
   return createShapeId(`modality-panel-${slug}`);
 }
 
-function notebookShapeId(slug: string) {
-  return createShapeId(`notebook-panel-${slug}`);
-}
-
 const DECK_SHAPE_ID = createShapeId("deck-panel");
 
 /** The Slidev deck embed on the Presentation page. Ensured on every
@@ -143,18 +139,6 @@ export function ensurePagesSeeded(editor: Editor): boolean {
           x: 0,
           y: 1200,
           props: { modality: page.modality, pageSlug: page.slug },
-        });
-      }
-
-      if (page.modality !== "meta") {
-        shapes.push({
-          id: notebookShapeId(page.slug),
-          type: "notebook-panel" as const,
-          parentId: pageId,
-          // Below the explainer frames, above the workspace band at y=1500.
-          x: 1400,
-          y: 800,
-          props: { w: 1200, h: 650, pageSlug: page.slug },
         });
       }
 

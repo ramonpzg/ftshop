@@ -6,15 +6,20 @@ Hugging Face router, vLLM, llama.cpp) later without touching code:
 
     OPENAI_API_KEY    required
     OPENAI_BASE_URL   default https://api.openai.com/v1
-    OPENAI_MODEL      default gpt-5.5-mini; analysis and the default opponent
+    OPENAI_MODEL      default gpt-5.6-luna; analysis and the default opponent
     OPPONENT_MODELS   optional comma-separated list of extra opponents
                       to offer in the Start game picker, e.g.
-                      google/gemma-4-2b-it,openai/gpt-5.5
+                      google/gemma-4-2b-it,openai/gpt-5.6
 """
 
 import os
+import random
+import time
 
 import httpx
+
+DEFAULT_MODEL = "gpt-5.6-luna"
+TRANSIENT_PERMISSION_ERROR = "You have insufficient permissions for this operation"
 
 
 class LlmNotConfiguredError(RuntimeError):
@@ -26,7 +31,7 @@ class LlmRequestError(RuntimeError):
 
 
 def get_llm_model() -> str:
-    return os.environ.get("OPENAI_MODEL", "gpt-5.5-mini")
+    return os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
 
 
 def get_opponent_models() -> list[str]:
@@ -56,40 +61,67 @@ def chat(
     messages: list[dict],
     *,
     json_response: bool = False,
-    timeout: float = 60.0,
+    timeout: float = 120.0,
     model: str | None = None,
 ) -> str:
-    """One chat completion, returning the assistant text. When
-    json_response is set, asks for JSON mode and quietly retries without
-    it for endpoints that reject the parameter."""
+    """One Chat Completion, returning the assistant text.
+
+    JSON mode falls back once for compatible endpoints that reject
+    response_format. Retries cover rate limits, server failures, transport
+    failures, and the generic permissions 401 observed while a new project key
+    was propagating. Explicit credential failures are not retried.
+    """
     base_url, api_key, model = _settings(model)
-    body: dict = {"model": model, "messages": messages}
+    body: dict = {
+        "model": model,
+        "reasoning_effort": "medium",
+        "messages": messages,
+    }
     if json_response:
         body["response_format"] = {"type": "json_object"}
 
-    try:
-        with httpx.Client(timeout=timeout) as client:
-            response = client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json=body,
-            )
-            if response.status_code == 400 and json_response:
-                body.pop("response_format", None)
+    request_ids: list[str] = []
+    with httpx.Client(timeout=timeout) as client:
+        for attempt in range(3):
+            try:
                 response = client.post(
                     f"{base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
                     json=body,
                 )
-            if response.status_code != 200:
+            except httpx.HTTPError as exc:
+                if attempt == 2:
+                    raise LlmRequestError(
+                        f"could not reach {base_url}; attempt={attempt + 1}; error={exc}"
+                    ) from exc
+                _sleep_before_retry(attempt)
+                continue
+
+            if response.status_code == 400 and "response_format" in body:
+                body.pop("response_format", None)
+                continue
+
+            if response.status_code == 200:
+                data = response.json()
+                break
+
+            request_id = response.headers.get("x-request-id")
+            if request_id:
+                request_ids.append(request_id)
+
+            if not _is_retryable(response) or attempt == 2:
                 raise LlmRequestError(
-                    f"llm endpoint returned {response.status_code}: {response.text[:300]}"
+                    f"{response.status_code} from {response.request.url}; "
+                    f"attempt={attempt + 1}; request_ids={request_ids or ['missing']}; "
+                    f"body={response.text[:400]}"
                 )
-            data = response.json()
-    except httpx.HTTPError as exc:
-        # Unreachable host, timeout, TLS trouble: a clean model error the
-        # UI can display, not an anonymous 500.
-        raise LlmRequestError(f"could not reach {base_url}: {exc}") from exc
+
+            _sleep_before_retry(attempt)
+        else:  # pragma: no cover - the loop either breaks or raises
+            raise LlmRequestError("chat completion retry loop ended unexpectedly")
 
     try:
         content = data["choices"][0]["message"]["content"]
@@ -98,3 +130,30 @@ def chat(
     if not isinstance(content, str) or not content.strip():
         raise LlmRequestError("llm returned empty content")
     return content
+
+
+def _is_retryable(response: httpx.Response) -> bool:
+    if response.status_code == 429 or response.status_code >= 500:
+        return True
+    if response.status_code != 401:
+        return False
+    return _response_error_message(response).rstrip(".") == TRANSIENT_PERMISSION_ERROR
+
+
+def _response_error_message(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return response.text.strip()
+    if not isinstance(payload, dict):
+        return response.text.strip()
+    error = payload.get("error")
+    if isinstance(error, dict) and isinstance(error.get("message"), str):
+        return error["message"].strip()
+    if isinstance(payload.get("message"), str):
+        return payload["message"].strip()
+    return response.text.strip()
+
+
+def _sleep_before_retry(attempt: int) -> None:
+    time.sleep((2**attempt) + random.uniform(0, 0.25))

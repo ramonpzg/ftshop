@@ -17,26 +17,10 @@ install-audio:
 deck:
     cd deck && bun run dev
 
-# The whole session as one notebook. The fallback if the app dies on
-# stage. Not in the WASM export list on purpose: it trains with JAX and
-# calls local models, which pyodide cannot do.
+# The whole session as a standalone Jupyter notebook. It is not embedded
+# in tldraw and does not depend on the web app.
 session-notebook:
-    uvx marimo edit --sandbox notebooks/full-session.py
-
-# Regenerates notebooks/full-session.md, the readable twin of the
-# fallback notebook. Rerun after editing the notebook.
-notebook-md:
-    cd api && uv run marimo export md ../notebooks/full-session.py -o ../notebooks/full-session.md
-
-# Exports the marimo notebooks to in-browser WASM under web/public/notebooks.
-# Rerun after editing anything in notebooks/.
-notebooks:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for nb in chess-machine painting-pieces board-sound real-world-video; do
-        (cd api && uv run marimo export html-wasm "../notebooks/$nb.py" -o "../web/public/notebooks/$nb" --mode edit -f)
-    done
-    echo "notebooks exported. pyodide still loads from its CDN on first open."
+    cd api && uv run jupyter lab --ServerApp.root_dir=.. ../notebooks/full-session.ipynb
 
 start:
     #!/usr/bin/env bash
@@ -52,12 +36,12 @@ start-backend:
 # Fake OpenAI endpoint with configurable latency. Point the backend at
 # it: OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:9999 just start-backend
 mock-llm delay="1.2":
-    cd api && uv run python -m euro_chess_studio.tools.mock_llm --delay {{delay}}
+    cd api && uv run python -m euro_chess_studio.tools.mock_llm --delay {{ delay }}
 
 # Simulates a room hammering a running backend: joins, timed matches,
 # model replies, assessments, presenter polling. Latency report at the end.
 load-test attendees="20" duration="60":
-    cd api && uv run python -m euro_chess_studio.tools.load_sim --attendees {{attendees}} --duration {{duration}}
+    cd api && uv run python -m euro_chess_studio.tools.load_sim --attendees {{ attendees }} --duration {{ duration }}
 
 start-frontend:
     cd web && bun run dev

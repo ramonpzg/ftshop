@@ -62,8 +62,8 @@ function routedFetch(
       return new Response(
         JSON.stringify({
           configured: true,
-          model: "gpt-5.5-mini",
-          opponent_models: opts.opponentModels ?? ["gpt-5.5-mini"],
+          model: "gpt-5.6-luna",
+          opponent_models: opts.opponentModels ?? ["gpt-5.6-luna"],
         }),
       );
     }
@@ -392,7 +392,7 @@ describe("WorkspacePanel", () => {
 
   test("with several opponents on offer, starting sends the chosen one", async () => {
     const fetchMock = routedFetch({
-      opponentModels: ["google/gemma-4-2b-it", "openai/gpt-5.5", "gpt-5.5-mini"],
+      opponentModels: ["google/gemma-4-2b-it", "openai/gpt-5.6", "gpt-5.6-luna"],
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     render(
@@ -406,17 +406,17 @@ describe("WorkspacePanel", () => {
     const options = Array.from(
       (screen.getByTestId("opponent-model") as HTMLSelectElement).options,
     ).map((option) => option.textContent);
-    expect(options).toEqual(["gemma-4-2b-it", "gpt-5.5", "gpt-5.5-mini"]);
+    expect(options).toEqual(["gemma-4-2b-it", "gpt-5.6", "gpt-5.6-luna"]);
 
     fireEvent.change(screen.getByTestId("opponent-model"), {
-      target: { value: "openai/gpt-5.5" },
+      target: { value: "openai/gpt-5.6" },
     });
     fireEvent.click(screen.getByTestId("start-game"));
 
     await waitFor(() => screen.getByTestId("game-timer"));
     const startCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith("/game/start"));
     expect(JSON.parse(String((startCall?.[1] as RequestInit).body)).opponent_model).toBe(
-      "openai/gpt-5.5",
+      "openai/gpt-5.6",
     );
   });
 

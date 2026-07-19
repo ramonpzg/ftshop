@@ -827,9 +827,9 @@ layout: center
 <div class="text-left max-w-lg mx-auto mt-4">
 
 - **The repo**: board, deck, notebook, all of it
-- **The notebook**: `uvx marimo edit --sandbox notebooks/full-session.py`
+- **The notebook**: `just session-notebook`
 - **Your dataset**: the export button was real; the file is yours
-- Unsloth, axolotl, mergekit, verifiers, fal, marimo: all linked in the notebook
+- Unsloth, axolotl, mergekit, verifiers, and fal: linked in the notebook
 
 </div>
 

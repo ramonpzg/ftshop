@@ -29,7 +29,7 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.15",
     "ty>=0.0.56",
-    "marimo>=0.23",
+    "jupyterlab>=4.4",
 ]
 
 [build-system]
