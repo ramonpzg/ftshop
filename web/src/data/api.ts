@@ -253,22 +253,44 @@ export function selectSnippet(workspaceId: string, snippetId: string): Promise<W
   });
 }
 
+export interface PresenterTargetBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface PresenterState {
   mode: string;
   locked: boolean;
   active_page_slug: string | null;
   focused_user_id: string | null;
   updated_at: string;
+  /** Monotonic; bumped by the backend on every presenter-state change.
+   * Clients order camera updates on this alone. */
+  revision: number;
+  target_frame_id: string | null;
+  target_bounds: PresenterTargetBounds | null;
+}
+
+export interface PresenterTarget {
+  pageSlug: string;
+  frameId?: string;
+  bounds?: PresenterTargetBounds;
 }
 
 export function fetchPresenterState(): Promise<PresenterState> {
   return request<PresenterState>("/presenter");
 }
 
-export function bringToPresenterView(pageSlug: string): Promise<PresenterState> {
+export function bringToPresenterView(target: PresenterTarget): Promise<PresenterState> {
   return request<PresenterState>("/presenter/bring-to-presenter-view", {
     method: "POST",
-    body: JSON.stringify({ page_slug: pageSlug }),
+    body: JSON.stringify({
+      page_slug: target.pageSlug,
+      frame_id: target.frameId ?? null,
+      bounds: target.bounds ?? null,
+    }),
   });
 }
 

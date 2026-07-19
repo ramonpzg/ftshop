@@ -8,28 +8,42 @@ function wait(ms: number) {
 interface EditorMock {
   readonly: boolean;
   currentPage: string;
+  zoomedTo: unknown[];
   getIsReadonly: () => boolean;
   updateInstanceState: (partial: { isReadonly?: boolean }) => void;
   setCurrentPage: (id: string) => void;
   zoomToFit: () => void;
-  getShapePageBounds: () => { x: number; y: number; w: number; h: number };
-  zoomToBounds: () => void;
+  getPages: () => Array<{ id: string }>;
+  getShape: (id: string) => { id: string } | undefined;
+  getAncestorPageId: (shape: { id: string }) => string;
+  getShapePageBounds: (id: string) => { x: number; y: number; w: number; h: number } | undefined;
+  zoomToBounds: (bounds: unknown, opts?: unknown) => void;
 }
 
-function makeEditor(): EditorMock {
+function makeEditor(options: { frameExists?: boolean } = {}): EditorMock {
   const editor: EditorMock = {
     readonly: false,
     currentPage: "page:presentation",
+    zoomedTo: [],
     getIsReadonly: () => editor.readonly,
     updateInstanceState: (partial) => {
       if (partial.isReadonly !== undefined) editor.readonly = partial.isReadonly;
     },
-    setCurrentPage: mock((id: string) => {
+    setCurrentPage: (id: string) => {
       editor.currentPage = id;
-    }) as unknown as EditorMock["setCurrentPage"],
+    },
     zoomToFit: mock(() => {}),
-    getShapePageBounds: () => ({ x: 0, y: 0, w: 900, h: 560 }),
-    zoomToBounds: mock(() => {}),
+    getPages: () => [
+      { id: "page:presentation" },
+      { id: "page:chess-machine" },
+      { id: "page:board-sound" },
+    ],
+    getShape: (id: string) => (options.frameExists ? { id } : undefined),
+    getAncestorPageId: () => "page:board-sound",
+    getShapePageBounds: () => ({ x: 10, y: 20, w: 1600, h: 900 }),
+    zoomToBounds: mock((bounds: unknown) => {
+      editor.zoomedTo.push(bounds);
+    }),
   };
   return editor;
 }
@@ -53,6 +67,9 @@ const baseState = {
   active_page_slug: null,
   focused_user_id: null,
   updated_at: "t0",
+  revision: 0,
+  target_frame_id: null,
+  target_bounds: null,
 };
 
 afterEach(() => {
@@ -61,7 +78,7 @@ afterEach(() => {
 
 describe("startPresenterSync", () => {
   test("applies the lock to attendees but never to the presenter", async () => {
-    globalThis.fetch = presenterStateFetch([{ ...baseState, locked: true }]);
+    globalThis.fetch = presenterStateFetch([{ ...baseState, locked: true, revision: 1 }]);
     const attendee = makeEditor();
     const onLockedChange = mock((_locked: boolean) => {});
     const stopA = startPresenterSync({
@@ -76,7 +93,7 @@ describe("startPresenterSync", () => {
     expect(onLockedChange).toHaveBeenCalledWith(true);
     stopA();
 
-    globalThis.fetch = presenterStateFetch([{ ...baseState, locked: true }]);
+    globalThis.fetch = presenterStateFetch([{ ...baseState, locked: true, revision: 1 }]);
     const presenter = makeEditor();
     const stopB = startPresenterSync({
       editor: presenter as never,
@@ -90,10 +107,10 @@ describe("startPresenterSync", () => {
     stopB();
   });
 
-  test("moves attendees to the presenter's page when the state changes", async () => {
+  test("moves attendees when a newer revision arrives", async () => {
     globalThis.fetch = presenterStateFetch([
       baseState,
-      { ...baseState, mode: "presenter", active_page_slug: "board-sound", updated_at: "t1" },
+      { ...baseState, mode: "presenter", active_page_slug: "board-sound", revision: 1 },
     ]);
     const attendee = makeEditor();
     const stop = startPresenterSync({
@@ -103,15 +120,37 @@ describe("startPresenterSync", () => {
       onLockedChange: () => {},
       intervalMs: 15,
     });
-    await wait(60);
+    await wait(80);
     expect(attendee.currentPage).toBe("page:board-sound");
     stop();
   });
 
-  test("does not yank the camera on the first poll", async () => {
+  test("a late joiner is brought to the current presenter target on the first poll", async () => {
     globalThis.fetch = presenterStateFetch([
-      { ...baseState, mode: "presenter", active_page_slug: "board-sound" },
+      {
+        ...baseState,
+        mode: "presenter",
+        active_page_slug: "board-sound",
+        revision: 7,
+        target_bounds: { x: 0, y: 0, w: 800, h: 600 },
+      },
     ]);
+    const lateJoiner = makeEditor();
+    const stop = startPresenterSync({
+      editor: lateJoiner as never,
+      isPresenter: false,
+      getCurrentUserId: () => null,
+      onLockedChange: () => {},
+      intervalMs: 10_000,
+    });
+    await wait(30);
+    expect(lateJoiner.currentPage).toBe("page:board-sound");
+    expect(lateJoiner.zoomedTo).toHaveLength(1);
+    stop();
+  });
+
+  test("an idle room leaves a fresh client where it is", async () => {
+    globalThis.fetch = presenterStateFetch([baseState]);
     const attendee = makeEditor();
     const stop = startPresenterSync({
       editor: attendee as never,
@@ -125,10 +164,89 @@ describe("startPresenterSync", () => {
     stop();
   });
 
+  test("repeated polls with the same revision do not re-apply the camera", async () => {
+    const driven = {
+      ...baseState,
+      mode: "presenter",
+      active_page_slug: "board-sound",
+      revision: 3,
+      target_bounds: { x: 0, y: 0, w: 800, h: 600 },
+    };
+    globalThis.fetch = presenterStateFetch([driven, driven, driven]);
+    const attendee = makeEditor();
+    const stop = startPresenterSync({
+      editor: attendee as never,
+      isPresenter: false,
+      getCurrentUserId: () => null,
+      onLockedChange: () => {},
+      intervalMs: 10,
+    });
+    await wait(80);
+    expect(attendee.zoomedTo).toHaveLength(1);
+    stop();
+  });
+
+  test("an older revision arriving late never rolls the camera back", async () => {
+    globalThis.fetch = presenterStateFetch([
+      {
+        ...baseState,
+        mode: "presenter",
+        active_page_slug: "board-sound",
+        revision: 9,
+        target_bounds: { x: 0, y: 0, w: 800, h: 600 },
+      },
+      {
+        ...baseState,
+        mode: "presenter",
+        active_page_slug: "chess-machine",
+        revision: 4,
+        target_bounds: { x: 5, y: 5, w: 100, h: 100 },
+      },
+    ]);
+    const attendee = makeEditor();
+    const stop = startPresenterSync({
+      editor: attendee as never,
+      isPresenter: false,
+      getCurrentUserId: () => null,
+      onLockedChange: () => {},
+      intervalMs: 10,
+    });
+    await wait(60);
+    expect(attendee.currentPage).toBe("page:board-sound");
+    expect(attendee.zoomedTo).toHaveLength(1);
+    stop();
+  });
+
+  test("a deleted frame degrades to a page view and reports a concise notice", async () => {
+    globalThis.fetch = presenterStateFetch([
+      {
+        ...baseState,
+        mode: "presenter",
+        active_page_slug: "board-sound",
+        revision: 2,
+        target_frame_id: "shape:gone",
+      },
+    ]);
+    const attendee = makeEditor({ frameExists: false });
+    const notices: string[] = [];
+    const stop = startPresenterSync({
+      editor: attendee as never,
+      isPresenter: false,
+      getCurrentUserId: () => null,
+      onLockedChange: () => {},
+      onNotice: (notice) => notices.push(notice),
+      intervalMs: 10_000,
+    });
+    await wait(30);
+    expect(attendee.currentPage).toBe("page:board-sound");
+    expect(notices).toEqual(["Presenter frame missing. Showing the page."]);
+    stop();
+  });
+
   test("never drives the presenter's own camera", async () => {
     globalThis.fetch = presenterStateFetch([
       baseState,
-      { ...baseState, mode: "presenter", active_page_slug: "board-sound", updated_at: "t1" },
+      { ...baseState, mode: "presenter", active_page_slug: "board-sound", revision: 1 },
     ]);
     const presenter = makeEditor();
     const stop = startPresenterSync({

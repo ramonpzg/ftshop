@@ -83,3 +83,39 @@ def test_reset_page_rejects_unknown_page(tmp_path: Path):
 def test_reset_page_with_no_workspaces_resets_nothing(tmp_path: Path):
     conn = make_conn(tmp_path)
     assert reset_page(conn, "chess-machine") == 0
+
+
+def test_every_presenter_update_bumps_the_revision(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    first = bring_to_presenter_view(conn, "presentation")
+    second = set_locked(conn, True)
+    third = send_to_workspaces(conn)
+    assert first["revision"] < second["revision"] < third["revision"]
+
+
+def test_bring_to_presenter_view_records_the_target(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    state = bring_to_presenter_view(
+        conn,
+        "presentation",
+        frame_id="shape:seed-presentation-16",
+        bounds_json='{"x": 0.0, "y": 1400.0, "w": 1600.0, "h": 900.0}',
+    )
+    assert state["target_frame_id"] == "shape:seed-presentation-16"
+    assert '"w": 1600.0' in state["target_bounds_json"]
+
+
+def test_send_to_workspaces_clears_the_target(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    bring_to_presenter_view(conn, "presentation", frame_id="shape:f", bounds_json="{}")
+    state = send_to_workspaces(conn)
+    assert state["target_frame_id"] is None
+    assert state["target_bounds_json"] is None
+
+
+def test_lock_does_not_disturb_the_navigation_target(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    bring_to_presenter_view(conn, "presentation", frame_id="shape:f", bounds_json="{}")
+    state = set_locked(conn, True)
+    assert state["target_frame_id"] == "shape:f"
+    assert state["mode"] == "presenter"

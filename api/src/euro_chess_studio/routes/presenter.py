@@ -19,16 +19,41 @@ from euro_chess_studio.deps import get_db
 router = APIRouter(prefix="/presenter", tags=["presenter"])
 
 
+class TargetBounds(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
 class PresenterStateOut(BaseModel):
     mode: str
     locked: bool
     active_page_slug: str | None
     focused_user_id: str | None
     updated_at: str
+    revision: int
+    target_frame_id: str | None
+    target_bounds: TargetBounds | None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "PresenterStateOut":
+        data = dict(row)
+        bounds_json = data.pop("target_bounds_json", None)
+        data["target_bounds"] = (
+            TargetBounds.model_validate_json(bounds_json) if bounds_json else None
+        )
+        return cls(**data)
 
 
 class PageSlugRequest(BaseModel):
     page_slug: str
+
+
+class PresenterTargetRequest(BaseModel):
+    page_slug: str
+    frame_id: str | None = None
+    bounds: TargetBounds | None = None
 
 
 class ResetPageResponse(BaseModel):
@@ -37,33 +62,38 @@ class ResetPageResponse(BaseModel):
 
 @router.get("")
 def get_state(conn: sqlite3.Connection = Depends(get_db)) -> PresenterStateOut:
-    return PresenterStateOut(**dict(get_presenter_state(conn)))
+    return PresenterStateOut.from_row(get_presenter_state(conn))
 
 
 @router.post("/bring-to-presenter-view")
 def post_bring_to_presenter_view(
-    body: PageSlugRequest, conn: sqlite3.Connection = Depends(get_db)
+    body: PresenterTargetRequest, conn: sqlite3.Connection = Depends(get_db)
 ) -> PresenterStateOut:
     try:
-        row = bring_to_presenter_view(conn, body.page_slug)
+        row = bring_to_presenter_view(
+            conn,
+            body.page_slug,
+            frame_id=body.frame_id,
+            bounds_json=body.bounds.model_dump_json() if body.bounds else None,
+        )
     except PageNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return PresenterStateOut(**dict(row))
+    return PresenterStateOut.from_row(row)
 
 
 @router.post("/send-to-workspaces")
 def post_send_to_workspaces(conn: sqlite3.Connection = Depends(get_db)) -> PresenterStateOut:
-    return PresenterStateOut(**dict(send_to_workspaces(conn)))
+    return PresenterStateOut.from_row(send_to_workspaces(conn))
 
 
 @router.post("/lock")
 def post_lock(conn: sqlite3.Connection = Depends(get_db)) -> PresenterStateOut:
-    return PresenterStateOut(**dict(set_locked(conn, True)))
+    return PresenterStateOut.from_row(set_locked(conn, True))
 
 
 @router.post("/unlock")
 def post_unlock(conn: sqlite3.Connection = Depends(get_db)) -> PresenterStateOut:
-    return PresenterStateOut(**dict(set_locked(conn, False)))
+    return PresenterStateOut.from_row(set_locked(conn, False))
 
 
 class RoomGameOut(BaseModel):

@@ -16,8 +16,9 @@ def get_or_create_presenter_state(conn: sqlite3.Connection) -> sqlite3.Row:
     conn.execute(
         """
         INSERT OR IGNORE INTO presenter_state
-            (id, mode, locked, active_page_slug, focused_user_id, updated_at)
-        VALUES (?, 'idle', 0, NULL, NULL, ?)
+            (id, mode, locked, active_page_slug, focused_user_id, updated_at,
+             revision, target_frame_id, target_bounds_json)
+        VALUES (?, 'idle', 0, NULL, NULL, ?, 0, NULL, NULL)
         """,
         (SINGLETON_ID, datetime.now(UTC).isoformat()),
     )
@@ -33,14 +34,20 @@ def update_presenter_state(
     mode: str | None = None,
     locked: bool | None = None,
     active_page_slug: str | None | object = ...,
+    target_frame_id: str | None | object = ...,
+    target_bounds_json: str | None | object = ...,
 ) -> sqlite3.Row:
-    """Updates only the fields explicitly passed.
+    """Updates only the fields explicitly passed and bumps the revision.
 
-    active_page_slug uses `...` (not None) as its "leave unchanged" sentinel,
-    since None is itself a valid value (no page focused).
+    The nullable fields use `...` (not None) as their "leave unchanged"
+    sentinel, since None is itself a valid value (nothing focused).
+
+    Every update increments revision inside the same statement, so the
+    counter is monotonic even with concurrent writers: SQLite serializes
+    the two UPDATEs and each reads the row the other wrote.
     """
     get_or_create_presenter_state(conn)
-    fields: list[str] = []
+    fields: list[str] = ["revision = revision + 1"]
     values: list[object] = []
     if mode is not None:
         fields.append("mode = ?")
@@ -51,6 +58,12 @@ def update_presenter_state(
     if active_page_slug is not ...:
         fields.append("active_page_slug = ?")
         values.append(active_page_slug)
+    if target_frame_id is not ...:
+        fields.append("target_frame_id = ?")
+        values.append(target_frame_id)
+    if target_bounds_json is not ...:
+        fields.append("target_bounds_json = ?")
+        values.append(target_bounds_json)
     fields.append("updated_at = ?")
     values.append(datetime.now(UTC).isoformat())
     values.append(SINGLETON_ID)

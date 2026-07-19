@@ -20,14 +20,35 @@ def get_presenter_state(conn: sqlite3.Connection) -> sqlite3.Row:
     return get_or_create_presenter_state(conn)
 
 
-def bring_to_presenter_view(conn: sqlite3.Connection, page_slug: str) -> sqlite3.Row:
+def bring_to_presenter_view(
+    conn: sqlite3.Connection,
+    page_slug: str,
+    *,
+    frame_id: str | None = None,
+    bounds_json: str | None = None,
+) -> sqlite3.Row:
+    """Publishes the presenter's navigation target: the page, optionally
+    the frame being shown, and the camera bounds captured at click time.
+    The repo bumps the revision, which is what clients order on."""
     if get_page_by_slug(conn, page_slug) is None:
         raise PageNotFoundError(f"unknown page slug: {page_slug}")
-    return update_presenter_state(conn, mode="presenter", active_page_slug=page_slug)
+    return update_presenter_state(
+        conn,
+        mode="presenter",
+        active_page_slug=page_slug,
+        target_frame_id=frame_id,
+        target_bounds_json=bounds_json,
+    )
 
 
 def send_to_workspaces(conn: sqlite3.Connection) -> sqlite3.Row:
-    return update_presenter_state(conn, mode="workspaces", active_page_slug=None)
+    return update_presenter_state(
+        conn,
+        mode="workspaces",
+        active_page_slug=None,
+        target_frame_id=None,
+        target_bounds_json=None,
+    )
 
 
 def set_locked(conn: sqlite3.Connection, locked: bool) -> sqlite3.Row:

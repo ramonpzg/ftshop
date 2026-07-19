@@ -9,9 +9,8 @@ import {
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
 import { navigateToWorkspace } from "../../actions/navigateToWorkspace";
-import { pageIdForSlug } from "../../lib/tldrawIds";
+import { bringEveryoneHere } from "../../actions/presenterNavigation";
 import {
-  bringToPresenterView,
   createOrGetWorkspace,
   type DatasetExport,
   exportFullTextDataset,
@@ -25,17 +24,9 @@ import {
 } from "../../data/api";
 import type { LocalUser } from "../../data/localUser";
 import { formatClock, shortResult } from "../../lib/gameClock";
-import { PAGES } from "../../lib/pages";
 import "./PresenterPanel.css";
 
 const RESETTABLE_PAGE_SLUG = "chess-machine";
-
-function currentWorkshopPageSlug(editor: Editor | null): string {
-  if (!editor) return PAGES[0].slug;
-  const currentId = editor.getCurrentPageId();
-  const page = PAGES.find((p) => pageIdForSlug(p.slug) === currentId);
-  return page?.slug ?? PAGES[0].slug;
-}
 
 interface PresenterPanelProps {
   editor: Editor | null;
@@ -84,10 +75,10 @@ export function PresenterPanel({
     }
   }
   async function handleBringToPresenterView() {
-    // Attendees get pulled to the page the presenter is actually on.
-    const slug = currentWorkshopPageSlug(editor);
-    await bringToPresenterView(slug);
-    editor?.setCurrentPage(pageIdForSlug(slug));
+    // Attendees get pulled to the page and camera region the presenter
+    // is actually looking at, not just a whole-page fit.
+    if (!editor) return;
+    await bringEveryoneHere(editor);
   }
 
   async function handleSendToWorkspaces() {

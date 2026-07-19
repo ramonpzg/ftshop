@@ -42,3 +42,37 @@ def test_get_connection_enables_foreign_keys(tmp_path: Path):
         assert fk_enabled == 1
     finally:
         conn.close()
+
+
+def test_init_db_patches_presenter_state_created_before_targets(tmp_path: Path):
+    conn = get_connection(tmp_path / "test.db")
+    try:
+        # A database from before phase 32: presenter_state without the
+        # revision or target columns, holding live state.
+        conn.execute(
+            """
+            CREATE TABLE presenter_state (
+                id TEXT PRIMARY KEY,
+                mode TEXT NOT NULL,
+                locked INTEGER NOT NULL,
+                active_page_slug TEXT,
+                focused_user_id TEXT,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO presenter_state "
+            "VALUES ('singleton', 'presenter', 1, 'presentation', NULL, 'then')"
+        )
+        conn.commit()
+
+        init_db(conn)
+
+        row = conn.execute("SELECT * FROM presenter_state").fetchone()
+        assert row["mode"] == "presenter"
+        assert row["revision"] == 0
+        assert row["target_frame_id"] is None
+        assert row["target_bounds_json"] is None
+    finally:
+        conn.close()

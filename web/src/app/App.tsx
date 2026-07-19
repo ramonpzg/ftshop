@@ -35,8 +35,18 @@ export function App() {
   const [locked, setLocked] = useState(false);
   const [resetToken, setResetToken] = useState(0);
   const [isPresenter] = useState(detectPresenter);
+  const [presenterMode, setPresenterMode] = useState("idle");
+  const [notice, setNotice] = useState<string | null>(null);
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
+
+  // Concise, transient message when a remote navigation degrades (for
+  // example the presenter's frame was deleted).
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +96,8 @@ export function App() {
       isPresenter,
       getCurrentUserId: () => currentUserRef.current?.id ?? null,
       onLockedChange: setLocked,
+      onStateChange: (state) => setPresenterMode(state.mode),
+      onNotice: setNotice,
     });
   }, [editor, isPresenter]);
 
@@ -96,7 +108,7 @@ export function App() {
 
   return (
     <CurrentUserContext.Provider value={currentUser}>
-      <PresenterContext.Provider value={{ locked, resetToken, isPresenter }}>
+      <PresenterContext.Provider value={{ locked, resetToken, isPresenter, presenterMode }}>
         <div className="app-shell">
           <div className="status-badge" data-testid="backend-status">
             Backend: {status}
@@ -104,6 +116,12 @@ export function App() {
               {" "}
               | {ROOM_STATUS_LABELS[roomStatus]}
             </span>
+            {notice && (
+              <span data-testid="presenter-notice" className="status-notice">
+                {" "}
+                | {notice}
+              </span>
+            )}
           </div>
           <ChessStudioCanvas onEditorMount={setEditor} onRoomStatusChange={setRoomStatus} />
           {isPresenter && (
