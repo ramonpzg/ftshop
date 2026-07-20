@@ -82,4 +82,63 @@ describe("EvalPanel", () => {
     );
     expect(screen.getByTestId("eval-note-centipawn_loss").textContent).toContain("Illustrative");
   });
+
+  test("shows only the latest of several runs for the same metric", () => {
+    // Reproduces the reported bug: three runs over a growing move
+    // history are three real, distinct rows (different position-set
+    // windows), but the live panel should show the current state, not
+    // every historical run.
+    render(
+      <EvalPanel
+        results={[
+          makeResult({
+            id: "run_1",
+            numerator: 1,
+            denominator: 1,
+            created_at: "2026-01-01T00:00:00+00:00",
+          }),
+          makeResult({
+            id: "run_2",
+            numerator: 2,
+            denominator: 2,
+            created_at: "2026-01-01T00:01:00+00:00",
+          }),
+          makeResult({
+            id: "run_3",
+            numerator: 3,
+            denominator: 3,
+            created_at: "2026-01-01T00:02:00+00:00",
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("eval-panel")).toHaveLength(1);
+    expect(screen.getByTestId("eval-count-legal_move_rate").textContent).toBe("3/3");
+    // Only one row rendered for this metric, not three.
+    expect(document.querySelectorAll(".eval-row")).toHaveLength(1);
+  });
+
+  test("keeps a base and an adapted checkpoint as separate, labelled rows", () => {
+    render(
+      <EvalPanel
+        results={[
+          makeResult({
+            id: "base",
+            metric: "model_legal_move_rate",
+            model: "gemma-4-2b-local",
+            checkpoint: "base",
+          }),
+          makeResult({
+            id: "adapter",
+            metric: "model_legal_move_rate",
+            model: "gemma-4-2b-local",
+            checkpoint: "adapter",
+          }),
+        ]}
+      />,
+    );
+    expect(document.querySelectorAll(".eval-row")).toHaveLength(2);
+    const scopes = [...document.querySelectorAll(".eval-scope")].map((el) => el.textContent);
+    expect(scopes.sort()).toEqual(["gemma-4-2b-local adapter", "gemma-4-2b-local base"]);
+  });
 });

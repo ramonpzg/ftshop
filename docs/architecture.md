@@ -397,6 +397,20 @@ shares a `run_id`. That is the phase-34 before/after contract: an
 honestly comparable frozen input set, both model versions identified,
 stored side by side, distinguishable by window.
 
+Every window coexisting in the table is correct for history and
+comparability, but it means a workspace re-evaluated three times over
+a growing move history has three real rows for the same metric with
+denominators 1, 2, and 3. The live `EvalPanel` is not a history
+browser, so it does not render all of them: `calculations/
+evalResults.ts`'s `latestEvalResultsByScope` (frontend, pure) keeps
+only the newest row per `(modality, metric, source, workspace, model,
+checkpoint)` before rendering, dropping nothing from the database, only
+from what gets displayed at once. Rows that still coexist after that
+reduction (a base checkpoint next to an adapted one, say) render with a
+small model/checkpoint label so they read as distinct measurements
+rather than duplicates; the full provenance (model, checkpoint, run
+timestamp) is in each row's title tooltip.
+
 `cached` rows are seeded from `artifacts/cached/{modality}/evals.json`
 on every backend startup. These are the metrics that need
 infrastructure v0 doesn't have (Stockfish for centipawn loss, a
