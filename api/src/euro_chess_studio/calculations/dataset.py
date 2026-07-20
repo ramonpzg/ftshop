@@ -99,6 +99,7 @@ def build_dataset_rows(
                     "here. Works for unfinished games because nothing in the row "
                     "waits on the result."
                 ),
+                "fen": move.fen_before,
                 "policy_target": {u: (1.0 if u == move.uci else 0.0) for u in legal_moves_before},
                 "move_reward": reward,
             },

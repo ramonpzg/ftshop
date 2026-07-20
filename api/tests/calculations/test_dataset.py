@@ -70,6 +70,15 @@ def test_policy_move_reward_row_puts_all_weight_on_the_played_move():
     assert sum(payload["policy_target"].values()) == 1.0
 
 
+def test_policy_move_reward_row_carries_the_position_not_just_legal_move_keys():
+    """A legal move set is not the board position a policy model needs:
+    more than one arrangement of pieces can share the same legal moves.
+    The row must carry the fen it was computed from, not just the
+    policy_target's keys."""
+    payload = make_e4_row_set()["policy_move_reward"]
+    assert payload["fen"] == chess.STARTING_FEN
+
+
 def test_policy_move_reward_is_the_shaped_reward_not_a_position_value():
     payload = make_e4_row_set()["policy_move_reward"]
     assert payload["move_reward"] == 1

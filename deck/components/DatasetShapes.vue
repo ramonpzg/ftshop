@@ -61,7 +61,8 @@ const shapes = [
   },
   {
     name: "Policy + move reward",
-    payload: `{"policy_target": {"e2e4": 1.0, ...},
+    payload: `{"fen": "...",
+ "policy_target": {"e2e4": 1.0, ...},
  "move_reward": 1}`,
     point: "One-hot on the move played. The reward scores the move, not the position; who is winning would need the game outcome or an engine.",
   },

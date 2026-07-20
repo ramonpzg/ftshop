@@ -70,7 +70,11 @@ archive is trainable.
 
 ## policy_move_reward
 
-- Input: the position (via the legal move list keys).
+- Input: the position as a FEN string (`fen`), plus the legal move list
+  as the `policy_target` keys. The legal move list alone is not the
+  position -- the same set of legal moves can arise from more than one
+  arrangement of pieces -- so the row carries the fen explicitly rather
+  than expecting a consumer to reconstruct the board from move keys.
 - Targets: `policy_target`, a one-hot distribution over the legal moves
   with all weight on the move actually played, and `move_reward`, an
   integer.
