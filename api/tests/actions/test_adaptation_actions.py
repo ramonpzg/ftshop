@@ -181,11 +181,41 @@ def test_replay_with_a_missing_reply_fails_loudly(tmp_path: Path, monkeypatch):
         run_job(conn, "text.benchmark_eval", {"suite_id": suite["id"], "checkpoint": "base"}, None)
 
 
+def _fake_chat(*, answer_model: str, fail_first: bool = False):
+    """A chat double answering as `answer_model`, optionally failing the
+    first call."""
+    from euro_chess_studio.data.llm_client import ChatOutcome, LlmRequestError
+
+    calls = {"count": 0}
+
+    def chat(messages, *, json_response=False, timeout=None, model=None):
+        calls["count"] += 1
+        if fail_first and calls["count"] == 1:
+            raise LlmRequestError(
+                "provider unreachable", status_code=None, request_ids=(), transport_attempts=3
+            )
+        return ChatOutcome(
+            content='{"move": "a2a3"}',
+            model=answer_model,
+            provider_alias="opponent",
+            attempts=1,
+            request_ids=("req-x",),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    return chat
+
+
 def test_mismatched_position_sets_refuse_deltas_end_to_end(tmp_path: Path, monkeypatch):
     """A live base run with one transport failure measured a smaller
     position set than the replayed adapted run; the assembled comparison
-    must refuse every delta with the position-set reason."""
-    from euro_chess_studio.data.llm_client import ChatOutcome, LlmRequestError
+    must refuse every delta with the position-set reason. The live
+    endpoint here serves the adapter's own base model (the properly
+    configured local path), so the refusal is about the window, not the
+    lineage."""
     from euro_chess_studio.jobs import adaptation_handlers
 
     conn, _ = make_workspace(tmp_path)
@@ -200,27 +230,57 @@ def test_mismatched_position_sets_refuse_deltas_end_to_end(tmp_path: Path, monke
         None,
     )
 
-    calls = {"count": 0}
+    monkeypatch.setattr(
+        adaptation_handlers.llm_client,
+        "chat",
+        _fake_chat(answer_model="gemma-4-2b-local", fail_first=True),
+    )
+    monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gemma-4-2b-local")
+    run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": suite["id"], "checkpoint": "base", "source": "live"},
+        None,
+    )
+    run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": suite["id"], "checkpoint": "gemma-chess-sft-v1"},
+        None,
+    )
 
-    def flaky_chat(messages, *, json_response=False, timeout=None, model=None):
-        calls["count"] += 1
-        if calls["count"] == 1:
-            raise LlmRequestError(
-                "provider unreachable", status_code=None, request_ids=(), transport_attempts=3
-            )
-        return ChatOutcome(
-            content='{"move": "a2a3"}',
-            model="gpt-5.6-luna",
-            provider_alias="opponent",
-            attempts=1,
-            request_ids=("req-x",),
-            json_mode_requested=True,
-            json_mode_sent=True,
-            json_mode_dropped=False,
-            reasoning_effort_dropped=False,
-        )
+    comparison = get_adaptation_state(conn)["comparison"]
+    assert comparison is not None
+    # Run-level identities match (same suite, contract, and lineage)...
+    assert comparison["comparable"] is True
+    # ...but every metric refuses its delta: the windows differ.
+    for metric in comparison["metrics"]:
+        assert metric["comparable"] is False
+        assert "different position sets" in metric["reason"]
+        assert metric["delta"] is None
 
-    monkeypatch.setattr(adaptation_handlers.llm_client, "chat", flaky_chat)
+
+def test_a_live_run_of_another_model_is_not_a_fine_tuning_pair(tmp_path: Path, monkeypatch):
+    """The reviewed reproduction: a gpt-5.6-luna live base run used to
+    receive valid deltas against the replayed gemma adapter. Same suite,
+    same prompt contract, different model -- the comparison must refuse
+    at run level, every metric carrying the reason."""
+    from euro_chess_studio.jobs import adaptation_handlers
+
+    conn, _ = make_workspace(tmp_path)
+    seed_adaptation_fixtures(conn)
+    state = get_adaptation_state(conn)
+    snapshot = state["snapshots"][0]
+    suite = state["suites"][0]
+    run_job(
+        conn,
+        "text.train_adapter",
+        {"dataset_snapshot_id": snapshot["id"], "config_id": "text-gemma-lora-v1"},
+        None,
+    )
+    monkeypatch.setattr(
+        adaptation_handlers.llm_client, "chat", _fake_chat(answer_model="gpt-5.6-luna")
+    )
     monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gpt-5.6-luna")
     run_job(
         conn,
@@ -237,10 +297,113 @@ def test_mismatched_position_sets_refuse_deltas_end_to_end(tmp_path: Path, monke
 
     comparison = get_adaptation_state(conn)["comparison"]
     assert comparison is not None
-    # Run-level identities match (same suite, same prompt contract)...
+    assert comparison["comparable"] is False
+    assert any("different models" in reason for reason in comparison["reasons"])
+    assert all(not metric["comparable"] for metric in comparison["metrics"])
+    # Both values stay visible; the refusal is the result.
+    by_metric = {m["metric"]: m for m in comparison["metrics"]}
+    assert by_metric["model_legal_move_rate"]["base_value"] is not None
+
+
+def test_a_newer_live_run_of_another_model_does_not_displace_the_honest_pair(
+    tmp_path: Path, monkeypatch
+):
+    """Selection prefers the lineage-matching base run: after an honest
+    replayed pair exists, a newer luna live run must not hijack the
+    comparison into a refusal."""
+    from euro_chess_studio.jobs import adaptation_handlers
+
+    conn, _ = make_workspace(tmp_path)
+    seed_adaptation_fixtures(conn)
+    state = get_adaptation_state(conn)
+    snapshot = state["snapshots"][0]
+    suite = state["suites"][0]
+    run_job(
+        conn,
+        "text.train_adapter",
+        {"dataset_snapshot_id": snapshot["id"], "config_id": "text-gemma-lora-v1"},
+        None,
+    )
+    run_job(conn, "text.benchmark_eval", {"suite_id": suite["id"], "checkpoint": "base"}, None)
+    run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": suite["id"], "checkpoint": "gemma-chess-sft-v1"},
+        None,
+    )
+    monkeypatch.setattr(
+        adaptation_handlers.llm_client, "chat", _fake_chat(answer_model="gpt-5.6-luna")
+    )
+    monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gpt-5.6-luna")
+    run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": suite["id"], "checkpoint": "base", "source": "live"},
+        None,
+    )
+
+    comparison = get_adaptation_state(conn)["comparison"]
+    assert comparison is not None
     assert comparison["comparable"] is True
-    # ...but every metric refuses its delta: the windows differ.
-    for metric in comparison["metrics"]:
-        assert metric["comparable"] is False
-        assert "different position sets" in metric["reason"]
-        assert metric["delta"] is None
+    assert comparison["base_run"]["model"] == "gemma-4-2b-local"
+    assert comparison["base_run"]["source"] == "replayed"
+    # The luna run still exists as its own evidence in the run list.
+    assert len(get_adaptation_state(conn)["runs"]) == 3
+
+
+def test_an_obsolete_contract_suite_never_presents_as_the_benchmark(tmp_path: Path):
+    """The upgraded-database reproduction: a phase-34-original sft-v1
+    suite (with its old runs) must not be the primary suite, and its
+    stale comparison must not resurface just because the current suite
+    has no runs yet."""
+    from euro_chess_studio.data.benchmark_runs_repo import insert_run
+    from euro_chess_studio.data.eval_suites_repo import insert_suite
+
+    conn, _ = make_workspace(tmp_path)
+    old_suite = insert_suite(
+        conn,
+        label="held-out-mid-openings-v1",
+        modality="text",
+        origin="seeded",
+        prompt_version="sft-v1",
+        schema_version="suite-v1",
+        example_count=1,
+        content_hash="oldcontenthash00",
+        position_set_id="oldpsid000000000",
+        examples=[
+            {
+                "example_id": "old-01",
+                "fen": STARTING_FEN,
+                "legal_moves": ["e2e4"],
+                "prompt": "old contract prompt",
+            }
+        ],
+    )
+    for checkpoint in ("base", "gemma-chess-sft-v1"):
+        insert_run(
+            conn,
+            run_id=f"benchrun_old_{checkpoint}",
+            suite_id=old_suite["id"],
+            suite_content_hash=old_suite["content_hash"],
+            prompt_version="sft-v1",
+            checkpoint=checkpoint,
+            model="gemma-4-2b-local",
+            provider_alias="fixture",
+            source="replayed",
+            example_count=1,
+            reply_count=1,
+            transport_failed_count=0,
+            position_set_id="oldpsid000000000",
+        )
+    conn.commit()
+    seed_adaptation_fixtures(conn)
+
+    state = get_adaptation_state(conn)
+    assert len(state["suites"]) == 2
+    assert state["suites"][0]["current_contract"] is True
+    assert state["suites"][0]["prompt_version"] != "sft-v1"
+    assert state["suites"][1]["current_contract"] is False
+    # The old pair of runs would have produced a comparison under the
+    # first-suite-with-a-comparison rule; the primary suite has no runs,
+    # so there is honestly nothing to compare yet.
+    assert state["comparison"] is None

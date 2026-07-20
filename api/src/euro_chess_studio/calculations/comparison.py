@@ -2,10 +2,13 @@
 I/O.
 
 A delta only exists when both results provably measured the same thing:
-same suite content hash, same prompt contract, same metric definition
-version, and the same non-null position-set id on both rows. Anything
-else is an explicit "not comparable" with the reason, never a number
-that looks like evidence.
+same suite content hash, same prompt contract, same model lineage
+(before and after must be the same model, differing by checkpoint --
+a live run of some other configured model is its own evidence, not a
+fine-tuning pair), same metric definition version, and the same
+non-null position-set id on both rows. Anything else is an explicit
+"not comparable" with the reason, never a number that looks like
+evidence.
 """
 
 from dataclasses import dataclass
@@ -25,7 +28,8 @@ class RunComparability:
 
 
 def check_run_comparability(base_run: Row, adapted_run: Row) -> RunComparability:
-    """Whether two benchmark runs measured the same frozen contract."""
+    """Whether two benchmark runs measured the same frozen contract on
+    the same model lineage."""
     reasons: list[str] = []
     if base_run["suite_id"] != adapted_run["suite_id"]:
         reasons.append("the runs used different evaluation suites")
@@ -33,6 +37,14 @@ def check_run_comparability(base_run: Row, adapted_run: Row) -> RunComparability
         reasons.append("the evaluation suite content hash differs between runs")
     if base_run["prompt_version"] != adapted_run["prompt_version"]:
         reasons.append("the prompt contract differs between runs")
+    if base_run["model"] != adapted_run["model"]:
+        reasons.append(
+            "the runs used different models "
+            f"({base_run['model']} vs {adapted_run['model']}); a "
+            "fine-tuning delta needs the adapter's own base model on "
+            "both sides, and a run of another configured model is its "
+            "own evidence, not a before"
+        )
     return RunComparability(comparable=not reasons, reasons=tuple(reasons))
 
 

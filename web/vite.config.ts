@@ -26,8 +26,18 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: true,
         // The backend distinguishes the presenter's machine from LAN
-        // attendees for paid generation; xfwd forwards the real client.
+        // attendees for presenter-only routes. xfwd alone APPENDS to a
+        // client-supplied X-Forwarded-For, which lets a LAN client
+        // spoof "127.0.0.1, <lan-ip>"; overwriting the header with the
+        // peer address this proxy actually accepted makes the proxy
+        // the only author. The backend additionally trusts only the
+        // last hop.
         xfwd: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            proxyReq.setHeader("x-forwarded-for", req.socket.remoteAddress ?? "");
+          });
+        },
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/sync": {

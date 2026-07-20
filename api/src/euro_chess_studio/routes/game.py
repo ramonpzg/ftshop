@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from euro_chess_studio.actions.errors import (
@@ -45,6 +45,7 @@ from euro_chess_studio.data.llm_client import (
     is_llm_configured,
 )
 from euro_chess_studio.deps import get_db
+from euro_chess_studio.routes.client_host import require_presenter_machine
 from euro_chess_studio.routes.moves import DatasetRowOut, MoveOut, _dataset_row_out
 
 router = APIRouter(tags=["game"])
@@ -127,8 +128,16 @@ def get_game_status(workspace_id: str, conn: sqlite3.Connection = Depends(get_db
 def post_start_game(
     workspace_id: str,
     body: StartGameRequest,
+    request: Request,
     conn: sqlite3.Connection = Depends(get_db),
 ) -> GameStatusOut:
+    # The room model policy: attendees play the room's default opponent
+    # (a local model in the full-room configuration). Picking any other
+    # offered model -- the frontier beat -- is a presenter move, because
+    # forty attendees on a metered model is a budget burst and forty on
+    # a second local model is a second way to sink the presenter's GPU.
+    if body.opponent_model is not None and body.opponent_model != get_llm_model():
+        require_presenter_machine(request, "starting a game against a non-default model")
     try:
         return _game_status_out(
             start_game(conn, workspace_id, body.time_limit_seconds, body.opponent_model)
@@ -310,7 +319,15 @@ def post_model_move(workspace_id: str, conn: sqlite3.Connection = Depends(get_db
 
 
 @router.post("/workspaces/{workspace_id}/assess")
-def post_assess(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> ScenarioOut:
+def post_assess(
+    workspace_id: str, request: Request, conn: sqlite3.Connection = Depends(get_db)
+) -> ScenarioOut:
+    # Room model policy: every assessment is a scenario-model call, and
+    # it used to fire automatically after each model turn -- forty
+    # attendees times one call per exchange. Generation is manual now
+    # (the frontend has no auto-trigger) and presenter-machine only;
+    # reviewing a landed mapping stays open to the room.
+    require_presenter_machine(request, "position assessment (a scenario-model call)")
     try:
         row = suggest_scenario(conn, workspace_id)
     except (WorkspaceNotFoundError, LlmNotConfiguredError, LlmRequestError, ModelReplyError) as exc:

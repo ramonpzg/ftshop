@@ -44,6 +44,33 @@ def test_run_job_rejects_unknown_job_type(tmp_path: Path):
         run_job(conn, "not.a.job", {}, None)
 
 
+def test_run_job_validates_the_workspace_before_the_runner_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Identity before work: a bad workspace id must fail on a plain
+    read, not trigger provider work or file output first and then trip
+    the config row's foreign key."""
+    from euro_chess_studio.actions import jobs as jobs_action
+    from euro_chess_studio.actions.errors import WorkspaceNotFoundError
+
+    conn = make_conn(tmp_path)
+    runner_calls: list[str] = []
+
+    class SpyRunner:
+        def run(self, conn, job):
+            runner_calls.append(job.job_type)
+            raise AssertionError("the runner must not run for an unknown workspace")
+
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: SpyRunner())
+
+    with pytest.raises(WorkspaceNotFoundError, match="unknown workspace"):
+        run_job(conn, "image.show_dataset", {}, "nope")
+
+    assert runner_calls == []
+    assert conn.execute("SELECT COUNT(*) FROM job_configs").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0] == 0
+
+
 def test_run_job_commits_config_and_artifact_together_or_neither(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

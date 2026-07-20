@@ -21,17 +21,14 @@ from euro_chess_studio.calculations.comparison import (
     check_run_comparability,
     compare_metric_rows,
 )
-from euro_chess_studio.calculations.export import build_sft_rows
+from euro_chess_studio.calculations.export import SFT_PROMPT_VERSION, build_sft_rows
 from euro_chess_studio.data import llm_client
 from euro_chess_studio.data.adaptation_fixtures import (
     load_eval_suite_fixture,
     load_reference_snapshot_fixture,
 )
 from euro_chess_studio.data.adapters_repo import list_adapters
-from euro_chess_studio.data.benchmark_runs_repo import (
-    latest_run_for_checkpoint,
-    list_runs,
-)
+from euro_chess_studio.data.benchmark_runs_repo import list_runs
 from euro_chess_studio.data.dataset_rows_repo import (
     list_dataset_rows_by_shape_with_move_provenance,
 )
@@ -173,6 +170,11 @@ def _snapshot_view(row: sqlite3.Row) -> dict:
 def _suite_view(row: sqlite3.Row) -> dict:
     data = dict(row)
     data["examples"] = json.loads(data.pop("examples_json"))
+    # A suite frozen under an older prompt contract stays stored (its
+    # runs reference it) but must not present as the current benchmark:
+    # an upgraded database keeps its sft-v1 suite forever, and the panel
+    # needs to know which one this build actually renders and verifies.
+    data["current_contract"] = data["prompt_version"] == SFT_PROMPT_VERSION
     return data
 
 
@@ -197,12 +199,25 @@ def _run_view(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
 
 
 def _build_comparison(conn: sqlite3.Connection, suite: sqlite3.Row) -> dict | None:
-    base_run = latest_run_for_checkpoint(conn, suite["id"], BASE_CHECKPOINT)
-    adapted_run = None
-    for run in reversed(list_runs(conn, suite_id=suite["id"])):
-        if run["checkpoint"] != BASE_CHECKPOINT:
-            adapted_run = run
-            break
+    runs = list_runs(conn, suite_id=suite["id"])
+    adapted_run = next(
+        (run for run in reversed(runs) if run["checkpoint"] != BASE_CHECKPOINT), None
+    )
+    base_candidates = [run for run in runs if run["checkpoint"] == BASE_CHECKPOINT]
+    # Prefer the latest base run of the adapter's own model lineage: a
+    # live run of some other configured model (Luna standing in for
+    # Gemma) must not displace an honest before/after pair. When no
+    # lineage-matching base exists, keep the latest base anyway so the
+    # comparison renders the model-mismatch refusal instead of
+    # vanishing.
+    base_run = None
+    if adapted_run is not None:
+        base_run = next(
+            (run for run in reversed(base_candidates) if run["model"] == adapted_run["model"]),
+            None,
+        )
+    if base_run is None:
+        base_run = base_candidates[-1] if base_candidates else None
     if base_run is None or adapted_run is None:
         return None
     comparability = check_run_comparability(base_run, adapted_run)
@@ -234,12 +249,17 @@ def get_adaptation_state(conn: sqlite3.Connection) -> dict:
     frozen datasets, the config catalog, adapters with provenance,
     suites, benchmark runs with their metric rows, and the current
     base-versus-adapted comparison when both runs exist."""
-    suites = list_suites(conn, modality="text")
-    comparison = None
-    for suite in suites:
-        comparison = _build_comparison(conn, suite)
-        if comparison is not None:
-            break
+    # Current-contract suites first (newest first within each group): an
+    # upgraded database keeps every suite it ever seeded, and "the first
+    # suite" is what the panel treats as the benchmark. Choosing "the
+    # first suite with a comparison" here used to resurface an obsolete
+    # sft-v1 suite just because its old runs still existed; the
+    # comparison now belongs to the primary suite or nobody.
+    suites = sorted(
+        sorted(list_suites(conn, modality="text"), key=lambda s: s["created_at"], reverse=True),
+        key=lambda s: s["prompt_version"] != SFT_PROMPT_VERSION,
+    )
+    comparison = _build_comparison(conn, suites[0]) if suites else None
     return {
         "snapshots": [_snapshot_view(s) for s in list_snapshots(conn, modality="text")],
         "configs": [

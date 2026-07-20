@@ -12,7 +12,16 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
+        // Same forwarding rule as the board's proxy: overwrite any
+        // client-supplied X-Forwarded-For with the peer address, so the
+        // backend's presenter-machine check cannot be spoofed through
+        // this origin either.
         xfwd: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            proxyReq.setHeader("x-forwarded-for", req.socket.remoteAddress ?? "");
+          });
+        },
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },

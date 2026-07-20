@@ -68,13 +68,3 @@ def list_runs(conn: sqlite3.Connection, *, suite_id: str | None = None) -> list[
         "SELECT * FROM benchmark_runs WHERE suite_id = ? ORDER BY created_at",
         (suite_id,),
     ).fetchall()
-
-
-def latest_run_for_checkpoint(
-    conn: sqlite3.Connection, suite_id: str, checkpoint: str
-) -> sqlite3.Row | None:
-    return conn.execute(
-        "SELECT * FROM benchmark_runs WHERE suite_id = ? AND checkpoint = ? "
-        "ORDER BY created_at DESC LIMIT 1",
-        (suite_id, checkpoint),
-    ).fetchone()

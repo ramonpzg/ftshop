@@ -2,6 +2,7 @@ import { Sparkle } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { Artifact, ModalityGenerationOptions } from "../../data/api";
 import { ApiError, runJob } from "../../data/api";
+import { usePresenterState } from "../../lib/presenterContext";
 import "./GeneratePanel.css";
 
 interface GeneratePanelProps {
@@ -18,8 +19,14 @@ const PLACEHOLDERS: Record<string, string> = {
 };
 
 /** Prompt, model picker, generate. The backend routes each model to its
- * engine; this panel never knows which one answered. */
+ * engine; this panel never knows which one answered.
+ *
+ * Presenter only: generation spends provider budget or the presenter
+ * machine's own compute (local audio loads multi-GB models), so
+ * attendees get the cached reveals instead of a Generate button. The
+ * backend enforces the same rule with a 403. */
 export function GeneratePanel({ modality, options, onArtifact }: GeneratePanelProps) {
+  const { isPresenter } = usePresenterState();
   const [prompt, setPrompt] = useState("");
   const [modelId, setModelId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +56,17 @@ export function GeneratePanel({ modality, options, onArtifact }: GeneratePanelPr
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!isPresenter) {
+    return (
+      <div className="generate-panel" data-testid={`generate-panel-${modality}`}>
+        <p className="generate-panel-note" data-testid={`generate-presenter-note-${modality}`}>
+          Generation is presenter-run: it spends provider budget or the
+          presenter machine's compute. The reveals are the room's copies.
+        </p>
+      </div>
+    );
   }
 
   return (

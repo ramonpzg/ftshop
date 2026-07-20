@@ -14,40 +14,93 @@ import "./AdaptationPanel.css";
 
 interface AdaptationPanelProps {
   isEditing: boolean;
+  /** Poll cadence for the shared evidence; overridable in tests. */
+  pollMs?: number;
 }
 
 // The browser stops waiting for a live run after this long; the server
 // bounds the run itself (BENCHMARK_RUN_DEADLINE_SECONDS, max 300s).
 const LIVE_RUN_WAIT_MS = 120_000;
+// Aborting the browser request does NOT cancel the server run: it
+// continues to its own deadline. Live controls stay locked until the
+// run lands in the shared state or this generous ceiling (the server's
+// maximum deadline clamp plus slack) passes with nothing to show,
+// which means the run failed without producing a row.
+const SERVER_RUN_MAX_MS = 330_000;
+// The panel's state is the room's shared evidence, but tldraw sync
+// carries none of it: without a poll, attendees would render whatever
+// existed when their panel mounted, forever.
+const SHARED_EVIDENCE_POLL_MS = 5_000;
+
+interface LiveWait {
+  startedAt: number;
+  priorLiveRunIds: string[];
+}
 
 /** The presenter's vertical slice of the adaptation loop: freeze a
  * dataset, pick the config, replay the scripted training, benchmark
  * base and adapted checkpoints on one frozen suite, read the
  * comparison. Every step renders the backend's evidence; nothing here
- * invents state. Attendees see all of the evidence; only the presenter
- * client gets the controls, and the backend additionally restricts
- * paid live runs to the presenter's machine. */
-export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
+ * invents state. Attendees see all of the evidence (kept fresh by a
+ * single-flight poll); only the presenter client gets the controls,
+ * and the backend additionally restricts paid live runs to the
+ * presenter's machine. */
+export function AdaptationPanel({
+  isEditing,
+  pollMs = SHARED_EVIDENCE_POLL_MS,
+}: AdaptationPanelProps) {
   const { isPresenter } = usePresenterState();
   const [state, setState] = useState<AdaptationState | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [liveWait, setLiveWait] = useState<LiveWait | null>(null);
   const liveControllerRef = useRef<AbortController | null>(null);
+  const refreshInFlightRef = useRef(false);
 
-  const refresh = useCallback(() => {
-    fetchAdaptationState()
-      .then((next) => {
-        setState(next);
-        setLoadFailed(false);
-      })
-      .catch(() => setLoadFailed(true));
+  const refresh = useCallback(async () => {
+    // Single-flight: a slow response and a fast poll cadence must not
+    // stack requests.
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    try {
+      const next = await fetchAdaptationState();
+      setState(next);
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    } finally {
+      refreshInFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    void refresh();
+    const interval = setInterval(() => void refresh(), pollMs);
+    return () => clearInterval(interval);
+  }, [refresh, pollMs]);
+
+  // "Stop waiting" only aborts the browser's request; the server run
+  // keeps going. The lock lifts when the run actually lands (the poll
+  // brings it in) or when the server's own ceiling has passed with no
+  // row, which means it failed.
+  useEffect(() => {
+    if (liveWait === null || state === null) return;
+    const landed = state.runs.some(
+      (run) => run.source === "live" && !liveWait.priorLiveRunIds.includes(run.id),
+    );
+    if (landed) {
+      setLiveWait(null);
+      setNotice("The live run landed; the run list below has it.");
+    } else if (Date.now() - liveWait.startedAt > SERVER_RUN_MAX_MS) {
+      setLiveWait(null);
+      setNotice(
+        "No live run landed within the server's maximum deadline; it " +
+          "failed without producing a run. Check the backend log.",
+      );
+    }
+  }, [state, liveWait]);
 
   async function act(name: string, run: () => Promise<unknown>) {
     setBusy(name);
@@ -57,8 +110,9 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setNotice(
-          "Stopped waiting for the live run. It may still finish on the " +
-            "server; the run list shows it when it does.",
+          "Stopped waiting in the browser. The server run continues to " +
+            "its deadline; live controls stay locked until it lands or " +
+            "times out.",
         );
       } else {
         // The backend's refusals are teaching material; show them as-is.
@@ -66,11 +120,17 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
       }
     } finally {
       setBusy(null);
-      refresh();
+      void refresh();
     }
   }
 
   function runLiveBenchmark(suiteId: string) {
+    setLiveWait({
+      startedAt: Date.now(),
+      priorLiveRunIds: (state?.runs ?? [])
+        .filter((run) => run.source === "live")
+        .map((run) => run.id),
+    });
     return act("bench-live", () => {
       const controller = new AbortController();
       liveControllerRef.current = controller;
@@ -80,6 +140,18 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
         { suite_id: suiteId, checkpoint: "base", source: "live" },
         undefined,
         { signal: controller.signal },
+      ).then(
+        (result) => {
+          // The server answered: the run is fully persisted (or the
+          // request failed outright below). No zombie to wait for.
+          setLiveWait(null);
+          return result;
+        },
+        (error) => {
+          const aborted = error instanceof DOMException && error.name === "AbortError";
+          if (!aborted) setLiveWait(null);
+          throw error;
+        },
       ).finally(() => {
         clearTimeout(timeout);
         liveControllerRef.current = null;
@@ -315,6 +387,13 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
           </h3>
           {suite ? (
             <>
+              {!suite.current_contract && (
+                <p className="adaptation-notice" data-testid="suite-obsolete">
+                  This suite was frozen under an older prompt contract (
+                  {suite.prompt_version}) and no current-contract suite
+                  exists. Restart the backend to reseed the current one.
+                </p>
+              )}
               <dl className="adaptation-card" data-testid="suite-card">
                 <div>
                   <dt>Suite</dt>
@@ -380,16 +459,18 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
                   >
                     Run adapted (replayed)
                   </button>
-                  {state.live_benchmark.available && busy !== "bench-live" && (
-                    <button
-                      type="button"
-                      onClick={() => runLiveBenchmark(suite.id)}
-                      disabled={busy !== null}
-                      data-testid="bench-base-live"
-                    >
-                      Run base live ({state.live_benchmark.model})
-                    </button>
-                  )}
+                  {state.live_benchmark.available &&
+                    busy !== "bench-live" &&
+                    liveWait === null && (
+                      <button
+                        type="button"
+                        onClick={() => runLiveBenchmark(suite.id)}
+                        disabled={busy !== null}
+                        data-testid="bench-base-live"
+                      >
+                        Run base live ({state.live_benchmark.model})
+                      </button>
+                    )}
                   {busy === "bench-live" && (
                     <button
                       type="button"
@@ -398,6 +479,12 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
                     >
                       Stop waiting
                     </button>
+                  )}
+                  {liveWait !== null && busy !== "bench-live" && (
+                    <span className="adaptation-source-note" data-testid="bench-live-waiting">
+                      A live run is still in flight on the server; live
+                      controls unlock when it lands or its deadline passes.
+                    </span>
                   )}
                 </div>
               )}

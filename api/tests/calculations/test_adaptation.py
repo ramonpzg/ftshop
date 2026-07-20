@@ -144,6 +144,23 @@ def test_validate_suite_rejects_an_invalid_fen():
         )
 
 
+def test_validate_suite_rejects_a_parseable_but_impossible_position():
+    """chess.Board happily parses a FEN with no black king and still
+    generates moves for it; is_valid() is the gate. The reported repro:
+    such a position passed validation."""
+    kingless = "rnbq1bnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ - 0 1"
+    broken = example("ex-1")
+    broken["fen"] = kingless
+    broken["legal_moves"] = sorted(move.uci() for move in chess.Board(kingless).legal_moves)
+    broken["prompt"] = PROMPT_TEMPLATE.format(
+        fen=kingless, legal_moves=", ".join(broken["legal_moves"])
+    )
+    with pytest.raises(AdaptationError, match="invalid fen"):
+        validate_suite_examples(
+            [broken], prompt_version=SFT_PROMPT_VERSION, schema_version=SUITE_SCHEMA_VERSION
+        )
+
+
 def test_validate_suite_rejects_a_wrong_legal_move_list():
     # The frozen list is the legality judge; an asserted list that does
     # not match the position would corrupt every score it judges.

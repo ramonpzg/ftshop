@@ -683,6 +683,11 @@ export interface EvalSuite {
   note: string | null;
   created_at: string;
   examples: SuiteExample[];
+  /** False when this suite was frozen under an older prompt contract
+   * than the one this build renders and verifies (an upgraded database
+   * keeps its old suites). The panel treats the first current suite as
+   * the benchmark. */
+  current_contract: boolean;
 }
 
 export interface BenchmarkMetricRow {

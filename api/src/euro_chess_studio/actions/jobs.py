@@ -3,9 +3,11 @@
 import sqlite3
 from dataclasses import dataclass
 
+from euro_chess_studio.actions.errors import WorkspaceNotFoundError
 from euro_chess_studio.calculations.ids import generate_id
 from euro_chess_studio.data.artifacts_repo import insert_artifact
 from euro_chess_studio.data.job_configs_repo import insert_job_config
+from euro_chess_studio.data.workspaces_repo import get_workspace
 from euro_chess_studio.jobs.base import JobConfig
 from euro_chess_studio.jobs.registry import get_runner_for_job_type
 
@@ -23,6 +25,13 @@ def run_job(
     workspace_id: str | None,
 ) -> RunJobResult:
     runner = get_runner_for_job_type(job_type)  # raises UnknownJobTypeError if invalid
+
+    # Identity before work: the runner may spend provider money or write
+    # files, and the config insert below would only reject a bad
+    # workspace afterwards (foreign key), when the spend has already
+    # happened. A plain read needs no write lock.
+    if workspace_id is not None and get_workspace(conn, workspace_id) is None:
+        raise WorkspaceNotFoundError(f"unknown workspace: {workspace_id}")
 
     # Run first, persist after: a failed generation (missing API key,
     # provider error) must not leave an orphaned config row behind, and

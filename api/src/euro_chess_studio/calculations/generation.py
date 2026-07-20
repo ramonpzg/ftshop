@@ -89,16 +89,14 @@ def file_extension_for(url: str, kind: str) -> str:
     return {"image": "png", "video": "mp4", "audio": "wav"}.get(kind, "bin")
 
 
-def requests_paid_generation(job_type: str, params: dict) -> bool:
-    """Whether this job would spend provider money or make a live model
-    call. Replay and local jobs are free; fal-backed generation and a
-    live benchmark are paid. Unknown audio models count as paid so the
-    guard stays conservative (they fail model validation later anyway)."""
-    if job_type in ("image.generate", "video.generate"):
+def requests_presenter_generation(job_type: str, params: dict) -> bool:
+    """Whether this job spends a resource only the presenter may spend:
+    provider money (fal generation, a live benchmark) or the presenter
+    machine's own compute (local audio synthesis loads multi-GB models
+    onto the CPU/GPU serving the whole room). Replays and small local
+    calculations are free and stay open to every attendee."""
+    if job_type in ("image.generate", "video.generate", "audio.generate"):
         return True
-    if job_type == "audio.generate":
-        model = AUDIO_MODELS.get(str(params.get("model")))
-        return model is None or model.get("engine") == "fal"
     if job_type == "text.benchmark_eval":
         return params.get("source") == "live"
     return False

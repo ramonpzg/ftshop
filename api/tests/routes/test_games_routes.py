@@ -15,6 +15,11 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         yield test_client
 
 
+# The proxy on the presenter's machine forwards the local browser;
+# presenter-only routes (assess, non-default opponents) check this.
+PRESENTER = {"x-forwarded-for": "127.0.0.1"}
+
+
 def make_workspace(client: TestClient) -> str:
     user = client.post("/users", json={"name": "Ada"}).json()
     workspace = client.post(
@@ -270,6 +275,8 @@ def test_start_game_records_the_chosen_opponent(
     response = client.post(
         f"/workspaces/{workspace_id}/game/start",
         json={"opponent_model": "google/gemma-4-E2B-it-qat-q4_0-gguf"},
+        # A non-default opponent is a presenter pick (room model policy).
+        headers=PRESENTER,
     )
     assert response.status_code == 200
     assert response.json()["game"]["opponent_model"] == "google/gemma-4-E2B-it-qat-q4_0-gguf"
@@ -284,8 +291,52 @@ def test_start_game_rejects_a_model_not_on_offer(client: TestClient):
     response = client.post(
         f"/workspaces/{workspace_id}/game/start",
         json={"opponent_model": "made-up/nonsense"},
+        headers=PRESENTER,
     )
     assert response.status_code == 422
+
+
+def test_the_room_model_policy_gates_non_default_opponents(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Attendees play the room's default opponent. A non-default pick
+    from a LAN browser is refused server-side: forty attendees on a
+    metered frontier model is a budget burst, whatever the picker
+    shows."""
+    monkeypatch.setenv("OPPONENT_MODELS", "openai/gpt-5.6")
+    workspace_id = make_workspace(client)
+    lan = {"x-forwarded-for": "192.168.1.23"}
+
+    frontier = client.post(
+        f"/workspaces/{workspace_id}/game/start",
+        json={"opponent_model": "openai/gpt-5.6"},
+        headers=lan,
+    )
+    assert frontier.status_code == 403
+    assert "presenter" in frontier.json()["detail"]
+
+    # The default opponent stays open to the room, named or implied.
+    named_default = client.post(
+        f"/workspaces/{workspace_id}/game/start",
+        json={"opponent_model": "gpt-5.6-luna"},
+        headers=lan,
+    )
+    assert named_default.status_code == 200
+    client.post(f"/workspaces/{workspace_id}/game/start-over", headers=lan)
+
+
+def test_assessment_is_refused_for_lan_clients(client: TestClient):
+    """A position assessment is a scenario-model call; the room model
+    policy makes it presenter-machine only. Reviewing a landed mapping
+    is a different route and stays open."""
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    response = client.post(
+        f"/workspaces/{workspace_id}/assess",
+        headers={"x-forwarded-for": "192.168.1.23"},
+    )
+    assert response.status_code == 403
+    assert "presenter" in response.json()["detail"]
 
 
 def test_a_failed_assessment_survives_reload_as_an_explicit_failed_state(
@@ -305,7 +356,7 @@ def test_a_failed_assessment_survives_reload_as_an_explicit_failed_state(
 
     workspace_id = make_workspace(client)
     client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
-    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess", headers=PRESENTER)
     assert assess_response.status_code == 502
 
     reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
@@ -348,13 +399,13 @@ def test_reload_restores_the_last_success_alongside_a_later_failure(
     workspace_id = make_workspace(client)
     client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
     monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", succeed)
-    good = client.post(f"/workspaces/{workspace_id}/assess").json()
+    good = client.post(f"/workspaces/{workspace_id}/assess", headers=PRESENTER).json()
 
     def fail_video_prompt_chat(*args, **kwargs):
         raise LlmRequestError("502 from video_prompt", request_ids=())
 
     monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", fail_video_prompt_chat)
-    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess", headers=PRESENTER)
     assert assess_response.status_code == 502
 
     reload_response = client.get(f"/workspaces/{workspace_id}/scenario")

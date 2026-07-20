@@ -7,25 +7,26 @@ import {
   reviewScenario,
   type Scenario,
 } from "../../data/api";
+import { usePresenterState } from "../../lib/presenterContext";
 
 interface ScenarioSectionProps {
   workspaceId: string;
   llmReady: boolean;
   /** Whether this browser may act: own workspace, editing, not locked. */
   canAct: boolean;
-  /** Incremented after each applied model turn to request a fresh read. */
-  refreshKey: number;
 }
 
 /** The persisted real-world scenario mapping: suggestion, review, and
  * recovery. Persistence lives on the backend; this component only calls
- * the API and renders what came back. */
-export function ScenarioSection({
-  workspaceId,
-  llmReady,
-  canAct,
-  refreshKey,
-}: ScenarioSectionProps) {
+ * the API and renders what came back.
+ *
+ * Generation is manual and presenter-only (the room model policy: an
+ * assessment is a scenario-model call, and it used to fire after every
+ * model turn in forty browsers at once; the backend enforces the same
+ * rule with a 403). Reviewing a landed mapping stays open to whoever
+ * owns the workspace. */
+export function ScenarioSection({ workspaceId, llmReady, canAct }: ScenarioSectionProps) {
+  const { isPresenter } = usePresenterState();
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +61,6 @@ export function ScenarioSection({
       cancelled = true;
     };
   }, [workspaceId]);
-
-  // A fresh suggestion after each applied model turn, same cadence as
-  // before persistence existed.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is the trigger; suggest is stable per render
-  useEffect(() => {
-    if (refreshKey > 0) void suggest();
-  }, [refreshKey]);
 
   async function suggest() {
     setState("loading");
@@ -198,9 +192,11 @@ export function ScenarioSection({
         // read" next to "assessment failed" would wrongly imply nothing
         // had been attempted yet.
         <p className="workspace-analysis-empty">
-          {llmReady
-            ? "Play a move, get a read on the position and its real-world twin."
-            : "Set OPENAI_API_KEY on the backend to enable analysis."}
+          {!llmReady
+            ? "Set OPENAI_API_KEY on the backend to enable analysis."
+            : isPresenter
+              ? "Assess a position to map it to a real-world scenario."
+              : "Scenario reads are presenter-run. When one lands here, review it."}
         </p>
       )}
       {state === "loading" && <p className="workspace-analysis-empty">Assessing position</p>}
@@ -212,7 +208,7 @@ export function ScenarioSection({
           The last saved mapping is untouched.
         </p>
       )}
-      {canAct && llmReady && state !== "loading" && (
+      {canAct && llmReady && isPresenter && state !== "loading" && (
         <button
           type="button"
           className="workspace-assess-button"

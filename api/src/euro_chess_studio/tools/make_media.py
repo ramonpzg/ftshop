@@ -280,7 +280,9 @@ def make_audio() -> list[Path]:
     adapted += _render_notes(np, tension, total=total, amp=0.22, decay=5.0)
     t = np.arange(len(adapted)) / AUDIO_RATE
     tremolo = 1.0 + 0.22 * np.sin(2 * np.pi * 7.5 * t)
-    intensity = 0.72 + 0.55 * (t / t.max())
+    # t[-1], not t.max(): identical value for an increasing arange, and
+    # ndarray.max's stub overloads fail ty under some NumPy releases.
+    intensity = 0.72 + 0.55 * (t / float(t[-1]))
     adapted = adapted * tremolo * intensity
     adapted_path = out / "board_music_adapted.wav"
     _write_wav(adapted_path, adapted)

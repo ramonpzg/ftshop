@@ -4,7 +4,7 @@ import { AdaptationPanel } from "../../src/components/adaptation/AdaptationPanel
 import type { AdaptationState } from "../../src/data/api";
 import { PresenterContext } from "../../src/lib/presenterContext";
 
-function renderPanel(opts: { isPresenter?: boolean } = {}) {
+function renderPanel(opts: { isPresenter?: boolean; pollMs?: number } = {}) {
   return render(
     <PresenterContext.Provider
       value={{
@@ -15,7 +15,7 @@ function renderPanel(opts: { isPresenter?: boolean } = {}) {
         reportNotice: () => {},
       }}
     >
-      <AdaptationPanel isEditing={true} />
+      <AdaptationPanel isEditing={true} pollMs={opts.pollMs} />
     </PresenterContext.Provider>,
   );
 }
@@ -85,6 +85,7 @@ function baseState(): AdaptationState {
         examples: [
           { example_id: "ex-01", fen: "fen-1", legal_moves: ["e2e4"], prompt: "prompt-1" },
         ],
+        current_contract: true,
       },
     ],
     runs: [],
@@ -350,5 +351,67 @@ describe("AdaptationPanel access and honesty", () => {
     renderPanel();
     await waitFor(() => expect(screen.getByTestId("benchmark-runs")).toBeTruthy());
     expect(screen.getByText("replayed (scripted)")).toBeTruthy();
+  });
+});
+
+describe("AdaptationPanel shared evidence and live-run locking", () => {
+  test("an obsolete-contract suite is flagged instead of posing as current", async () => {
+    const state = baseState();
+    state.suites[0].current_contract = false;
+    installFetch(() => state);
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId("suite-obsolete")).toBeTruthy());
+    expect(screen.getByTestId("suite-obsolete").textContent).toContain("older prompt contract");
+  });
+
+  test("attendees receive the presenter's new evidence through the poll", async () => {
+    let current = baseState();
+    installFetch(() => current);
+    renderPanel({ isPresenter: false, pollMs: 20 });
+    await waitFor(() => expect(screen.getByTestId("comparison-empty")).toBeTruthy());
+    // The presenter runs the chain elsewhere; this attendee's panel
+    // must pick the comparison up without any interaction.
+    current = withComparison(baseState());
+    await waitFor(() => expect(screen.getByTestId("comparison")).toBeTruthy());
+  });
+
+  test("stopping the wait keeps live runs locked until the server run lands", async () => {
+    let current: AdaptationState = {
+      ...baseState(),
+      live_benchmark: { available: true, model: "gemma-4-2b-local" },
+    };
+    globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/adaptation/state")) {
+        return new Response(JSON.stringify(current), { status: 200 });
+      }
+      if (url.includes("/jobs")) {
+        // A hung provider: the request only ever ends by browser abort.
+        return new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          );
+        });
+      }
+      return new Response("not found", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    renderPanel({ pollMs: 20 });
+    await waitFor(() => expect(screen.getByTestId("bench-base-live")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("bench-base-live"));
+    await waitFor(() => expect(screen.getByTestId("bench-live-cancel")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("bench-live-cancel"));
+
+    // The browser stopped waiting, but aborting the request cancels
+    // nothing server-side: no duplicate paid run may start.
+    await waitFor(() => expect(screen.getByTestId("bench-live-waiting")).toBeTruthy());
+    expect(screen.queryByTestId("bench-base-live")).toBeNull();
+    expect(screen.getByTestId("adaptation-notice").textContent).toContain(
+      "continues to its deadline",
+    );
+
+    // The run lands server-side; the poll notices and unlocks.
+    current = { ...current, runs: [{ ...runRow("base", "live"), id: "run_live_new" }] };
+    await waitFor(() => expect(screen.getByTestId("bench-base-live")).toBeTruthy());
   });
 });

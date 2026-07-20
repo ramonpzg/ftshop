@@ -22,7 +22,7 @@ from euro_chess_studio.calculations.export import (
     is_training_eligible,
 )
 from euro_chess_studio.calculations.llm_prompts import analyze_move_reply
-from euro_chess_studio.chess.board import get_legal_moves
+from euro_chess_studio.chess.board import get_playable_legal_moves
 
 Row = Any
 
@@ -257,7 +257,9 @@ def validate_suite_examples(
         if not isinstance(fen, str) or not fen:
             raise AdaptationError(f"suite example {example_id} has no fen")
         try:
-            derived_legal = sorted(get_legal_moves(fen))
+            # Playable, not merely parseable: chess.Board accepts a FEN
+            # with no black king and generates moves for it.
+            derived_legal = sorted(get_playable_legal_moves(fen))
         except ValueError as exc:
             raise AdaptationError(f"suite example {example_id} has an invalid fen: {exc}") from exc
         legal_moves = example.get("legal_moves")

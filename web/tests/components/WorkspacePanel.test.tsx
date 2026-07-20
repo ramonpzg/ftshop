@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { WorkspacePanel } from "../../src/components/workspace/WorkspacePanel";
 import type { WorkspaceShape } from "../../src/components/tldraw/shapes/workspaceShapeTypes";
 import { CurrentUserContext } from "../../src/lib/currentUserContext";
@@ -393,6 +394,27 @@ afterEach(() => {
   cleanup();
 });
 
+/** Renders as the presenter client (?presenter=1): the opponent picker
+ * and the assess button are presenter-only under the room model
+ * policy. */
+function renderAsPresenter(ui: ReactElement) {
+  return render(
+    <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+      <PresenterContext.Provider
+        value={{
+          locked: false,
+          resetToken: 0,
+          isPresenter: true,
+          presenterMode: "idle",
+          reportNotice: () => {},
+        }}
+      >
+        {ui}
+      </PresenterContext.Provider>
+    </CurrentUserContext.Provider>,
+  );
+}
+
 describe("WorkspacePanel", () => {
   test("loads and shows the board for the workspace", async () => {
     globalThis.fetch = routedFetch() as unknown as typeof fetch;
@@ -596,16 +618,12 @@ describe("WorkspacePanel", () => {
     expect(items[0].textContent).toContain("Loss, started over");
   });
 
-  test("with several opponents on offer, starting sends the chosen one", async () => {
+  test("with several opponents on offer, the presenter picks and starting sends the choice", async () => {
     const fetchMock = routedFetch({
       opponentModels: ["google/gemma-4-E2B-it-qat-q4_0-gguf", "openai/gpt-5.6", "gpt-5.6-luna"],
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    render(
-      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
-        <WorkspacePanel shape={makeShape()} isEditing={true} />
-      </CurrentUserContext.Provider>,
-    );
+    renderAsPresenter(<WorkspacePanel shape={makeShape()} isEditing={true} />);
 
     await waitFor(() => screen.getByTestId("opponent-model"));
     // Short names in the picker, full ids on the wire.
@@ -636,6 +654,30 @@ describe("WorkspacePanel", () => {
 
     await waitFor(() => screen.getByTestId("start-game"));
     expect(screen.queryByTestId("opponent-model")).toBeNull();
+  });
+
+  test("attendees get no picker and play the room default (room model policy)", async () => {
+    const fetchMock = routedFetch({
+      opponentModels: ["openai/gpt-5.6", "gpt-5.6-luna"],
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    // Several models on offer, but the picker is presenter-only.
+    expect(screen.queryByTestId("opponent-model")).toBeNull();
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    const startCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith("/game/start"));
+    // The attendee's start names the default model, never a frontier
+    // pick the backend would 403.
+    expect(JSON.parse(String((startCall?.[1] as RequestInit).body)).opponent_model).toBe(
+      "gpt-5.6-luna",
+    );
   });
 
   test("a checking move earns a pun", async () => {
@@ -710,18 +752,29 @@ describe("WorkspacePanel", () => {
 
   test("a failed scenario survives reload as the error state, not the empty state", async () => {
     globalThis.fetch = routedFetch({ scenario: FAILED_SCENARIO }) as unknown as typeof fetch;
+    renderAsPresenter(<WorkspacePanel shape={makeShape()} isEditing={true} />);
+
+    await waitFor(() => screen.getByTestId("scenario-error"));
+    expect(screen.getByTestId("scenario-error").textContent).toContain("502 from video_prompt");
+    // Not the pristine empty state, and the recovery button reads as a
+    // retry rather than a fresh first assessment.
+    expect(screen.queryByText(/map it to a real-world scenario/)).toBeNull();
+    expect(screen.getByTestId("assess-position").textContent).toBe("Retry assessment");
+  });
+
+  test("attendees can review a landed mapping but cannot request one", async () => {
+    globalThis.fetch = routedFetch({ scenario: SUGGESTED_SCENARIO }) as unknown as typeof fetch;
     render(
       <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
         <WorkspacePanel shape={makeShape()} isEditing={true} />
       </CurrentUserContext.Provider>,
     );
 
-    await waitFor(() => screen.getByTestId("scenario-error"));
-    expect(screen.getByTestId("scenario-error").textContent).toContain("502 from video_prompt");
-    // Not the pristine "play a move" empty state, and the recovery
-    // button reads as a retry rather than a fresh first assessment.
-    expect(screen.queryByText(/Play a move, get a read/)).toBeNull();
-    expect(screen.getByTestId("assess-position").textContent).toBe("Retry assessment");
+    // The landed mapping renders with its review controls...
+    await waitFor(() => screen.getByTestId("scenario-accept"));
+    expect(screen.getByTestId("scenario-start-edit")).toBeTruthy();
+    // ...but generation is presenter-only: no assess button, ever.
+    expect(screen.queryByTestId("assess-position")).toBeNull();
   });
 
   test("a previous successful mapping survives reload alongside a later failure", async () => {
