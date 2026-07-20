@@ -1,4 +1,5 @@
-"""SQLite access for the artifacts table. No business logic here."""
+"""SQLite access for the artifacts table. No business logic here; the
+caller owns the transaction."""
 
 import json
 import sqlite3
@@ -25,7 +26,6 @@ def insert_artifact(
         """,
         (artifact_id, job_config_id, modality, kind, json.dumps(payload), int(cached), created_at),
     )
-    conn.commit()
     row = get_artifact(conn, artifact_id)
     assert row is not None
     return row

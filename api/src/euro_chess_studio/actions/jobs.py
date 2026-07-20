@@ -24,22 +24,29 @@ def run_job(
     runner = get_runner_for_job_type(job_type)  # raises UnknownJobTypeError if invalid
 
     # Run first, persist after: a failed generation (missing API key,
-    # provider error) must not leave an orphaned config row behind.
-    output = runner.run(
-        conn, JobConfig(job_type=job_type, params=params, workspace_id=workspace_id)
-    )
-    job_config_row = insert_job_config(
-        conn, workspace_id=workspace_id, job_type=job_type, params=params
-    )
-    artifact_row = insert_artifact(
-        conn,
-        job_config_id=job_config_row["id"],
-        modality=output.modality,
-        kind=output.kind,
-        payload=output.payload,
-        cached=output.cached,
-    )
-    # Handlers may have written eval_results; those repos no longer
-    # commit, so the job's whole result persists here or not at all.
-    conn.commit()
+    # provider error) must not leave an orphaned config row behind. The
+    # config, the artifact, and any eval_results the handler wrote (that
+    # repo no longer commits either) rise or fall together: a failure
+    # anywhere in this block must not leave a committed config with no
+    # matching artifact, or eval numbers computed by a run whose
+    # artifact never landed.
+    try:
+        output = runner.run(
+            conn, JobConfig(job_type=job_type, params=params, workspace_id=workspace_id)
+        )
+        job_config_row = insert_job_config(
+            conn, workspace_id=workspace_id, job_type=job_type, params=params
+        )
+        artifact_row = insert_artifact(
+            conn,
+            job_config_id=job_config_row["id"],
+            modality=output.modality,
+            kind=output.kind,
+            payload=output.payload,
+            cached=output.cached,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return RunJobResult(job_config=job_config_row, artifact=artifact_row)

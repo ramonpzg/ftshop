@@ -180,7 +180,14 @@ this: the applied move and its attempt record commit together, while
 failed attempts commit individually as they happen because a failed
 reply is evidence that must survive the turn failing. The lazy timeout
 check commits on its own; a flag fall is a fact about the wall clock,
-not part of whichever action noticed it.
+not part of whichever action noticed it. `run_job` persists the job
+config, the artifact, and any eval_results a handler wrote as one
+transaction too; every repository on this path (`job_configs_repo`,
+`artifacts_repo`, `eval_results_repo`) takes writes without committing,
+so a failure between them (a provider error while building the
+artifact, say) rolls back a job_config that would otherwise have no
+matching artifact, and eval numbers computed by a run whose artifact
+never landed.
 
 ### The Chat Completions boundary
 

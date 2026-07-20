@@ -1,4 +1,5 @@
-"""SQLite access for the job_configs table. No business logic here."""
+"""SQLite access for the job_configs table. No business logic here;
+the caller owns the transaction."""
 
 import json
 import sqlite3
@@ -23,7 +24,6 @@ def insert_job_config(
         """,
         (job_config_id, workspace_id, job_type, json.dumps(params), created_at),
     )
-    conn.commit()
     row = conn.execute("SELECT * FROM job_configs WHERE id = ?", (job_config_id,)).fetchone()
     assert row is not None
     return row
