@@ -217,12 +217,32 @@ def test_valid_json_rate_ignores_attempts_that_did_not_ask_for_json():
     assert result.value == 1.0
 
 
-def test_compute_position_set_id_is_order_and_duplicate_independent():
+def test_compute_position_set_id_is_order_independent():
     forward = compute_position_set_id(["fen-a", "fen-b"])
     backward = compute_position_set_id(["fen-b", "fen-a"])
-    with_duplicates = compute_position_set_id(["fen-a", "fen-b", "fen-a"])
-    assert forward == backward == with_duplicates
+    assert forward == backward
     assert forward is not None
+
+
+def test_compute_position_set_id_is_not_duplicate_independent():
+    """Reproduces the reported bug: the id used to dedupe positions
+    before hashing, so a sample containing each fen once and a sample
+    containing one fen a hundred times could receive the same id.
+    Every repeated attempt is a real, separately-counted row in a
+    metric's denominator, so the two are different evaluations and
+    must not collapse to the same id."""
+    once_each = compute_position_set_id(["fen-a", "fen-b", "fen-c"])
+    one_fen_a_lot = compute_position_set_id(["fen-a"] * 100)
+    assert once_each != one_fen_a_lot
+
+    twice = compute_position_set_id(["fen-a", "fen-a"])
+    once = compute_position_set_id(["fen-a"])
+    assert twice != once
+
+    # Still order-independent even with duplicates present.
+    assert compute_position_set_id(["fen-a", "fen-b", "fen-a"]) == compute_position_set_id(
+        ["fen-a", "fen-a", "fen-b"]
+    )
 
 
 def test_compute_position_set_id_differs_for_different_position_sets():

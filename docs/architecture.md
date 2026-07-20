@@ -393,16 +393,24 @@ back to the exact `moves`/`model_attempts` rows a number came from --
 useful for debugging, but not itself a cross-model identity, since two
 different models produce two different sets of row ids even over the
 identical chess position. The actual frozen input set is `positions`:
-the fen of every sampled row, in order. `compute_position_set_id`
-turns that list into one deterministic hash (order- and
-duplicate-independent), stored as `position_set_id` alongside the full
-list as `position_set_json`. Two eval results with matching
-`position_set_id` were measured over the identical positions and are
-honestly comparable; a mismatch means they were not, regardless of how
-similar their scope otherwise looks. This does not make the app
-capable of forcing two different models to play through identical
-positions -- there is no benchmark-runner here, only organic gameplay
--- but it does make comparability provable after the fact instead of
+the fen of every sampled row, in order. `compute_position_set_id` turns
+that list into one deterministic hash, stored as `position_set_id`
+alongside the full list as `position_set_json`. The hash is order-
+independent (the same positions in a different order match) but
+deliberately not duplicate-independent: every repeated attempt is a
+real, separately-counted row in a metric's denominator, so a position
+sampled once and the same position sampled a hundred times are
+different measurements and hash differently, even though both cover
+"the same" underlying position. Deduplicating first, an earlier version
+of this hash, let samples with wildly different denominators and
+repeat structure claim to be the identical evaluation. Two eval results
+with matching `position_set_id` were measured over the identical
+positions in the identical proportions and are honestly comparable; a
+mismatch means they were not, regardless of how similar their scope
+otherwise looks. This does not make the app capable of forcing two
+different models to play through identical positions -- there is no
+benchmark-runner here, only organic gameplay -- but it does make
+comparability provable after the fact instead of
 assumed from matching `model`/`checkpoint` alone.
 
 `eval_results`' storage identity is `(modality, metric, workspace,

@@ -54,17 +54,23 @@ class MetricResult:
 
 
 def compute_position_set_id(positions: Sequence[str | None]) -> str | None:
-    """A deterministic id for a set of input positions: order- and
-    duplicate-independent, so the same position set always hashes the
-    same way regardless of how the sample was assembled. Two eval
-    results with matching ids were measured over the identical set of
-    positions and are honestly comparable; a mismatch means they were
-    not, no matter how similar their scope looks otherwise. None for an
-    empty set -- there is no position set to identify."""
-    unique = sorted({position for position in positions if position is not None})
-    if not unique:
+    """A deterministic id for the exact multiset of input positions
+    sampled: order-independent (the same positions in a different order
+    hash the same), but deliberately NOT duplicate-independent. Every
+    repeated attempt is a separate row in the denominator, so a position
+    sampled once and the same position sampled a hundred times are
+    different measurements, not the same evaluation wearing a different
+    denominator -- collapsing them to the same id would let a sample
+    with wildly different repeat structure claim to be identical to one
+    with none. Two eval results with matching ids were measured over
+    the identical positions in the identical proportions; a mismatch
+    means they were not, no matter how similar their scope looks
+    otherwise. None for an empty set -- there is no position set to
+    identify."""
+    present = sorted(position for position in positions if position is not None)
+    if not present:
         return None
-    digest = hashlib.sha256("\n".join(unique).encode()).hexdigest()
+    digest = hashlib.sha256("\n".join(present).encode()).hexdigest()
     return digest[:16]
 
 
