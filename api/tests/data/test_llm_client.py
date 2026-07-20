@@ -310,7 +310,7 @@ def test_deadline_bounds_total_time_regardless_of_transport_retries(
     install_mock_client(monkeypatch, handler)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    with pytest.raises(llm_client.LlmRequestError):
+    with pytest.raises(llm_client.LlmRequestError) as excinfo:
         llm_client.chat([{"role": "user", "content": "move"}], timeout=0.2)
 
     # Only the first attempt actually reached the transport: its 0.1s
@@ -320,6 +320,11 @@ def test_deadline_bounds_total_time_regardless_of_transport_retries(
     # attempts, uncapped backoff) regardless of how little was left.
     assert calls == 1
     assert clock.now == pytest.approx(0.2)
+    # Reproduces the reported overcount: the deadline-exceeded bail-out
+    # used to increment the attempt counter for the attempt it was
+    # refusing to make, so this one real HTTP call was reported as two
+    # transport attempts.
+    assert excinfo.value.transport_attempts == 1
 
 
 def test_remaining_deadline_shrinks_and_is_passed_to_each_transport_attempt(

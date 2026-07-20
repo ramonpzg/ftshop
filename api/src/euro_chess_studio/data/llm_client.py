@@ -223,17 +223,22 @@ def _chat_completion(
 
     with httpx.Client() as client:
         while True:
-            attempt += 1
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                # attempt is not incremented for this bail-out: no
+                # request is made here, so counting it would report one
+                # more transport attempt than actually reached the
+                # network. attempt + 1 in the message is the attempt
+                # number this would have been.
                 raise LlmRequestError(
-                    f"deadline exceeded before attempt {attempt} to {url} "
+                    f"deadline exceeded before attempt {attempt + 1} to {url} "
                     f"({settings.profile}); request_ids={_format_ids(request_ids)}",
                     request_ids=tuple(request_ids),
                     transport_attempts=attempt,
                     json_mode_dropped=json_mode_dropped,
                     reasoning_effort_dropped=reasoning_effort_dropped,
                 )
+            attempt += 1
             try:
                 response = client.post(
                     url,
