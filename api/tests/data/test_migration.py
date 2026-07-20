@@ -172,3 +172,69 @@ def test_migration_is_idempotent_and_new_moves_record_their_actor(tmp_path: Path
         assert row["model"] == "gpt-5.6-luna"
     finally:
         conn.close()
+
+
+def test_pre_capability_provenance_model_attempts_table_migrates(tmp_path: Path):
+    """A database from between the model_attempts table's introduction
+    and the capability-provenance fix: the table exists but without
+    transport_attempts/json_mode_dropped/reasoning_effort_dropped."""
+    conn = get_connection(tmp_path / "mid.db")
+    conn.executescript("""
+        CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL);
+        CREATE TABLE model_attempts (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            game_id TEXT,
+            task TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            model TEXT,
+            provider_alias TEXT,
+            prompt_version TEXT,
+            checkpoint TEXT,
+            ply INTEGER,
+            fen TEXT,
+            attempt_number INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            raw_response TEXT,
+            request_ids_json TEXT NOT NULL DEFAULT '[]',
+            json_requested INTEGER NOT NULL DEFAULT 0,
+            parse_ok INTEGER NOT NULL DEFAULT 0,
+            parsed_move TEXT,
+            is_legal INTEGER,
+            applied_move_id TEXT,
+            error_detail TEXT,
+            created_at TEXT NOT NULL
+        );
+    """)
+    conn.execute(
+        "INSERT INTO model_attempts "
+        "(id, workspace_id, task, actor, attempt_number, status, created_at) "
+        "VALUES ('attempt_1', 'ws_1', 'move', 'model', 1, 'applied', 'then')"
+    )
+    conn.commit()
+    try:
+        init_db(conn)
+        row = conn.execute("SELECT * FROM model_attempts WHERE id = 'attempt_1'").fetchone()
+        assert row["transport_attempts"] is None
+        assert row["json_mode_dropped"] is None
+        assert row["reasoning_effort_dropped"] is None
+
+        from euro_chess_studio.data.model_attempts_repo import insert_attempt
+
+        new_row = insert_attempt(
+            conn,
+            workspace_id="ws_1",
+            task="move",
+            actor="model",
+            attempt_number=1,
+            status="applied",
+            transport_attempts=2,
+            json_mode_dropped=True,
+            reasoning_effort_dropped=False,
+        )
+        conn.commit()
+        assert new_row["transport_attempts"] == 2
+        assert new_row["json_mode_dropped"] == 1
+        assert new_row["reasoning_effort_dropped"] == 0
+    finally:
+        conn.close()

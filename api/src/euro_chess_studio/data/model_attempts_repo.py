@@ -31,6 +31,9 @@ def insert_attempt(
     is_legal: bool | None = None,
     applied_move_id: str | None = None,
     error_detail: str | None = None,
+    transport_attempts: int | None = None,
+    json_mode_dropped: bool | None = None,
+    reasoning_effort_dropped: bool | None = None,
 ) -> sqlite3.Row:
     attempt_id = generate_id("attempt")
     created_at = datetime.now(UTC).isoformat()
@@ -40,8 +43,10 @@ def insert_attempt(
             (id, workspace_id, game_id, task, actor, model, provider_alias,
              prompt_version, checkpoint, ply, fen, attempt_number, status,
              raw_response, request_ids_json, json_requested, parse_ok,
-             parsed_move, is_legal, applied_move_id, error_detail, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             parsed_move, is_legal, applied_move_id, error_detail,
+             transport_attempts, json_mode_dropped, reasoning_effort_dropped,
+             created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             attempt_id,
@@ -65,6 +70,9 @@ def insert_attempt(
             None if is_legal is None else int(is_legal),
             applied_move_id,
             error_detail,
+            transport_attempts,
+            None if json_mode_dropped is None else int(json_mode_dropped),
+            None if reasoning_effort_dropped is None else int(reasoning_effort_dropped),
             created_at,
         ),
     )

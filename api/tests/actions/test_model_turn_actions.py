@@ -20,17 +20,24 @@ from euro_chess_studio.data.users_repo import insert_user
 from euro_chess_studio.data.workspaces_repo import get_workspace, insert_workspace
 
 
-def fake_outcome(content: str, model: str = "gpt-5.6-luna") -> ChatOutcome:
+def fake_outcome(
+    content: str,
+    model: str = "gpt-5.6-luna",
+    *,
+    attempts: int = 1,
+    json_mode_dropped: bool = False,
+    reasoning_effort_dropped: bool = False,
+) -> ChatOutcome:
     return ChatOutcome(
         content=content,
         model=model,
         provider_alias="opponent",
-        attempts=1,
+        attempts=attempts,
         request_ids=("req-ok",),
         json_mode_requested=True,
         json_mode_sent=True,
-        json_mode_dropped=False,
-        reasoning_effort_dropped=False,
+        json_mode_dropped=json_mode_dropped,
+        reasoning_effort_dropped=reasoning_effort_dropped,
     )
 
 
@@ -80,6 +87,32 @@ def test_legal_reply_is_applied_with_full_provenance(tmp_path, monkeypatch):
     assert attempt["raw_response"] == '{"move": "e2e4"}'
     assert attempt["prompt_version"] == "move-v1"
     assert attempt["fen"] == chess.STARTING_FEN
+
+
+def test_capability_fallback_provenance_is_persisted_not_discarded(tmp_path, monkeypatch):
+    """The transport already computes how many HTTP attempts a reply took
+    and whether a capability got dropped after the provider rejected it
+    (ChatOutcome); this must actually land in the stored attempt, not
+    just get thrown away after being calculated."""
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [
+            fake_outcome(
+                '{"move": "e2e4"}',
+                attempts=3,
+                json_mode_dropped=True,
+                reasoning_effort_dropped=True,
+            )
+        ],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    (attempt,) = result.attempts
+    assert attempt["transport_attempts"] == 3
+    assert attempt["json_mode_dropped"] == 1
+    assert attempt["reasoning_effort_dropped"] == 1
 
 
 def test_illegal_then_legal_retains_both_attempts_and_applies_one_move(tmp_path, monkeypatch):

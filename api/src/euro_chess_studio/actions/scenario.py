@@ -93,27 +93,26 @@ def suggest_scenario(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.Row
         raise
 
     # The raw reply is stored in the same transaction whether or not it
-    # parses; a garbage reply is still evidence.
+    # parses; a garbage reply is still evidence. Transport-layer
+    # provenance the client already computed (retry count, whether a
+    # capability got dropped) rides along too, not just the text.
+    shared = {
+        "raw_response": reply.content,
+        "model": reply.model,
+        "provider_alias": reply.provider_alias,
+        "request_ids": reply.request_ids,
+        "transport_attempts": reply.attempts,
+        "json_mode_dropped": reply.json_mode_dropped,
+        "reasoning_effort_dropped": reply.reasoning_effort_dropped,
+    }
+
     parsed = parse_assess_reply(reply.content)
     if parsed is None:
-        attempt = record_attempt(
-            status="parse_failed",
-            raw_response=reply.content,
-            model=reply.model,
-            provider_alias=reply.provider_alias,
-            request_ids=reply.request_ids,
-        )
+        attempt = record_attempt(status="parse_failed", **shared)
         record_failure(attempt, "reply had no usable assessment")
         raise ModelReplyError(f"model reply had no usable assessment: {reply.content[:200]}")
 
-    attempt = record_attempt(
-        status="ok",
-        raw_response=reply.content,
-        parse_ok=True,
-        model=reply.model,
-        provider_alias=reply.provider_alias,
-        request_ids=reply.request_ids,
-    )
+    attempt = record_attempt(status="ok", parse_ok=True, **shared)
     scenario = insert_scenario(
         conn,
         workspace_id=workspace_id,

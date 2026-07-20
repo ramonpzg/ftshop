@@ -34,17 +34,23 @@ GOOD_REPLY = (
 )
 
 
-def fake_outcome(content: str) -> ChatOutcome:
+def fake_outcome(
+    content: str,
+    *,
+    attempts: int = 1,
+    json_mode_dropped: bool = False,
+    reasoning_effort_dropped: bool = False,
+) -> ChatOutcome:
     return ChatOutcome(
         content=content,
         model="gpt-5.6-luna",
         provider_alias="video_prompt",
-        attempts=1,
+        attempts=attempts,
         request_ids=("req-scene",),
         json_mode_requested=True,
         json_mode_sent=True,
-        json_mode_dropped=False,
-        reasoning_effort_dropped=False,
+        json_mode_dropped=json_mode_dropped,
+        reasoning_effort_dropped=reasoning_effort_dropped,
     )
 
 
@@ -89,6 +95,23 @@ def test_suggestion_is_persisted_with_raw_reply_and_provenance(tmp_path, monkeyp
     assert attempt["task"] == "scenario"
     assert attempt["raw_response"] == GOOD_REPLY
     assert attempt["parse_ok"] == 1
+
+
+def test_capability_fallback_provenance_is_persisted_not_discarded(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    stub_reply(
+        monkeypatch,
+        fake_outcome(GOOD_REPLY, attempts=2, json_mode_dropped=True),
+    )
+
+    scenario = suggest_scenario(conn, workspace["id"])
+
+    attempt = conn.execute(
+        "SELECT * FROM model_attempts WHERE id = ?", (scenario["attempt_id"],)
+    ).fetchone()
+    assert attempt["transport_attempts"] == 2
+    assert attempt["json_mode_dropped"] == 1
+    assert attempt["reasoning_effort_dropped"] == 0
 
 
 def test_reload_restores_the_latest_scenario(tmp_path, monkeypatch):

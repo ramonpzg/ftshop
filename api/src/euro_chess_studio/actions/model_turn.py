@@ -150,6 +150,9 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
             "provider_alias": reply.provider_alias,
             "raw_response": reply.content,
             "request_ids": reply.request_ids,
+            "transport_attempts": reply.attempts,
+            "json_mode_dropped": reply.json_mode_dropped,
+            "reasoning_effort_dropped": reply.reasoning_effort_dropped,
         }
         if not reply.content.strip():
             record(attempt_number, status="empty", **shared)

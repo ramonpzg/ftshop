@@ -90,6 +90,14 @@ CREATE TABLE IF NOT EXISTS model_attempts (
     is_legal INTEGER,
     applied_move_id TEXT REFERENCES moves(id),
     error_detail TEXT,
+    -- Transport-layer provenance the Chat Completions client already
+    -- computes (ChatOutcome): how many HTTP attempts this one reply
+    -- took, and whether a capability was dropped after the provider
+    -- rejected it. Distinct from attempt_number, which counts the
+    -- model turn's own retries, not the transport's.
+    transport_attempts INTEGER,
+    json_mode_dropped INTEGER,
+    reasoning_effort_dropped INTEGER,
     created_at TEXT NOT NULL
 );
 
@@ -244,6 +252,14 @@ def init_db(conn: sqlite3.Connection) -> None:
     ]:
         if column not in eval_columns:
             conn.execute(f"ALTER TABLE eval_results ADD COLUMN {column} {column_type}")
+    attempt_columns = {row[1] for row in conn.execute("PRAGMA table_info(model_attempts)")}
+    for column, column_type in [
+        ("transport_attempts", "INTEGER"),
+        ("json_mode_dropped", "INTEGER"),
+        ("reasoning_effort_dropped", "INTEGER"),
+    ]:
+        if column not in attempt_columns:
+            conn.execute(f"ALTER TABLE model_attempts ADD COLUMN {column} {column_type}")
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")
