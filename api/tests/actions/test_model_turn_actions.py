@@ -292,9 +292,7 @@ def test_a_stale_reply_is_recorded_explicitly_and_never_misapplied(tmp_path, mon
     # Exactly one model move landed on the board -- the race's winner.
     # The stale reply was not misapplied on top of it, and no attempt
     # record falsely claims status=applied/is_legal=1 for it.
-    moves = conn.execute(
-        "SELECT actor, uci, is_legal FROM moves ORDER BY created_at"
-    ).fetchall()
+    moves = conn.execute("SELECT actor, uci, is_legal FROM moves ORDER BY created_at").fetchall()
     model_moves = [m for m in moves if m["actor"] == "model"]
     assert len(model_moves) == 1
     assert model_moves[0]["uci"] == "e7e5"

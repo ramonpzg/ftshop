@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from fastapi import APIRouter, Depends
@@ -26,7 +27,22 @@ class EvalResultOut(BaseModel):
     version: str | None = None
     scope_json: str | None = None
     note: str | None = None
+    # model/checkpoint identify which version this result scopes to, so
+    # a base and an adapted model's rows can be told apart at a glance.
+    # run_id groups every metric one job execution produced. sample_ids
+    # is the frozen input set: the exact move/attempt ids counted.
+    model: str | None = None
+    checkpoint: str | None = None
+    run_id: str | None = None
+    sample_ids: list[str] = []
     created_at: str
+
+
+def _eval_result_out(row: sqlite3.Row) -> EvalResultOut:
+    data = dict(row)
+    sample_ids_json = data.pop("sample_ids_json", None)
+    data["sample_ids"] = json.loads(sample_ids_json) if sample_ids_json else []
+    return EvalResultOut(**data)
 
 
 @router.get("/evals")
@@ -36,4 +52,4 @@ def get_evals(
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[EvalResultOut]:
     rows = list_eval_results(conn, modality=modality, workspace_id=workspace_id)
-    return [EvalResultOut(**dict(row)) for row in rows]
+    return [_eval_result_out(row) for row in rows]

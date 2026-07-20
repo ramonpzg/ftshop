@@ -127,6 +127,13 @@ def test_pre_phase_database_migrates_without_losing_moves(tmp_path: Path):
         eval_row = conn.execute("SELECT * FROM eval_results").fetchone()
         assert eval_row["value"] == 0.5
         assert eval_row["note"] is None
+        # Pre-scope-identity rows migrate in with no model/checkpoint/
+        # run_id: they read as "unscoped", not as belonging to some
+        # accidental model.
+        assert eval_row["model"] is None
+        assert eval_row["checkpoint"] is None
+        assert eval_row["run_id"] is None
+        assert eval_row["sample_ids_json"] is None
 
         tables = {
             row["name"]

@@ -517,6 +517,15 @@ export interface EvalResult {
   version: string | null;
   scope_json: string | null;
   note: string | null;
+  /** Which model/checkpoint version this result scopes to, when
+   * scoped: base and adapted results carry different values here and
+   * coexist rather than overwrite each other. */
+  model: string | null;
+  checkpoint: string | null;
+  /** Groups every metric produced by one eval job execution. */
+  run_id: string | null;
+  /** The exact move/attempt ids counted: the frozen input set. */
+  sample_ids: string[];
   created_at: string;
 }
 

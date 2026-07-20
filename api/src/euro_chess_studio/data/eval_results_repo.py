@@ -23,6 +23,10 @@ def insert_eval_result(
     version: str | None = None,
     scope_json: str | None = None,
     note: str | None = None,
+    model: str | None = None,
+    checkpoint: str | None = None,
+    run_id: str | None = None,
+    sample_ids_json: str | None = None,
 ) -> sqlite3.Row:
     result_id = generate_id("eval")
     created_at = datetime.now(UTC).isoformat()
@@ -31,8 +35,8 @@ def insert_eval_result(
         INSERT INTO eval_results
             (id, modality, metric, value, workspace_id, source, numerator,
              denominator, unit, direction, definition, version, scope_json,
-             note, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             note, model, checkpoint, run_id, sample_ids_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             result_id,
@@ -49,12 +53,47 @@ def insert_eval_result(
             version,
             scope_json,
             note,
+            model,
+            checkpoint,
+            run_id,
+            sample_ids_json,
             created_at,
         ),
     )
     row = conn.execute("SELECT * FROM eval_results WHERE id = ?", (result_id,)).fetchone()
     assert row is not None
     return row
+
+
+def _scoped_identity_clause() -> str:
+    # A row's identity is everything that must distinguish two results
+    # that should coexist: same modality/metric/workspace/source but a
+    # different model or checkpoint are different results (base vs
+    # adapted), not the same one re-run. IS handles NULL on both sides.
+    return (
+        "modality = ? AND metric = ? AND source = ? AND workspace_id IS ? "
+        "AND model IS ? AND checkpoint IS ?"
+    )
+
+
+def delete_eval_result(
+    conn: sqlite3.Connection,
+    *,
+    modality: str,
+    metric: str,
+    workspace_id: str | None,
+    source: str,
+    model: str | None = None,
+    checkpoint: str | None = None,
+) -> None:
+    """Removes any existing row for this exact scope without inserting a
+    replacement. Used when a metric becomes unavailable (an empty
+    sample): the prior number must not keep showing as if it were
+    still current."""
+    conn.execute(
+        f"DELETE FROM eval_results WHERE {_scoped_identity_clause()}",
+        (modality, metric, source, workspace_id, model, checkpoint),
+    )
 
 
 def replace_eval_result(
@@ -73,17 +112,19 @@ def replace_eval_result(
     version: str | None = None,
     scope_json: str | None = None,
     note: str | None = None,
+    model: str | None = None,
+    checkpoint: str | None = None,
+    run_id: str | None = None,
+    sample_ids_json: str | None = None,
 ) -> sqlite3.Row:
     """Insert an eval result, replacing any previous row for the same
-    (modality, metric, workspace, source). Re-running an eval updates the
-    number instead of stacking duplicates in the panel."""
+    (modality, metric, workspace, source, model, checkpoint). Re-running
+    the same scoped eval updates its number instead of stacking
+    duplicates; a differently-scoped result (a different model or
+    checkpoint) is a different row and coexists."""
     conn.execute(
-        """
-        DELETE FROM eval_results
-        WHERE modality = ? AND metric = ? AND source = ?
-          AND workspace_id IS ?
-        """,
-        (modality, metric, source, workspace_id),
+        f"DELETE FROM eval_results WHERE {_scoped_identity_clause()}",
+        (modality, metric, source, workspace_id, model, checkpoint),
     )
     return insert_eval_result(
         conn,
@@ -100,6 +141,10 @@ def replace_eval_result(
         version=version,
         scope_json=scope_json,
         note=note,
+        model=model,
+        checkpoint=checkpoint,
+        run_id=run_id,
+        sample_ids_json=sample_ids_json,
     )
 
 
@@ -126,3 +171,12 @@ def delete_cached_eval_results(conn: sqlite3.Connection) -> None:
     Computed rows (source='computed') are untouched.
     """
     conn.execute("DELETE FROM eval_results WHERE source = 'cached'")
+
+
+def delete_eval_results_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
+    """Clears computed eval results for one workspace. Called when its
+    games/moves/attempts are wiped (page reset): a metric computed from
+    data that no longer exists must not keep showing on the panel."""
+    conn.execute(
+        "DELETE FROM eval_results WHERE workspace_id = ? AND source = 'computed'", (workspace_id,)
+    )

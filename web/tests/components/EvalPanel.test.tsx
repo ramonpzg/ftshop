@@ -19,6 +19,10 @@ function makeResult(overrides: Partial<EvalResult> = {}): EvalResult {
     version: null,
     scope_json: null,
     note: null,
+    model: null,
+    checkpoint: null,
+    run_id: null,
+    sample_ids: [],
     created_at: "now",
     ...overrides,
   };

@@ -273,8 +273,7 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
             move_result=None,
             attempts=attempts,
             detail=(
-                "The position changed before the fallback could be applied. "
-                "Refresh and try again."
+                "The position changed before the fallback could be applied. Refresh and try again."
             ),
         )
     record(

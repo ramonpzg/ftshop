@@ -228,8 +228,11 @@ API state; persistence orchestration left `WorkspacePanel`.
 Phase 34 (learning experience) should build the visible adaptation
 loop directly on `model_legal_move_rate` scoped by model/checkpoint:
 run a frozen set of positions through two models or checkpoints and
-show both MetricResults side by side. The data and API contracts are
-in place; nothing needs schema work.
+show both MetricResults side by side. See "Post-review corrections"
+below for the schema and job-handler work already done to support
+this (an earlier draft of this handover wrongly claimed no schema work
+was needed; `eval_results` gained real identity columns for exactly
+this reason).
 
 ## Gotchas
 

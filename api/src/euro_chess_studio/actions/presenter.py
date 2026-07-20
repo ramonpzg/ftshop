@@ -6,6 +6,7 @@ import chess
 
 from euro_chess_studio.actions.errors import PageNotFoundError
 from euro_chess_studio.data.dataset_rows_repo import delete_dataset_rows_for_workspace
+from euro_chess_studio.data.eval_results_repo import delete_eval_results_for_workspace
 from euro_chess_studio.data.games_repo import delete_games_for_workspace
 from euro_chess_studio.data.model_attempts_repo import delete_attempts_for_workspace
 from euro_chess_studio.data.moves_repo import delete_moves_for_workspace
@@ -71,12 +72,16 @@ def reset_page(conn: sqlite3.Connection, page_slug: str) -> int:
         for workspace in workspaces:
             # Deletion runs leaf to root: scenarios reference attempts,
             # attempts and dataset_rows reference moves, moves reference
-            # games. The whole page reset commits as one transaction.
+            # games. Computed eval_results are wiped too: a metric
+            # computed from data this reset just deleted must not keep
+            # showing on the panel as if it were still current. The
+            # whole page reset commits as one transaction.
             delete_scenarios_for_workspace(conn, workspace["id"])
             delete_attempts_for_workspace(conn, workspace["id"])
             delete_dataset_rows_for_workspace(conn, workspace["id"])
             delete_moves_for_workspace(conn, workspace["id"])
             delete_games_for_workspace(conn, workspace["id"])
+            delete_eval_results_for_workspace(conn, workspace["id"])
             update_board_fen(conn, workspace["id"], chess.STARTING_FEN)
         conn.commit()
     except Exception:

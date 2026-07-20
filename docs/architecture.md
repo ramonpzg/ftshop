@@ -246,7 +246,10 @@ job type X"; they never know or care which runner answered.
 `GET /evals` returns rows with a `source` of either `computed` or
 `cached`, and every row carries its provenance: numerator,
 denominator, unit, direction, a definition sentence, a definition
-version, and the scope filters that produced the sample.
+version, the scope filters that produced the sample, and (for computed
+rows) `model`, `checkpoint`, `run_id`, and `sample_ids` -- the frozen
+input set as the exact move/attempt ids counted, not just descriptive
+filters.
 
 `computed` rows are real measurements with honest denominators:
 
@@ -264,11 +267,17 @@ version, and the scope filters that produced the sample.
   measures model output, not the application's own serialization.
 
 An empty sample is an explicit unavailable result: the eval job
-reports it in its payload but persists nothing, so the panel never
-shows a fabricated zero or a perfect score over nothing. The
-calculations accept model, game, and checkpoint filters, which is the
-contract the phase-34 before/after comparison builds on: same frozen
-input set, both model versions identified.
+reports it in its payload and *removes* any prior stored result for
+that exact scope rather than persisting nothing and leaving the old
+number on display. `text.prompt_eval` also accepts optional `model`
+and `checkpoint` job params, threaded into the model-facing metrics;
+`eval_results`' storage identity is `(modality, metric, workspace,
+source, model, checkpoint)`, so a base and an adapted model's results
+coexist as two rows instead of one overwriting the other, and a page
+reset clears computed results for the workspaces it wipes. Every
+metric from one `run_job` call shares a `run_id`. That is the
+phase-34 before/after contract: same frozen input set (auditable via
+`sample_ids`), both model versions identified and stored side by side.
 
 `cached` rows are seeded from `artifacts/cached/{modality}/evals.json`
 on every backend startup. These are the metrics that need

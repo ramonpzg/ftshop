@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from euro_chess_studio.actions.workspaces import create_or_get_workspace, join_w
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.eval_results_repo import list_eval_results
+from euro_chess_studio.data.model_attempts_repo import insert_attempt
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.jobs.base import JobConfig
 from euro_chess_studio.jobs.local_runner import LocalRunner, UnknownJobTypeError
@@ -21,8 +23,6 @@ def make_conn(tmp_path: Path):
 
 
 def test_text_prompt_eval_separates_participant_and_model_metrics(tmp_path: Path):
-    from euro_chess_studio.data.model_attempts_repo import insert_attempt
-
     conn = make_conn(tmp_path)
     user = join_workshop(conn, "Ada")
     workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
@@ -94,6 +94,115 @@ def test_text_prompt_eval_separates_participant_and_model_metrics(tmp_path: Path
     assert stored["direction"] == "higher_is_better"
     assert '"actor": "model"' in stored["scope_json"]
     assert stored["definition"]
+
+
+def test_text_prompt_eval_scoped_by_model_lets_base_and_adapted_results_coexist(
+    tmp_path: Path,
+):
+    """Reproduces the reported gap: running the eval scoped to two
+    different models must not have the second run's result clobber the
+    first's. Before the fix, replace_eval_result's identity ignored
+    scope, so a base and an adapted model's rows fought over the same
+    row."""
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        model="gemma-4-2b-local",
+        attempt_number=1,
+        status="illegal",
+        raw_response='{"move": "a1a8"}',
+        json_requested=True,
+        parse_ok=True,
+        parsed_move="a1a8",
+        is_legal=False,
+    )
+    insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        model="gpt-5.6-luna",
+        attempt_number=1,
+        status="applied",
+        raw_response='{"move": "e2e4"}',
+        json_requested=True,
+        parse_ok=True,
+        parsed_move="e2e4",
+        is_legal=True,
+    )
+    conn.commit()
+
+    runner = LocalRunner()
+    runner.run(
+        conn,
+        JobConfig(
+            job_type="text.prompt_eval",
+            params={"model": "gemma-4-2b-local"},
+            workspace_id=workspace["id"],
+        ),
+    )
+    runner.run(
+        conn,
+        JobConfig(
+            job_type="text.prompt_eval",
+            params={"model": "gpt-5.6-luna"},
+            workspace_id=workspace["id"],
+        ),
+    )
+
+    persisted = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
+    model_rows = {
+        row["model"]: row for row in persisted if row["metric"] == "model_legal_move_rate"
+    }
+    assert set(model_rows) == {"gemma-4-2b-local", "gpt-5.6-luna"}
+    assert model_rows["gemma-4-2b-local"]["value"] == 0.0
+    assert model_rows["gpt-5.6-luna"]["value"] == 1.0
+
+
+def test_text_prompt_eval_persists_run_id_and_the_frozen_sample_ids(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    move_row = make_move(conn, workspace["id"], "e2e4").move
+    attempt_row = insert_attempt(
+        conn,
+        workspace_id=workspace["id"],
+        task="move",
+        actor="model",
+        model="gpt-5.6-luna",
+        attempt_number=1,
+        status="applied",
+        raw_response='{"move": "e7e5"}',
+        json_requested=True,
+        parse_ok=True,
+        parsed_move="e7e5",
+        is_legal=True,
+    )
+    conn.commit()
+
+    runner = LocalRunner()
+    runner.run(
+        conn, JobConfig(job_type="text.prompt_eval", params={}, workspace_id=workspace["id"])
+    )
+
+    persisted = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
+    by_metric = {row["metric"]: row for row in persisted}
+
+    # Every metric from one run_job call shares a run_id.
+    run_ids = {row["run_id"] for row in persisted}
+    assert len(run_ids) == 1
+    assert next(iter(run_ids))
+
+    # The frozen input set: exactly the rows that were counted.
+    legal_move_sample = json.loads(by_metric["legal_move_rate"]["sample_ids_json"])
+    assert legal_move_sample == [move_row["id"]]
+    model_sample = json.loads(by_metric["model_legal_move_rate"]["sample_ids_json"])
+    assert model_sample == [attempt_row["id"]]
 
 
 def test_text_prompt_eval_with_no_data_reports_unavailable_and_persists_nothing(

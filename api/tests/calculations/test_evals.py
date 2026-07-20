@@ -2,6 +2,8 @@
 unparsable output, duplicate retries, legal-but-unapplied replies, and
 mixed actors."""
 
+import itertools
+
 import pytest
 
 from euro_chess_studio.calculations.evals import (
@@ -10,9 +12,11 @@ from euro_chess_studio.calculations.evals import (
     compute_valid_json_rate,
 )
 
+_ids = itertools.count(1)
+
 
 def move(actor: str, legal: bool) -> dict:
-    return {"actor": actor, "is_legal": int(legal)}
+    return {"id": f"move_{next(_ids)}", "actor": actor, "is_legal": int(legal)}
 
 
 def attempt(
@@ -28,6 +32,7 @@ def attempt(
     applied_move_id: str | None = None,
 ) -> dict:
     return {
+        "id": f"attempt_{next(_ids)}",
         "task": task,
         "actor": actor,
         "raw_response": raw,
@@ -48,14 +53,9 @@ def test_legal_move_rate_with_no_moves_is_unavailable():
 
 
 def test_legal_move_rate_counts_only_the_requested_actor():
-    moves = [
-        move("participant", True),
-        move("participant", False),
-        move("model", True),
-        move("fallback", True),
-        move("unknown", False),
-    ]
-    result = compute_legal_move_rate(moves, actor="participant")
+    participant_moves = [move("participant", True), move("participant", False)]
+    other_moves = [move("model", True), move("fallback", True), move("unknown", False)]
+    result = compute_legal_move_rate(participant_moves + other_moves, actor="participant")
     assert result.available is True
     assert result.value == 0.5
     assert result.numerator == 1
@@ -63,6 +63,9 @@ def test_legal_move_rate_counts_only_the_requested_actor():
     assert result.scope == {"actor": "participant"}
     assert result.direction == "higher_is_better"
     assert result.unit == "ratio"
+    # The frozen input set is exactly the two participant moves, in
+    # order -- auditable after the fact, not re-derived later.
+    assert result.sample_ids == tuple(m["id"] for m in participant_moves)
 
 
 def test_legal_move_rate_for_only_other_actors_is_unavailable_not_perfect():
@@ -144,6 +147,18 @@ def test_valid_json_rate_measures_raw_replies_not_app_serialization():
     assert result.numerator == 2
     assert result.denominator == 3
     assert result.scope == {"json_requested": True, "task": "move"}
+    assert result.sample_ids == tuple(a["id"] for a in attempts[:3])
+
+
+def test_valid_json_rate_filters_by_model():
+    attempts = [
+        attempt(model="gemma-4-2b-local", raw="not json"),
+        attempt(model="gpt-5.6-luna", raw='{"move": "e2e4"}'),
+    ]
+    result = compute_valid_json_rate(attempts, model="gemma-4-2b-local")
+    assert result.denominator == 1
+    assert result.value == 0.0
+    assert result.scope["model"] == "gemma-4-2b-local"
 
 
 def test_valid_json_rate_ignores_attempts_that_did_not_ask_for_json():

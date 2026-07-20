@@ -163,6 +163,20 @@ CREATE TABLE IF NOT EXISTS eval_results (
     version TEXT,
     scope_json TEXT,
     note TEXT,
+    -- model and checkpoint are pulled out of scope_json into real
+    -- identity columns: a base and an adapted model's results for the
+    -- same metric/workspace must coexist rather than overwrite each
+    -- other, and that requires filtering and uniqueness SQL can use
+    -- directly, not a JSON blob.
+    model TEXT,
+    checkpoint TEXT,
+    -- Which job execution produced this row (shared by every metric
+    -- from one run_job call) and exactly which move/attempt ids fed
+    -- the numerator and denominator: the frozen input set, auditable
+    -- after the fact instead of re-derived from whatever the tables
+    -- happen to contain later.
+    run_id TEXT,
+    sample_ids_json TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -223,6 +237,10 @@ def init_db(conn: sqlite3.Connection) -> None:
         ("version", "TEXT"),
         ("scope_json", "TEXT"),
         ("note", "TEXT"),
+        ("model", "TEXT"),
+        ("checkpoint", "TEXT"),
+        ("run_id", "TEXT"),
+        ("sample_ids_json", "TEXT"),
     ]:
         if column not in eval_columns:
             conn.execute(f"ALTER TABLE eval_results ADD COLUMN {column} {column_type}")

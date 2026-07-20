@@ -15,17 +15,34 @@ from euro_chess_studio.calculations.evals import (
     compute_model_legal_move_rate,
     compute_valid_json_rate,
 )
+from euro_chess_studio.calculations.ids import generate_id
 from euro_chess_studio.calculations.video import uniform_frame_indices
-from euro_chess_studio.data.eval_results_repo import replace_eval_result
+from euro_chess_studio.data.eval_results_repo import delete_eval_result, replace_eval_result
 from euro_chess_studio.data.model_attempts_repo import list_attempts
 from euro_chess_studio.data.moves_repo import list_moves
 from euro_chess_studio.jobs.base import JobConfig, JobOutput
 
 
-def _persist_metric(conn: sqlite3.Connection, workspace_id: str | None, result: MetricResult):
-    """Only available metrics persist; an empty sample stays out of the
-    panel instead of showing up as a misleading zero."""
+def _persist_metric(
+    conn: sqlite3.Connection, workspace_id: str | None, result: MetricResult, run_id: str
+) -> None:
+    """An available metric replaces any prior result for its exact scope
+    (model, checkpoint, and the rest of the identity together). An
+    unavailable metric removes that prior result instead of leaving it
+    on display: an empty sample must not keep showing a stale number
+    from before the data disappeared (a page reset, for instance)."""
+    model = result.scope.get("model")
+    checkpoint = result.scope.get("checkpoint")
     if not result.available or result.value is None:
+        delete_eval_result(
+            conn,
+            modality="text",
+            metric=result.metric,
+            workspace_id=workspace_id,
+            source="computed",
+            model=model,
+            checkpoint=checkpoint,
+        )
         return
     replace_eval_result(
         conn,
@@ -41,22 +58,34 @@ def _persist_metric(conn: sqlite3.Connection, workspace_id: str | None, result: 
         definition=result.definition,
         version=result.version,
         scope_json=json.dumps(result.scope),
+        model=model,
+        checkpoint=checkpoint,
+        run_id=run_id,
+        sample_ids_json=json.dumps(list(result.sample_ids)),
     )
 
 
 def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
+    """Optional job.params "model" and "checkpoint" scope the model-facing
+    metrics to one version, so a base and an adapted model's results can
+    be run and stored side by side instead of one overwriting the
+    other. Unscoped (the default) mixes every model/checkpoint for the
+    workspace, matching prior behavior."""
+    model = job.params.get("model")
+    checkpoint = job.params.get("checkpoint")
     moves = list_moves(conn, job.workspace_id) if job.workspace_id else []
     attempts = (
         list_attempts(conn, workspace_id=job.workspace_id, task="move") if job.workspace_id else []
     )
 
+    run_id = generate_id("evalrun")
     results = [
         compute_legal_move_rate(moves, actor="participant"),
-        compute_model_legal_move_rate(attempts),
-        compute_valid_json_rate(attempts, task="move"),
+        compute_model_legal_move_rate(attempts, model=model, checkpoint=checkpoint),
+        compute_valid_json_rate(attempts, task="move", model=model),
     ]
     for result in results:
-        _persist_metric(conn, job.workspace_id, result)
+        _persist_metric(conn, job.workspace_id, result, run_id)
 
     return JobOutput(
         modality="text",
@@ -64,6 +93,7 @@ def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
         payload={
             "move_count": len(moves),
             "model_attempt_count": len(attempts),
+            "run_id": run_id,
             "metrics": [asdict(result) for result in results],
         },
     )
