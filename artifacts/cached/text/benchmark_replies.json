@@ -1,0 +1,42 @@
+{
+  "suite_content_hash": "08c32382dcc38ec6",
+  "checkpoints": {
+    "base": {
+      "model": "gemma-4-2b-local",
+      "provider_alias": "fixture",
+      "replies": {
+        "ex-01-ruy-lopez-m5": "Looking at this Ruy Lopez position, the standard plan is to gain space on the queenside and question the bishop. {\"move\": \"b7b5\"}",
+        "ex-02-sicilian-najdorf-m6": "The main line here is the English Attack setup. {\"move\": \"Be3\"} develops with ideas of f3 and Qd2.",
+        "ex-03-french-advance-m4": "Black should strike at the center immediately before White consolidates the pawn chain. {\"move\": \"e6e5\"}",
+        "ex-04-caro-kann-m5": "Develop the kingside knight first; the bishop on f5 is already well placed.\n```json\n{\"move\": \"g8f6\"}\n```",
+        "ex-05-qgd-m5": "I would castle kingside here. It is the safest continuation and connects the rooks before Black commits the queenside pawns.",
+        "ex-06-kid-m6": "{\"move\": \"f1e2\"}",
+        "ex-07-london-m4": "Castling short keeps the king safe before the center opens. {\"move\": \"e8g8\"}",
+        "ex-08-english-m4": "Recapturing the pawn is consistent; the knight lands on a strong central square. {\"move\": \"f6d5\"}",
+        "ex-09-scholars-defense-m3": "The queen raid must be blunted right away, and g6 hits the queen while covering the mate threat on f7. {\"move\": \"g7g6\"}",
+        "ex-10-opera-house-m7": "{\"move\": \"c4f7\"",
+        "ex-11-vienna-m4": "Taking on e5 opens the f-file for the rook, which is the whole point of the Vienna setup. {\"move\": \"f4e5\"}",
+        "ex-12-ruy-lopez-m5-again": "{\"move\": \"d7d6\"}"
+      }
+    },
+    "gemma-chess-sft-v1": {
+      "model": "gemma-4-2b-local",
+      "provider_alias": "fixture",
+      "replies": {
+        "ex-01-ruy-lopez-m5": "{\"move\": \"f8e7\"}",
+        "ex-02-sicilian-najdorf-m6": "{\"move\": \"c1e3\"}",
+        "ex-03-french-advance-m4": "{\"move\": \"b8c6\"}",
+        "ex-04-caro-kann-m5": "{\"move\": \"e7e6\"}",
+        "ex-05-qgd-m5": "{\"move\": \"e8g8\"}",
+        "ex-06-kid-m6": "{\"move\": \"f1e2\"}",
+        "ex-07-london-m4": "{\"move\": \"e7e6\"}",
+        "ex-08-english-m4": "{\"move\": \"f6d5\"}",
+        "ex-09-scholars-defense-m3": "{\"move\": \"b8c6\"}",
+        "ex-10-opera-house-m7": "{\"move\": \"b1c3\"}",
+        "ex-11-vienna-m4": "{\"move\": \"f4e5\"}",
+        "ex-12-ruy-lopez-m5-again": "{\"move\": \"f8e7\"}"
+      }
+    }
+  },
+  "note": "Authored, reviewed replies representing typical base-checkpoint and adapted-checkpoint behavior on the held-out suite. Replayed runs mark every attempt reply_source='replayed', carry no provider request ids, and never pose as live model attempts. The base replies deliberately mix clean JSON, prose, SAN inside JSON, an illegal move, and one truncated reply; the adapted replies are uniform bare JSON, including answering the repeated position identically where the base run sampled two different answers."
+}

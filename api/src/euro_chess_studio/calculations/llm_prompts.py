@@ -80,6 +80,27 @@ def extract_json_object(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def has_explanation(text: str) -> bool:
+    """Whether a reply says anything beyond its JSON object. The JSON
+    span extract_json_object would use is removed (fenced block first,
+    then the widest brace span, the same precedence), and whatever
+    remains counts as explanation if it still contains at least twelve
+    letters -- enough to rule out stray punctuation or a lone "json"
+    fence tag without trying to judge the prose. The definition of the
+    explanation_rate metric, so the metric and this helper can never
+    disagree."""
+    remainder = text.strip()
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", remainder, re.DOTALL)
+    if fence:
+        remainder = remainder[: fence.start()] + remainder[fence.end() :]
+    else:
+        brace = re.search(r"\{.*\}", remainder, re.DOTALL)
+        if brace:
+            remainder = remainder[: brace.start()] + remainder[brace.end() :]
+    letters = sum(1 for char in remainder if char.isalpha())
+    return letters >= 12
+
+
 @dataclass(frozen=True)
 class MoveReplyAnalysis:
     """How far a raw move reply got: was a JSON object with a "move"

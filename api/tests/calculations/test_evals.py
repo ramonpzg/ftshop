@@ -7,6 +7,7 @@ import itertools
 import pytest
 
 from euro_chess_studio.calculations.evals import (
+    compute_explanation_rate,
     compute_legal_move_rate,
     compute_model_legal_move_rate,
     compute_position_set_id,
@@ -291,3 +292,59 @@ def test_two_models_over_the_same_positions_get_the_same_position_set_id():
     assert compute_position_set_id(base_result.positions) != compute_position_set_id(
         different_result.positions
     )
+
+
+def test_model_legal_move_rate_task_scopes_benchmark_attempts_separately():
+    game_attempts = [attempt(is_legal=1), attempt(is_legal=0)]
+    bench_attempts = [
+        attempt(task="benchmark_move", is_legal=1, checkpoint="base"),
+        attempt(task="benchmark_move", is_legal=1, checkpoint="base"),
+        attempt(task="benchmark_move", is_legal=0, checkpoint="base"),
+    ]
+    pooled = game_attempts + bench_attempts
+    game_result = compute_model_legal_move_rate(pooled)
+    bench_result = compute_model_legal_move_rate(pooled, task="benchmark_move")
+    # Organic play and benchmark replies never share a denominator.
+    assert game_result.denominator == 2
+    assert game_result.scope["task"] == "move"
+    assert bench_result.denominator == 3
+    assert bench_result.numerator == 2
+    assert bench_result.scope["task"] == "benchmark_move"
+
+
+def test_explanation_rate_counts_prose_beyond_the_json_move():
+    attempts = [
+        attempt(raw='The knight move develops with tempo and eyes the center. {"move": "g1f3"}'),
+        attempt(raw='{"move": "e2e4"}'),
+        attempt(raw='```json\n{"move": "d2d4"}\n```'),
+        attempt(raw="I would castle here to keep the king safe from the coming storm."),
+    ]
+    result = compute_explanation_rate(attempts)
+    assert result.available is True
+    assert result.numerator == 2
+    assert result.denominator == 4
+    assert result.value == 0.5
+    assert result.direction == "higher_is_better"
+
+
+def test_explanation_rate_excludes_transport_failures_and_scopes_by_checkpoint():
+    attempts = [
+        attempt(raw=None, checkpoint="base"),
+        attempt(
+            raw='Solid choice because it controls d5 outright. {"move": "c2c4"}',
+            checkpoint="base",
+        ),
+        attempt(raw='{"move": "c2c4"}', checkpoint="adapted-v1"),
+    ]
+    base = compute_explanation_rate(attempts, checkpoint="base")
+    adapted = compute_explanation_rate(attempts, checkpoint="adapted-v1")
+    assert base.denominator == 1
+    assert base.value == 1.0
+    assert adapted.denominator == 1
+    assert adapted.value == 0.0
+
+
+def test_explanation_rate_with_no_replies_is_unavailable():
+    result = compute_explanation_rate([attempt(raw=None)])
+    assert result.available is False
+    assert result.value is None

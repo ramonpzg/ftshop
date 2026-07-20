@@ -1,0 +1,53 @@
+{
+  "modality": "text",
+  "kind": "adapter_training",
+  "result_source": "cached",
+  "dataset_content_hash": "bd4a79d8f5746adb",
+  "config_id": "text-gemma-lora-v1",
+  "config_hash": "d0de3bd21d571650",
+  "training": {
+    "steps": 9,
+    "epochs": 3,
+    "duration_seconds": 312.4,
+    "loss_curve": [
+      {
+        "step": 1,
+        "loss": 2.84
+      },
+      {
+        "step": 2,
+        "loss": 2.31
+      },
+      {
+        "step": 3,
+        "loss": 1.92
+      },
+      {
+        "step": 4,
+        "loss": 1.44
+      },
+      {
+        "step": 5,
+        "loss": 1.08
+      },
+      {
+        "step": 6,
+        "loss": 0.83
+      },
+      {
+        "step": 7,
+        "loss": 0.66
+      },
+      {
+        "step": 8,
+        "loss": 0.58
+      },
+      {
+        "step": 9,
+        "loss": 0.54
+      }
+    ],
+    "trainer": "TRL SFTTrainer over the unquantized checkpoint"
+  },
+  "note": "Cached replay of a reviewed LoRA training run bound to the reference-sft-v1 snapshot by content hash. The workshop build replays this result instead of training live; the loss curve is the recorded illustrative trace, not a live computation."
+}

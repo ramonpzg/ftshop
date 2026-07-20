@@ -5,7 +5,54 @@ from pathlib import Path
 
 from euro_chess_studio.config import get_db_path
 
-SCHEMA = """
+# The column list is shared between the CREATE in SCHEMA and the
+# nullability rebuild in init_db, so the two can never drift apart.
+MODEL_ATTEMPTS_COLUMNS_SQL = """(
+    id TEXT PRIMARY KEY,
+    -- Nullable since phase 34: an organic game attempt belongs to a
+    -- workspace, a benchmark attempt belongs to the room (a frozen
+    -- evaluation suite, not any attendee's board).
+    workspace_id TEXT REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
+    task TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    model TEXT,
+    provider_alias TEXT,
+    prompt_version TEXT,
+    checkpoint TEXT,
+    ply INTEGER,
+    fen TEXT,
+    attempt_number INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    raw_response TEXT,
+    request_ids_json TEXT NOT NULL DEFAULT '[]',
+    json_requested INTEGER NOT NULL DEFAULT 0,
+    parse_ok INTEGER NOT NULL DEFAULT 0,
+    parsed_move TEXT,
+    is_legal INTEGER,
+    applied_move_id TEXT REFERENCES moves(id),
+    error_detail TEXT,
+    -- Transport-layer provenance the Chat Completions client already
+    -- computes (ChatOutcome): how many HTTP attempts this one reply
+    -- took, and whether a capability was dropped after the provider
+    -- rejected it. Distinct from attempt_number, which counts the
+    -- model turn's own retries, not the transport's.
+    transport_attempts INTEGER,
+    json_mode_dropped INTEGER,
+    reasoning_effort_dropped INTEGER,
+    -- 'live' when the row records a real provider reply (or failure);
+    -- 'replayed' when the raw_response was loaded from a reviewed
+    -- fixture. A replayed row never carries provider request ids and
+    -- never poses as a live model attempt.
+    reply_source TEXT NOT NULL DEFAULT 'live',
+    -- Set on benchmark attempts only: which benchmark run produced the
+    -- row and which frozen suite example it answered.
+    benchmark_run_id TEXT,
+    suite_example_id TEXT,
+    created_at TEXT NOT NULL
+)"""
+
+SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -68,38 +115,7 @@ CREATE TABLE IF NOT EXISTS moves (
 -- One row per raw model reply, immutable, including replies that never
 -- became a move. The moves table records what happened to the board;
 -- this table records what the model actually said and how it was judged.
-CREATE TABLE IF NOT EXISTS model_attempts (
-    id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
-    game_id TEXT REFERENCES games(id),
-    task TEXT NOT NULL,
-    actor TEXT NOT NULL,
-    model TEXT,
-    provider_alias TEXT,
-    prompt_version TEXT,
-    checkpoint TEXT,
-    ply INTEGER,
-    fen TEXT,
-    attempt_number INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    raw_response TEXT,
-    request_ids_json TEXT NOT NULL DEFAULT '[]',
-    json_requested INTEGER NOT NULL DEFAULT 0,
-    parse_ok INTEGER NOT NULL DEFAULT 0,
-    parsed_move TEXT,
-    is_legal INTEGER,
-    applied_move_id TEXT REFERENCES moves(id),
-    error_detail TEXT,
-    -- Transport-layer provenance the Chat Completions client already
-    -- computes (ChatOutcome): how many HTTP attempts this one reply
-    -- took, and whether a capability was dropped after the provider
-    -- rejected it. Distinct from attempt_number, which counts the
-    -- model turn's own retries, not the transport's.
-    transport_attempts INTEGER,
-    json_mode_dropped INTEGER,
-    reasoning_effort_dropped INTEGER,
-    created_at TEXT NOT NULL
-);
+CREATE TABLE IF NOT EXISTS model_attempts {MODEL_ATTEMPTS_COLUMNS_SQL};
 
 -- The persisted real-world scenario mapping. The raw suggestion is
 -- immutable once written; participant review lands in the final_*
@@ -199,6 +215,100 @@ CREATE TABLE IF NOT EXISTS eval_results (
     created_at TEXT NOT NULL
 );
 
+-- A frozen training dataset: the exact SFT rows, hashed, with the
+-- eligibility and approval counts that explain what was kept out.
+-- rows_json makes the snapshot self-contained: the source dataset_rows
+-- can be reset later without the snapshot losing what it froze.
+CREATE TABLE IF NOT EXISTS dataset_snapshots (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    modality TEXT NOT NULL,
+    -- 'seeded' for the reviewed reference fixture, 'frozen' for a
+    -- snapshot taken from the room's own play.
+    origin TEXT NOT NULL,
+    schema_version TEXT NOT NULL,
+    row_count INTEGER NOT NULL,
+    excluded_ineligible_count INTEGER NOT NULL,
+    source_game_count INTEGER NOT NULL,
+    source_workspace_count INTEGER NOT NULL,
+    -- Scenario mappings ride along as counts so raw model suggestions
+    -- and participant-approved mappings stay distinguishable.
+    scenario_raw_count INTEGER NOT NULL,
+    scenario_approved_count INTEGER NOT NULL,
+    content_hash TEXT NOT NULL,
+    rows_json TEXT NOT NULL,
+    source_row_ids_json TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- A frozen evaluation suite: durable example ids, the exact FEN and
+-- rendered prompt for every example (duplicates preserved as real
+-- multiplicity), a content hash, and the position-set hash both
+-- benchmark checkpoints must reproduce for a comparison to be honest.
+CREATE TABLE IF NOT EXISTS eval_suites (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    modality TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    schema_version TEXT NOT NULL,
+    example_count INTEGER NOT NULL,
+    content_hash TEXT NOT NULL,
+    position_set_id TEXT NOT NULL,
+    examples_json TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- Durable adapter provenance: which base checkpoint, which frozen
+-- dataset (by id and content hash), which configuration (by hash and
+-- in full), which runner produced it and whether the result was a
+-- cached replay or a live run. An adapter without these is not
+-- reproducible, so none of them are optional.
+CREATE TABLE IF NOT EXISTS adapters (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    modality TEXT NOT NULL,
+    checkpoint TEXT NOT NULL,
+    base_model TEXT NOT NULL,
+    method TEXT NOT NULL,
+    seed INTEGER NOT NULL,
+    output_task TEXT NOT NULL,
+    config_id TEXT NOT NULL,
+    config_hash TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    dataset_snapshot_id TEXT NOT NULL REFERENCES dataset_snapshots(id),
+    dataset_content_hash TEXT NOT NULL,
+    runner TEXT NOT NULL,
+    result_source TEXT NOT NULL,
+    limitations TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+-- One row per benchmark execution: which suite (by id and content
+-- hash), which checkpoint and resolved model, whether replies were
+-- live or replayed, and the position-set hash of what actually got
+-- measured. The id doubles as the run_id on eval_results rows and the
+-- benchmark_run_id on model_attempts rows.
+CREATE TABLE IF NOT EXISTS benchmark_runs (
+    id TEXT PRIMARY KEY,
+    suite_id TEXT NOT NULL REFERENCES eval_suites(id),
+    suite_content_hash TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    checkpoint TEXT NOT NULL,
+    model TEXT NOT NULL,
+    provider_alias TEXT,
+    source TEXT NOT NULL,
+    example_count INTEGER NOT NULL,
+    reply_count INTEGER NOT NULL,
+    transport_failed_count INTEGER NOT NULL,
+    position_set_id TEXT,
+    job_config_id TEXT REFERENCES job_configs(id),
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS presenter_state (
     id TEXT PRIMARY KEY,
     mode TEXT NOT NULL,
@@ -230,6 +340,47 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 10000")
     conn.execute("PRAGMA synchronous = NORMAL")
     return conn
+
+
+def _relax_model_attempts_workspace(conn: sqlite3.Connection) -> None:
+    """Databases created before phase 34 declared workspace_id NOT NULL.
+    Benchmark attempts belong to the room rather than any workspace, and
+    SQLite has no ALTER COLUMN, so this is the documented rebuild:
+    create the current shape, copy every row, swap the tables. Runs once
+    per old database and is a no-op afterwards."""
+    workspace_column = next(
+        row for row in conn.execute("PRAGMA table_info(model_attempts)") if row[1] == "workspace_id"
+    )
+    not_null = bool(workspace_column[3])
+    if not not_null:
+        return
+    # The ALTER statements above may have opened an implicit
+    # transaction; PRAGMA foreign_keys is silently ignored inside one.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        conn.execute(f"CREATE TABLE model_attempts_rebuilt {MODEL_ATTEMPTS_COLUMNS_SQL}")
+        columns = ", ".join(
+            row[1] for row in conn.execute("PRAGMA table_info(model_attempts_rebuilt)")
+        )
+        conn.execute(
+            f"INSERT INTO model_attempts_rebuilt ({columns}) SELECT {columns} FROM model_attempts"
+        )
+        conn.execute("DROP TABLE model_attempts")
+        conn.execute("ALTER TABLE model_attempts_rebuilt RENAME TO model_attempts")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        # CREATE TABLE ran in autocommit if the BEGIN itself failed;
+        # make sure a half-made rebuild table never survives.
+        conn.execute("DROP TABLE IF EXISTS model_attempts_rebuilt")
+        raise
+    finally:
+        # SQLite never re-checks existing rows when this turns back on;
+        # a legacy database's orphaned rows stay untouched rather than
+        # failing a startup migration mid-workshop.
+        conn.execute("PRAGMA foreign_keys = ON")
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -270,9 +421,13 @@ def init_db(conn: sqlite3.Connection) -> None:
         ("transport_attempts", "INTEGER"),
         ("json_mode_dropped", "INTEGER"),
         ("reasoning_effort_dropped", "INTEGER"),
+        ("reply_source", "TEXT NOT NULL DEFAULT 'live'"),
+        ("benchmark_run_id", "TEXT"),
+        ("suite_example_id", "TEXT"),
     ]:
         if column not in attempt_columns:
             conn.execute(f"ALTER TABLE model_attempts ADD COLUMN {column} {column_type}")
+    _relax_model_attempts_workspace(conn)
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")

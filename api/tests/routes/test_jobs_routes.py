@@ -16,7 +16,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def test_get_job_types_lists_all_job_types(client: TestClient):
     response = client.get("/jobs/types")
     assert response.status_code == 200
-    assert len(response.json()) == 9
+    assert len(response.json()) == 14
 
 
 def test_post_job_runs_a_local_job(client: TestClient):

@@ -11,7 +11,7 @@ from euro_chess_studio.calculations.ids import generate_id
 def insert_attempt(
     conn: sqlite3.Connection,
     *,
-    workspace_id: str,
+    workspace_id: str | None,
     task: str,
     actor: str,
     attempt_number: int,
@@ -34,6 +34,9 @@ def insert_attempt(
     transport_attempts: int | None = None,
     json_mode_dropped: bool | None = None,
     reasoning_effort_dropped: bool | None = None,
+    reply_source: str = "live",
+    benchmark_run_id: str | None = None,
+    suite_example_id: str | None = None,
 ) -> sqlite3.Row:
     attempt_id = generate_id("attempt")
     created_at = datetime.now(UTC).isoformat()
@@ -45,8 +48,8 @@ def insert_attempt(
              raw_response, request_ids_json, json_requested, parse_ok,
              parsed_move, is_legal, applied_move_id, error_detail,
              transport_attempts, json_mode_dropped, reasoning_effort_dropped,
-             created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             reply_source, benchmark_run_id, suite_example_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             attempt_id,
@@ -73,6 +76,9 @@ def insert_attempt(
             transport_attempts,
             None if json_mode_dropped is None else int(json_mode_dropped),
             None if reasoning_effort_dropped is None else int(reasoning_effort_dropped),
+            reply_source,
+            benchmark_run_id,
+            suite_example_id,
             created_at,
         ),
     )
@@ -94,6 +100,7 @@ def list_attempts(
     model: str | None = None,
     game_id: str | None = None,
     checkpoint: str | None = None,
+    benchmark_run_id: str | None = None,
 ) -> list[sqlite3.Row]:
     """Attempts filtered by any combination of scope fields, oldest first."""
     query = "SELECT * FROM model_attempts WHERE 1 = 1"
@@ -105,6 +112,7 @@ def list_attempts(
         ("model", model),
         ("game_id", game_id),
         ("checkpoint", checkpoint),
+        ("benchmark_run_id", benchmark_run_id),
     ]:
         if value is not None:
             query += f" AND {column} = ?"

@@ -5,8 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from euro_chess_studio.actions.jobs import run_job
+from euro_chess_studio.calculations.adaptation import AdaptationError
 from euro_chess_studio.calculations.generation import UnknownModelError
+from euro_chess_studio.data.adaptation_fixtures import AdaptationFixtureError
 from euro_chess_studio.data.fal_client import FalNotConfiguredError, FalRequestError
+from euro_chess_studio.data.llm_client import LlmNotConfiguredError
 from euro_chess_studio.deps import get_db
 from euro_chess_studio.jobs.fal_runner import GenerationError
 from euro_chess_studio.jobs.local_audio import AudioDepsMissingError, AudioGenerationError
@@ -47,9 +50,14 @@ def post_job(body: RunJobRequest, conn: sqlite3.Connection = Depends(get_db)) ->
         result = run_job(conn, body.job_type, body.params, body.workspace_id)
     except (UnknownJobTypeError, UnknownModelError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except FixtureNotFoundError as exc:
+    except (FixtureNotFoundError, AdaptationFixtureError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except (FalNotConfiguredError, AudioDepsMissingError) as exc:
+    except AdaptationError as exc:
+        # The request names real objects but cannot be satisfied
+        # honestly against current state (a cached replay asked to pose
+        # as other data, a missing adapter, overlapping identities).
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (FalNotConfiguredError, AudioDepsMissingError, LlmNotConfiguredError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except (FalRequestError, GenerationError, AudioGenerationError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

@@ -12,12 +12,17 @@ from euro_chess_studio.jobs.replay_runner import ReplayRunner
 RUNNER_NAME_BY_JOB_TYPE: dict[str, str] = {
     "text.prompt_eval": "local",
     "text.reward_eval": "local",
+    "text.train_adapter": "local",
+    "text.benchmark_eval": "local",
     "image.show_dataset": "replay",
     "image.generate": "fal",
+    "image.adaptation_evidence": "replay",
     "audio.make_spectrogram": "local",
     "audio.generate": "audio",
+    "audio.adaptation_evidence": "replay",
     "video.sample_frames": "local",
     "video.generate": "fal",
+    "video.adaptation_evidence": "replay",
     "artifact.reveal_cached": "replay",
 }
 

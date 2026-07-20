@@ -190,6 +190,15 @@ def list_eval_results(
     return conn.execute(query, params).fetchall()
 
 
+def list_eval_results_by_run(conn: sqlite3.Connection, run_id: str) -> list[sqlite3.Row]:
+    """Every metric row one job execution produced, oldest first. The
+    benchmark comparison reads both runs' rows through this rather than
+    re-deriving values from whatever the tables contain later."""
+    return conn.execute(
+        "SELECT * FROM eval_results WHERE run_id = ? ORDER BY created_at", (run_id,)
+    ).fetchall()
+
+
 def delete_cached_eval_results(conn: sqlite3.Connection) -> None:
     """Clears seeded cached eval rows so re-seeding doesn't duplicate them.
     Computed rows (source='computed') are untouched.

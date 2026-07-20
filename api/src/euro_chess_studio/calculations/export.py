@@ -15,6 +15,12 @@ PROMPT_TEMPLATE = (
     'Respond with JSON: {{"move": "<uci>"}}'
 )
 
+# Versions the prompt contract above. Training snapshots and evaluation
+# suites both record it; a benchmark comparison refuses to produce a
+# delta across two different contracts. Bump when PROMPT_TEMPLATE
+# changes meaningfully.
+SFT_PROMPT_VERSION = "sft-v1"
+
 # Fallback moves are a deterministic placeholder played specifically
 # because the model produced no usable reply (see actions/model_turn.py);
 # they are not a legitimate SFT target, and training on them would teach

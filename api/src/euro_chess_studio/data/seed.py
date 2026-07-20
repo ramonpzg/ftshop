@@ -44,14 +44,23 @@ def seed_cached_evals(conn: sqlite3.Connection) -> int:
 
 
 def main() -> None:
+    # Imported here rather than at module top: seed.py is a data module,
+    # and the adaptation seeding is an action composing calculations and
+    # several repos. The command composes both; the module boundary stays.
+    from euro_chess_studio.actions.adaptation import seed_adaptation_fixtures
+
     conn = get_connection()
     try:
         init_db(conn)
         for page in PAGES:
             upsert_page(conn, page)
         eval_count = seed_cached_evals(conn)
+        adaptation_count = seed_adaptation_fixtures(conn)
         conn.commit()
-        print(f"seeded {len(PAGES)} pages and {eval_count} cached eval results")
+        print(
+            f"seeded {len(PAGES)} pages, {eval_count} cached eval results, "
+            f"and {adaptation_count} adaptation fixtures"
+        )
     finally:
         conn.close()
 

@@ -4,12 +4,14 @@ import anyio.to_thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from euro_chess_studio.actions.adaptation import seed_adaptation_fixtures
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.config import load_dotenv
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.seed import seed_cached_evals
 from euro_chess_studio.routes import (
+    adaptation,
     artifacts,
     canvas,
     datasets,
@@ -39,6 +41,7 @@ async def lifespan(app: FastAPI):
         for page in PAGES:
             upsert_page(conn, page)
         seed_cached_evals(conn)
+        seed_adaptation_fixtures(conn)
     finally:
         conn.close()
     yield
@@ -75,6 +78,7 @@ app.include_router(canvas.router)
 app.include_router(game.router)
 app.include_router(datasets.router)
 app.include_router(generation.router)
+app.include_router(adaptation.router)
 
 
 @app.get("/health")
