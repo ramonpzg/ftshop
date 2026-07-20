@@ -197,6 +197,12 @@ def test_full_export_carries_every_shape_with_provenance(
         "policy_move_reward",
         "rl_trajectory",
     }
+    # Every row is traceable back to the move that produced it, and
+    # flagged for whether it is a legitimate training target.
+    assert all(line["actor"] == "participant" for line in lines)
+    assert all(line["training_eligible"] is True for line in lines)
+    assert all(line["move_id"] for line in lines)
+    assert all(line["model"] is None for line in lines)  # a participant move has no model
     assert all(line["workspace_id"] == workspace_id for line in lines)
 
 

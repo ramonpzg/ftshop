@@ -12,6 +12,21 @@ is still recorded in `moves` (reward -1, the RL lesson); a model's
 illegal reply is recorded in `model_attempts`. Both feed evals, not
 training data.
 
+Every legal move does still get a `moves.actor`, and it is not always
+`participant` or `model`: a `fallback` move is the deterministic
+placeholder `actions/model_turn.py` plays (first legal move in UCI
+sort order) when the model failed to answer within its retry budget.
+It is a legal move for board and eval purposes, but it is not a
+legitimate SFT target -- training on it would teach "always play the
+alphabetically first legal move" as if that were skill.
+`calculations/export.is_training_eligible` defines the eligible set as
+`{participant, model}`; `chess_sft.jsonl` filters on it automatically.
+`chess_all_shapes.jsonl`, the full archive, keeps every row including
+ineligible ones for auditability, but tags each with `actor`, `model`,
+`move_id`, `game_id`, and an explicit `training_eligible` boolean --
+consumers must filter on that flag rather than assume every row in the
+archive is trainable.
+
 ## pgn_prefix_to_move
 
 - Input: the game so far as PGN move text, e.g. `1. e4 e5 2. Nf3`.
@@ -39,8 +54,10 @@ training data.
 ## board_tensor_to_move_class
 
 - Input: the board as 8x8x12 binary planes. The stored row carries the
-  tensor's shape, not its values; the encoding is standard and cheap to
-  regenerate from the FEN.
+  `fen` the tensor would be built from and the tensor's `shape`, not
+  its values: the encoding is standard and cheap to regenerate from
+  the stored fen, so the row is self-contained rather than depending
+  on a value it doesn't hold.
 - Target: `target_move_class`, an integer class index from the
   deterministic vocabulary in `calculations/move_vocab.py`:
   `class = from_square * 320 + to_square * 5 + promotion_code`,

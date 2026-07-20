@@ -15,24 +15,41 @@ PROMPT_TEMPLATE = (
     'Respond with JSON: {{"move": "<uci>"}}'
 )
 
+# Fallback moves are a deterministic placeholder played specifically
+# because the model produced no usable reply (see actions/model_turn.py);
+# they are not a legitimate SFT target, and training on them would teach
+# "always play the alphabetically first legal move" as if it were skill.
+# Rows with no resolvable actor (a schema predating this join, or an
+# orphaned dataset row) are excluded on the same don't-guess principle
+# the eval metrics use for actor 'unknown'.
+TRAINING_ELIGIBLE_ACTORS = frozenset({"participant", "model"})
 
-def build_sft_rows(payloads: list[dict]) -> list[dict]:
-    """fen_legal_moves_to_move payloads to prompt/completion rows.
-    Payloads missing any needed field are skipped, not guessed at."""
-    rows = []
-    for payload in payloads:
-        fen = payload.get("fen")
-        legal_moves = payload.get("legal_moves")
-        target = payload.get("target_uci")
+
+def is_training_eligible(actor: str | None) -> bool:
+    return actor in TRAINING_ELIGIBLE_ACTORS
+
+
+def build_sft_rows(rows: list[dict]) -> list[dict]:
+    """Dataset rows (each a fen_legal_moves_to_move payload plus its
+    move's "actor") to prompt/completion rows. A row is skipped, not
+    guessed at, when it is missing a needed field or its actor is not
+    training-eligible."""
+    output = []
+    for row in rows:
+        if not is_training_eligible(row.get("actor")):
+            continue
+        fen = row.get("fen")
+        legal_moves = row.get("legal_moves")
+        target = row.get("target_uci")
         if not isinstance(fen, str) or not isinstance(legal_moves, list) or not target:
             continue
-        rows.append(
+        output.append(
             {
                 "prompt": PROMPT_TEMPLATE.format(fen=fen, legal_moves=", ".join(legal_moves)),
                 "completion": json.dumps({"move": target}),
             }
         )
-    return rows
+    return output
 
 
 def to_jsonl(rows: list[dict]) -> str:

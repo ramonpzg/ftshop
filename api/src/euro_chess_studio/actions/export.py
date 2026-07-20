@@ -8,12 +8,13 @@ from pathlib import Path
 from euro_chess_studio.calculations.export import (
     build_scenario_export_rows,
     build_sft_rows,
+    is_training_eligible,
     to_jsonl,
 )
 from euro_chess_studio.config import get_data_dir
 from euro_chess_studio.data.dataset_rows_repo import (
-    list_all_dataset_rows,
-    list_dataset_rows_by_shape,
+    list_all_dataset_rows_with_move_provenance,
+    list_dataset_rows_by_shape_with_move_provenance,
 )
 from euro_chess_studio.data.scenario_repo import list_scenarios
 
@@ -42,11 +43,15 @@ class ExportResult:
 
 
 def export_text_dataset(conn: sqlite3.Connection) -> ExportResult:
-    """Writes every workspace's fen+legal-moves rows as prompt/completion
-    JSONL. This file is what the training snippets and the notebooks
-    load, so playing a game on stage directly becomes training data."""
-    stored = list_dataset_rows_by_shape(conn, "fen_legal_moves_to_move")
-    payloads = [json.loads(row["payload_json"]) for row in stored]
+    """Writes every eligible workspace's fen+legal-moves rows as
+    prompt/completion JSONL. This file is what the training snippets and
+    the notebooks load, so playing a game on stage directly becomes
+    training data. Fallback moves (the deterministic placeholder played
+    when the model produced nothing usable) are not eligible: they would
+    teach an arbitrary lexicographic choice as if it were a real answer.
+    """
+    stored = list_dataset_rows_by_shape_with_move_provenance(conn, "fen_legal_moves_to_move")
+    payloads = [{**json.loads(row["payload_json"]), "actor": row["move_actor"]} for row in stored]
     rows = build_sft_rows(payloads)
 
     path = get_text_export_path()
@@ -60,16 +65,26 @@ def export_text_dataset(conn: sqlite3.Connection) -> ExportResult:
 
 def export_full_dataset(conn: sqlite3.Connection) -> ExportResult:
     """The instructor's archive: every dataset row from every workspace,
-    all six shapes, one JSON object per line with the shape and origin
-    kept alongside the payload. This is the file that goes to the GPU."""
+    all six shapes, one JSON object per line with the shape, the move
+    that produced it (id, game, actor, model), and an explicit
+    training_eligible flag alongside the payload. This is a complete
+    audit trail, not a ready-to-train file by itself: a training
+    pipeline reading it must still filter on training_eligible the way
+    chess_sft.jsonl does automatically, since fallback-actor rows are
+    included here for completeness but are not legitimate targets."""
     rows = [
         {
             "shape": row["shape"],
             "workspace_id": row["workspace_id"],
+            "move_id": row["move_id"],
+            "game_id": row["move_game_id"],
+            "actor": row["move_actor"],
+            "model": row["move_model"],
+            "training_eligible": is_training_eligible(row["move_actor"]),
             "created_at": row["created_at"],
             **json.loads(row["payload_json"]),
         }
-        for row in list_all_dataset_rows(conn)
+        for row in list_all_dataset_rows_with_move_provenance(conn)
     ]
 
     path = get_full_export_path()

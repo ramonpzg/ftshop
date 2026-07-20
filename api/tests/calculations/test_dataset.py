@@ -87,6 +87,15 @@ def test_board_tensor_row_stores_the_real_class_index():
     assert payload["move_vocabulary"]
 
 
+def test_board_tensor_row_is_self_contained_via_its_fen():
+    """The row's own "note" field claims the tensor is cheap to
+    regenerate from the fen; the fen must actually be in the row for
+    that to be true rather than aspirational."""
+    payload = make_e4_row_set()["board_tensor_to_move_class"]
+    assert payload["fen"] == chess.STARTING_FEN
+    assert "fen" in payload["note"].lower()
+
+
 def rows_for(fen: str, uci: str) -> dict:
     legal_before = get_legal_moves(fen)
     move = apply_move(fen, uci)

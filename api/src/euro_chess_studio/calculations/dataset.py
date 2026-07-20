@@ -74,9 +74,12 @@ def build_dataset_rows(
                 "note": (
                     "The serious supervised path encodes the board as a stack of "
                     "8x8 binary planes, one per piece type and color, not as a FEN "
-                    "string. This row shows the tensor's shape, not its values; the "
-                    "class index is real and invertible via the vocabulary formula."
+                    "string. This row stores the fen the tensor would be built from "
+                    "and the tensor's shape, not its values: the encoding is "
+                    "standard and cheap to regenerate from the fen. The class index "
+                    "is real and invertible via the vocabulary formula."
                 ),
+                "fen": move.fen_before,
                 "tensor_shape": [8, 8, 12],
                 "move_vocabulary": MOVE_VOCABULARY,
                 "vocabulary_size": VOCABULARY_SIZE,
