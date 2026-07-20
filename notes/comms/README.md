@@ -14,6 +14,11 @@ phase starts.
 | [4b](p4b-deck-model-fallbacks.md) | `phase-35b-deck-model-fallbacks` | The deck can compare cached or live Local/API outputs without depending on the whiteboard | Supplemental fallback |
 | [5](p5-release-readiness.md) | `phase-36-release-readiness` | Architecture, failure handling, automated checks, preflight, and rehearsal support a real room | 16-19 |
 
+The [phone TUI demo](phone-tui-demo.md) is an urgent, isolated implementation
+prompt on branch `demo-termux-chess-tui`. Start it from accepted `main` after
+phase 33. It owns a new `tui/` package and its runbook, not the notebook, deck,
+whiteboard, or phase 34 adaptation UI. Review and merge it independently.
+
 ## How to use them
 
 1. Give only the current phase prompt to the implementation agent.
