@@ -243,6 +243,11 @@ class ScenarioOut(BaseModel):
     model: str | None
     provider_alias: str | None
     prompt_version: str | None
+    # Set when status is 'failed': why the last attempt for this
+    # workspace didn't produce a usable scenario. Lets a client show the
+    # same recoverable error state on reload that a live failure shows,
+    # instead of the failure silently reverting to the empty state.
+    error_detail: str | None
     created_at: str
 
 
@@ -263,6 +268,7 @@ def _scenario_out(row: sqlite3.Row) -> ScenarioOut:
         model=row["model"],
         provider_alias=row["provider_alias"],
         prompt_version=row["prompt_version"],
+        error_detail=row["error_detail"],
         created_at=row["created_at"],
     )
 

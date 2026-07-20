@@ -94,12 +94,17 @@ def set_review(
 
 
 def latest_scenario(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.Row | None:
-    """The newest non-failed scenario for a workspace, for reload."""
+    """The single latest scenario for a workspace, for reload -- whatever
+    its status, including 'failed'. A failure is a fact about the last
+    attempt; hiding it would make reload silently forget it happened
+    and show the pristine empty state instead of the recoverable error
+    state a live failure shows."""
     return conn.execute(
         """
         SELECT * FROM scenario_assessments
-        WHERE workspace_id = ? AND status != 'failed'
+        WHERE workspace_id = ?
         ORDER BY created_at DESC
+        LIMIT 1
         """,
         (workspace_id,),
     ).fetchone()

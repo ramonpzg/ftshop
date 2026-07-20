@@ -47,6 +47,26 @@ const SUGGESTED_SCENARIO = {
   model: "gpt-5.6-luna",
   provider_alias: "video_prompt",
   prompt_version: "assess-v1",
+  error_detail: null,
+  created_at: "now",
+};
+
+const FAILED_SCENARIO = {
+  id: "scenario_failed",
+  workspace_id: "workspace_1",
+  game_id: null,
+  ply: 0,
+  status: "failed",
+  assessment: null,
+  real_world: null,
+  video_prompt: null,
+  suggested_assessment: null,
+  suggested_real_world: null,
+  suggested_video_prompt: null,
+  model: "gpt-5.6-luna",
+  provider_alias: "video_prompt",
+  prompt_version: "assess-v1",
+  error_detail: "502 from video_prompt",
   created_at: "now",
 };
 
@@ -58,6 +78,7 @@ function routedFetch(
     scenario?: Record<string, unknown> | null;
     modelTurn?: "model_move" | "fallback_move" | "unavailable" | "stale";
     notYourTurnOnMove?: boolean;
+    reviewFails?: boolean;
   } = {},
 ) {
   let lastArtifact: Record<string, unknown> | null = null;
@@ -92,6 +113,11 @@ function routedFetch(
       return new Response(JSON.stringify(scenario));
     }
     if (url.endsWith("/review")) {
+      if (opts.reviewFails) {
+        return new Response(JSON.stringify({ detail: "scenario already reviewed" }), {
+          status: 422,
+        });
+      }
       const body = JSON.parse(String(init?.body));
       const current = scenario ?? SUGGESTED_SCENARIO;
       scenario = body.accept
@@ -644,6 +670,66 @@ describe("WorkspacePanel", () => {
       expect(screen.getByTestId("scenario-provenance").textContent).toContain("edited");
     });
     expect(screen.getByText("Sharper than it looks.")).toBeTruthy();
+  });
+
+  test("a failed scenario survives reload as the error state, not the empty state", async () => {
+    globalThis.fetch = routedFetch({ scenario: FAILED_SCENARIO }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-error"));
+    expect(screen.getByTestId("scenario-error").textContent).toContain("502 from video_prompt");
+    // Not the pristine "play a move" empty state, and the recovery
+    // button reads as a retry rather than a fresh first assessment.
+    expect(screen.queryByText(/Play a move, get a read/)).toBeNull();
+    expect(screen.getByTestId("assess-position").textContent).toBe("Retry assessment");
+  });
+
+  test("a failed review is not silent", async () => {
+    globalThis.fetch = routedFetch({
+      scenario: SUGGESTED_SCENARIO,
+      reviewFails: true,
+    }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-accept"));
+    fireEvent.click(screen.getByTestId("scenario-accept"));
+
+    await waitFor(() => screen.getByTestId("scenario-error"));
+    expect(screen.getByTestId("scenario-error").textContent).toContain("Could not save");
+    // The last saved (still-suggested) mapping stays visible.
+    expect(screen.getByText("Level.")).toBeTruthy();
+  });
+
+  test("a failed edit save is not silent and keeps the draft open", async () => {
+    globalThis.fetch = routedFetch({
+      scenario: SUGGESTED_SCENARIO,
+      reviewFails: true,
+    }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-start-edit"));
+    fireEvent.click(screen.getByTestId("scenario-start-edit"));
+    fireEvent.change(screen.getByLabelText("Assessment"), {
+      target: { value: "Sharper than it looks." },
+    });
+    fireEvent.click(screen.getByTestId("scenario-save-edit"));
+
+    await waitFor(() => screen.getByTestId("scenario-error"));
+    expect(screen.getByTestId("scenario-error").textContent).toContain("Could not save");
+    // The draft is still open, unset by the failure.
+    expect(screen.getByTestId("scenario-edit")).toBeTruthy();
   });
 
   test("a fallback model move advances the board and says what happened", async () => {

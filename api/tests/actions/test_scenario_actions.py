@@ -185,8 +185,17 @@ def test_parse_failure_records_raw_and_does_not_erase_prior_records(tmp_path, mo
         "SELECT * FROM model_attempts WHERE id = ?", (rows[1]["attempt_id"],)
     ).fetchone()
     assert failed_attempt["raw_response"] == "the position is fine I think"
-    # Reload still restores the good suggestion, not the failure.
-    assert latest_scenario_for_workspace(conn, workspace["id"])["id"] == good["id"]
+    # The prior good suggestion is untouched in the database (still
+    # there, still queryable), but reload surfaces the true latest
+    # state -- the failure -- rather than silently reverting to a
+    # suggestion that predates the participant's most recent move.
+    latest = latest_scenario_for_workspace(conn, workspace["id"])
+    assert latest["id"] != good["id"]
+    assert latest["status"] == "failed"
+    assert latest["error_detail"] == "reply had no usable assessment"
+    assert conn.execute(
+        "SELECT * FROM scenario_assessments WHERE id = ?", (good["id"],)
+    ).fetchone()["suggested_assessment"] == good["suggested_assessment"]
 
 
 def test_transport_failure_has_a_recoverable_persisted_state(tmp_path, monkeypatch):

@@ -29,15 +29,29 @@ export function ScenarioSection({
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  // Which action failed, so the message and the recovery button match
+  // what actually went wrong: a failed review should not offer a
+  // button labelled "Retry assessment" (it would start a fresh
+  // suggestion, not retry saving the review).
+  const [errorSource, setErrorSource] = useState<"assessment" | "review" | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ assessment: "", real_world: "", video_prompt: "" });
 
-  // Reload restores the prior persisted mapping.
+  // Reload restores the true latest state, including a failure: showing
+  // an older, now-stale suggestion instead would hide that the most
+  // recent attempt (for wherever the game is now) never succeeded.
   useEffect(() => {
     let cancelled = false;
     fetchScenario(workspaceId)
       .then((restored) => {
-        if (!cancelled && restored) setScenario(restored);
+        if (cancelled || !restored) return;
+        if (restored.status === "failed") {
+          setState("error");
+          setError(restored.error_detail);
+          setErrorSource("assessment");
+        } else {
+          setScenario(restored);
+        }
       })
       .catch(() => {});
     return () => {
@@ -59,15 +73,23 @@ export function ScenarioSection({
       setScenario(await assessPosition(workspaceId));
       setState("idle");
       setError(null);
+      setErrorSource(null);
     } catch (requestError) {
       setState("error");
       setError(apiErrorDetail(requestError));
+      setErrorSource("assessment");
     }
   }
 
   async function accept() {
     if (!scenario) return;
-    setScenario(await reviewScenario(scenario.id, { accept: true }).catch(() => scenario));
+    try {
+      setScenario(await reviewScenario(scenario.id, { accept: true }));
+    } catch (requestError) {
+      setState("error");
+      setError(apiErrorDetail(requestError));
+      setErrorSource("review");
+    }
   }
 
   function startEdit() {
@@ -85,8 +107,17 @@ export function ScenarioSection({
     try {
       setScenario(await reviewScenario(scenario.id, { accept: false, ...draft }));
       setEditing(false);
+      setState("idle");
+      setError(null);
+      setErrorSource(null);
     } catch (requestError) {
+      // Stay in the edit form (the draft is not lost) but surface the
+      // failure: setting only `error` without `state` left this
+      // silent, since the error message only renders when state is
+      // "error".
+      setState("error");
       setError(apiErrorDetail(requestError));
+      setErrorSource("review");
     }
   }
 
@@ -160,7 +191,10 @@ export function ScenarioSection({
             )}
           </>
         )
-      ) : (
+      ) : state === "error" ? null : (
+        // Suppressed while an error is showing: "play a move to get a
+        // read" next to "assessment failed" would wrongly imply nothing
+        // had been attempted yet.
         <p className="workspace-analysis-empty">
           {llmReady
             ? "Play a move, get a read on the position and its real-world twin."
@@ -170,8 +204,10 @@ export function ScenarioSection({
       {state === "loading" && <p className="workspace-analysis-empty">Assessing position</p>}
       {state === "error" && (
         <p className="workspace-analysis-empty" data-testid="scenario-error">
-          Assessment failed{error ? `: ${error.slice(0, 160)}` : ""}. The last saved mapping is
-          untouched.
+          {errorSource === "review"
+            ? `Could not save your review${error ? `: ${error.slice(0, 160)}` : ""}.`
+            : `Assessment failed${error ? `: ${error.slice(0, 160)}` : ""}.`}{" "}
+          The last saved mapping is untouched.
         </p>
       )}
       {canAct && llmReady && state !== "loading" && (
@@ -181,7 +217,9 @@ export function ScenarioSection({
           onClick={() => void suggest()}
           data-testid="assess-position"
         >
-          {state === "error" ? "Retry assessment" : "Assess position"}
+          {state === "error" && errorSource === "assessment"
+            ? "Retry assessment"
+            : "Assess position"}
         </button>
       )}
     </div>

@@ -283,11 +283,14 @@ export interface Scenario {
   workspace_id: string;
   game_id: string | null;
   ply: number;
-  /** suggested, accepted, or edited. Failed suggestions never come
-   * back from these endpoints; the error path reports them. */
+  /** suggested, accepted, edited, or failed. assessPosition and
+   * reviewScenario only ever resolve to a non-failed record (a failure
+   * throws instead); fetchScenario can return a failed one, since
+   * reload must be able to show the same recoverable failure state a
+   * live attempt shows. */
   status: string;
   /** Effective text: participant-approved when reviewed, the raw
-   * suggestion otherwise. */
+   * suggestion otherwise. Null when status is "failed". */
   assessment: string | null;
   real_world: string | null;
   video_prompt: string | null;
@@ -297,6 +300,9 @@ export interface Scenario {
   model: string | null;
   provider_alias: string | null;
   prompt_version: string | null;
+  /** Set when status is "failed": why the last attempt didn't produce
+   * a usable scenario. */
+  error_detail: string | null;
   created_at: string;
 }
 

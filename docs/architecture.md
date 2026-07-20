@@ -261,10 +261,15 @@ evidence just because the clock happened to run out in between.
 (assessment, real_world, video_prompt) per game and ply. The raw model
 suggestion is written once and never updated; participant review
 (accept or edit) fills separate final columns. Failed calls insert an
-explicit failed row without touching prior records, so reload always
-restores the latest good mapping and recovery is simply asking again.
-Exports (`chess_scenarios.jsonl`) carry both raw and approved values
-with model, provider alias, and prompt version.
+explicit failed row without touching prior records. Reload restores
+the true latest state, including a failed one: `latest_scenario`
+returns the newest row regardless of status, and the frontend renders
+a failed reload exactly like a live failure (an explicit error with a
+retry action), rather than silently reverting to an older suggestion
+or the pristine empty state as if nothing had been attempted since the
+game moved on. Recovery is asking again. Exports
+(`chess_scenarios.jsonl`) carry both raw and approved values with
+model, provider alias, and prompt version.
 
 ## Job runner
 

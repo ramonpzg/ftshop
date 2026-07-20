@@ -267,3 +267,31 @@ def test_start_game_rejects_a_model_not_on_offer(client: TestClient):
         json={"opponent_model": "made-up/nonsense"},
     )
     assert response.status_code == 422
+
+
+def test_a_failed_assessment_survives_reload_as_an_explicit_failed_state(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the reported bug: a failed scenario used to be
+    excluded from the reload read, so reloading the page after a failed
+    assessment silently showed the pristine empty state instead of the
+    same recoverable failure a live attempt shows."""
+    from euro_chess_studio.actions import scenario as scenario_module
+    from euro_chess_studio.data.llm_client import LlmRequestError
+
+    def fail_video_prompt_chat(*args, **kwargs):
+        raise LlmRequestError("502 from video_prompt", request_ids=())
+
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", fail_video_prompt_chat)
+
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assert assess_response.status_code == 502
+
+    reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
+    assert reload_response.status_code == 200
+    body = reload_response.json()
+    assert body is not None
+    assert body["status"] == "failed"
+    assert "502" in body["error_detail"]
