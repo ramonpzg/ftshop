@@ -1,182 +1,118 @@
 <template>
-  <div class="dataset-shapes" @mouseenter="paused = true" @mouseleave="paused = false">
-    <div class="shapes-header">
-      <span class="the-move">1. e4</span>
-      <span class="becomes">becomes</span>
-    </div>
-
-    <transition name="shape-morph" mode="out-in">
-      <div :key="active" class="shape-card">
-        <div class="shape-name">{{ shapes[active].name }}</div>
-        <pre class="shape-payload">{{ shapes[active].payload }}</pre>
-        <div class="shape-point">{{ shapes[active].point }}</div>
-      </div>
-    </transition>
-
-    <div class="shape-dots">
-      <button
+  <div class="dataset-shapes">
+    <div class="rail">
+      <div class="the-move">1. e4</div>
+      <div
         v-for="(shape, index) in shapes"
         :key="shape.name"
-        type="button"
-        class="dot"
-        :class="{ active: index === active }"
-        :title="shape.name"
-        @click="active = index"
-      />
+        class="rail-item"
+        :class="{ active: index === active, seen: index < active }"
+      >
+        <span class="rail-index">{{ index + 1 }}</span>
+        <span class="rail-name">{{ shape.name }}</span>
+      </div>
+    </div>
+    <div class="panel">
+      <pre class="payload">{{ shapes[active].payload }}</pre>
+      <div class="point">{{ shapes[active].point }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed } from "vue";
+import { stepIndex } from "../lib/clicks";
+import { DATASET_SHAPES } from "../lib/datasetShapes";
 
-const active = ref(0);
-const paused = ref(false);
-let timer = null;
-
-const shapes = [
-  {
-    name: "PGN prefix -> move",
-    payload: `{"prefix": "", "target_san": "e4"}`,
-    point: "The model learns to continue a game script.",
-  },
-  {
-    name: "FEN -> move",
-    payload: `{"fen": "rnbqkbnr/pppppppp/8/8/8/8/\nPPPPPPPP/RNBQKBNR w KQkq - 0 1",
- "target_uci": "e2e4"}`,
-    point: "The model learns positions, not histories.",
-  },
-  {
-    name: "FEN + legal moves -> move",
-    payload: `{"fen": "...", "legal_moves":
- ["a2a3","a2a4","b2b3", ...],
- "target_uci": "e2e4"}`,
-    point: "The environment does the rules. The model does the choosing.",
-  },
-  {
-    name: "Board tensor -> move class",
-    payload: `{"tensor_shape": [8, 8, 12],
- "move_class": 3980, "uci": "e2e4"}`,
-    point: "No language at all. 3980 = e2(12)*320 + e4(28)*5; the class inverts back to the move.",
-  },
-  {
-    name: "Policy + move reward",
-    payload: `{"fen": "...",
- "policy_target": {"e2e4": 1.0, ...},
- "move_reward": 1}`,
-    point: "One-hot on the move played. The reward scores the move, not the position; who is winning would need the game outcome or an engine.",
-  },
-  {
-    name: "RL trajectory",
-    payload: `{"state_fen": "...", "action_uci": "e2e4",
- "reward": 1, "next_state_fen": "...",
- "done": false}`,
-    point: "State, action, reward. The gym formulation.",
-  },
-];
-
-onMounted(() => {
-  timer = setInterval(() => {
-    if (!paused.value) active.value = (active.value + 1) % shapes.length;
-  }, 3200);
+const props = defineProps({
+  /** Slide click count; the slide declares `clicks: 5` so the five
+   * presenter clicks step through all six encodings. */
+  clicks: { type: Number, default: 0 },
 });
 
-onUnmounted(() => clearInterval(timer));
+const shapes = DATASET_SHAPES;
+const active = computed(() => stepIndex(props.clicks, shapes.length));
 </script>
 
 <style scoped>
 .dataset-shapes {
-  max-width: 620px;
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  gap: 1.6rem;
+  max-width: 46rem;
   margin: 0 auto;
-}
-
-.shapes-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 14px;
+  text-align: left;
 }
 
 .the-move {
-  font-family: ui-monospace, monospace;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #f59e0b;
-}
-
-.becomes {
-  font-size: 0.9rem;
-  color: #94a3b8;
-}
-
-.shape-card {
-  padding: 18px 22px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
-  min-height: 180px;
-}
-
-.shape-name {
-  font-size: 1rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.5rem;
   font-weight: 600;
-  color: #e2e8f0;
-  margin-bottom: 10px;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.7rem;
 }
 
-.shape-payload {
-  margin: 0 0 10px;
-  padding: 10px 12px;
-  background: rgba(2, 6, 23, 0.6);
-  border-radius: 8px;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: #a5b4c8;
+.rail-item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.32rem 0;
+  color: var(--ink-faint);
+}
+
+.rail-item.seen {
+  color: var(--ink-soft);
+}
+
+.rail-item.active {
+  color: var(--ink);
+}
+
+.rail-index {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  width: 1rem;
+}
+
+.rail-item.active .rail-index {
+  color: var(--accent);
+}
+
+.rail-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* The panel reserves its full height so stepping never reflows. */
+.panel {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper-raised);
+  padding: 1rem 1.2rem;
+  min-height: 15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.payload {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.shape-point {
-  font-size: 0.88rem;
-  color: #94a3b8;
-  font-style: italic;
-}
-
-.shape-dots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(148, 163, 184, 0.25);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.3s ease;
-}
-
-.dot.active {
-  background: #f59e0b;
-  transform: scale(1.3);
-}
-
-.shape-morph-enter-active,
-.shape-morph-leave-active {
-  transition: all 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.shape-morph-enter-from {
-  opacity: 0;
-  transform: translateY(14px) scale(0.985);
-}
-
-.shape-morph-leave-to {
-  opacity: 0;
-  transform: translateY(-14px) scale(0.985);
+.point {
+  margin-top: auto;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--rule);
+  padding-top: 0.6rem;
+  min-height: 3.4rem;
 }
 </style>

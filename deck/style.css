@@ -1,51 +1,289 @@
-/* Deck-wide bits shared across slides. Components carry their own
- * scoped styles; only slide-level primitives live here. */
+/* Deck design system. Tokens and slide-level primitives live here;
+ * components carry their own scoped styles built on the same tokens.
+ * Rationale and conventions: docs/deck-plan.md. */
 
-.img-slot {
-  border: 1.5px dashed rgba(148, 163, 184, 0.35);
-  border-radius: 12px;
-  padding: 18px;
-  max-width: 340px;
-  background: rgba(15, 23, 42, 0.35);
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/400-italic.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+:root {
+  --paper: #f6f4ef;
+  --paper-raised: #fdfcf9;
+  --ink: #191713;
+  --ink-soft: #5c564c;
+  --ink-faint: #8a8377;
+  --rule: #d9d3c7;
+  --accent: #1f4fd8;
+  --good: #1e6b45;
+  --bad: #a2352a;
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-.img-slot-label {
-  font-family: ui-monospace, monospace;
-  font-size: 0.72rem;
-  color: #f59e0b;
-  margin-bottom: 8px;
+/* Ground. The deck is paper and ink; dark frames exist only around
+ * media that is itself dark (the TUI recording, video clips). */
+.slidev-layout {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", sans-serif;
+  padding: 3rem 3.4rem 2.6rem;
 }
 
-.img-slot-prompt {
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: #94a3b8;
-  font-style: italic;
-}
-
-.plan-cell {
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.55);
-  padding: 18px 14px;
-  text-align: center;
-}
-
-.plan-title {
-  font-size: 1.15rem;
+.slidev-layout h1 {
+  font-size: 1.9rem;
   font-weight: 700;
-  color: #e2e8f0;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 1rem;
 }
 
-.plan-sub {
-  font-size: 0.78rem;
-  color: #94a3b8;
-  margin-top: 4px;
+.slidev-layout h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
-.plan-time {
-  font-family: ui-monospace, monospace;
+.slidev-layout p,
+.slidev-layout li {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.slidev-layout strong {
+  font-weight: 600;
+}
+
+.slidev-layout a {
+  color: var(--accent);
+  border-bottom: 1px solid var(--rule);
+}
+
+.slidev-layout code {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.slidev-layout :not(pre) > code {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.05em 0.3em;
+  font-size: 0.85em;
+  color: var(--ink);
+}
+
+.slidev-layout pre.shiki,
+.slidev-layout .slidev-code-wrapper pre {
+  background: var(--paper-raised) !important;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
   font-size: 0.85rem;
-  color: #f59e0b;
-  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.slidev-layout table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.slidev-layout th {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  text-align: left;
+  padding: 0.4rem 0.8rem 0.4rem 0;
+  border-bottom: 1px solid var(--ink);
+}
+
+.slidev-layout td {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.8rem 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+}
+
+.slidev-layout td:first-child {
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+/* Title block. Kicker names the part, title states the point. */
+.kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  margin-bottom: 0.5rem;
+}
+
+.kicker .kicker-accent {
+  color: var(--accent);
+}
+
+/* Part openers: scoresheet header, oversized part number, no footer. */
+.part-opener {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.part-number {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 6.5rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--rule);
+}
+
+.part-title {
+  font-size: 3.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--ink);
+  border-top: 1px solid var(--ink);
+  padding-top: 1.2rem;
+  margin-top: 1.2rem;
+  max-width: 34rem;
+}
+
+.part-sub {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  max-width: 30rem;
+}
+
+/* Statement slides: one sentence, display size. */
+.statement {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 44rem;
+}
+
+.statement-quiet {
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  margin-top: 1.4rem;
+}
+
+/* Provenance line: model, input, cached/live, source. */
+.provenance {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  margin-top: 0.6rem;
+}
+
+.chip {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.1rem 0.45rem;
+  color: var(--ink-soft);
+  vertical-align: middle;
+}
+
+.chip.live {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip.live::before {
+  content: "";
+  display: inline-block;
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 0.4em;
+}
+
+/* Base/adapted comparison scaffolding. */
+.compare-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+.compare-col.adapted {
+  border-top: 2px solid var(--accent);
+}
+
+.delta-good {
+  color: var(--good);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.delta-bad {
+  color: var(--bad);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+/* Footer, rendered by global-bottom.vue on content slides. */
+.deck-footer {
+  position: absolute;
+  left: 3.4rem;
+  right: 3.4rem;
+  bottom: 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.5rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.deck-footer .page {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Click reveals toggle visibility inside reserved space; they do not
+ * insert layout. Slides opt in with .reserve on the revealed block. */
+.slidev-vclick-target {
+  transition: opacity 250ms var(--ease), transform 250ms var(--ease);
+}
+
+.slidev-vclick-hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.reserve .slidev-vclick-hidden,
+.reserve.slidev-vclick-hidden {
+  visibility: hidden;
+  transform: none;
+}
+
+/* Reduced motion: every final state must read as a static frame. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    animation-delay: 0ms !important;
+  }
 }

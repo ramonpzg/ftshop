@@ -32,9 +32,7 @@ export const INITIAL_LIVE_ROOM_STATE: LiveRoomState = {
   fetchedAt: 0,
 };
 
-export type PollResult =
-  | { ok: true; room: RoomGamesPayload; at: number }
-  | { ok: false };
+export type PollResult = { ok: true; room: RoomGamesPayload; at: number } | { ok: false };
 
 export function applyPollResult(state: LiveRoomState, result: PollResult): LiveRoomState {
   if (result.ok) {

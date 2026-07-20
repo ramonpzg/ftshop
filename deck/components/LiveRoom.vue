@@ -2,6 +2,9 @@
   <div class="live-room">
     <div class="room-header">
       <h3 class="room-title">The room, right now</h3>
+      <span class="chip" :class="{ live: phase === 'connected' }">
+        {{ phase === "connected" ? "LIVE" : phase === "recovering" ? "RECONNECTING" : "OFFLINE" }}
+      </span>
       <div v-if="room" class="room-totals">
         <span class="total"
           ><strong>{{ room.playing }}</strong> playing</span
@@ -16,7 +19,7 @@
     </div>
 
     <div v-if="phase === 'unavailable'" class="room-offline" data-phase="unavailable">
-      Backend offline. Start it with <code>just start</code>, this panel finds it on its own.
+      Backend offline. Start it with <code>just start</code>.
     </div>
 
     <div v-else-if="phase === 'connecting'" class="room-offline" data-phase="connecting">
@@ -115,84 +118,82 @@ onUnmounted(() => {
 
 <style scoped>
 .live-room {
-  max-width: 640px;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 20px 24px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  text-align: left;
 }
 
 .room-header {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  gap: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  gap: 0.8rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--ink);
 }
 
 .room-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--ink);
 }
 
 .room-totals {
   display: flex;
-  gap: 14px;
-  font-size: 0.85rem;
-  color: #94a3b8;
+  gap: 0.9rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .total strong {
-  color: #e2e8f0;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
   font-variant-numeric: tabular-nums;
 }
 
 .total.accent strong {
-  color: #f59e0b;
+  color: var(--accent);
 }
 
 .room-offline {
-  padding: 24px 0 12px;
-  font-size: 0.9rem;
-  color: #94a3b8;
-}
-
-.room-offline code {
-  color: #f59e0b;
+  padding: 1.4rem 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
 }
 
 .room-stale {
-  padding: 10px 0 4px;
-  font-size: 0.8rem;
-  color: #f59e0b;
+  padding: 0.6rem 0 0.2rem;
+  font-size: 0.75rem;
+  color: var(--bad);
 }
 
 .room-games {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 12px;
-  max-height: 320px;
+  gap: 0.2rem;
+  margin-top: 0.7rem;
+  max-height: 300px;
   overflow-y: auto;
 }
 
 .game-row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  color: #cbd5e1;
-  transition: all 0.4s ease;
+  gap: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--ink);
+  transition: opacity 250ms var(--ease);
 }
 
-.game-row.playing {
-  background: rgba(148, 163, 184, 0.08);
+.game-row.playing .game-status {
+  color: var(--accent);
 }
 
 .game-name {
@@ -203,29 +204,25 @@ onUnmounted(() => {
 }
 
 .game-status {
-  font-family: ui-monospace, monospace;
+  font-family: "IBM Plex Mono", monospace;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-.game-row.playing .game-status {
-  color: #f59e0b;
-}
-
 .game-moves {
-  font-size: 0.75rem;
-  color: #64748b;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
 }
 
 .game-row-enter-active,
 .game-row-leave-active {
-  transition: all 0.5s ease;
+  transition: opacity 250ms var(--ease);
 }
 
 .game-row-enter-from,
 .game-row-leave-to {
   opacity: 0;
-  transform: translateX(-16px);
 }
 </style>

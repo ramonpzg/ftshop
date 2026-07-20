@@ -10,24 +10,27 @@
       v-for="(row, index) in rows"
       :key="row.modality"
       class="grid-row"
-      :class="{ appear: appeared[index] }"
+      :class="{ shown: index < shownRows }"
     >
       <span class="modality">{{ row.modality }}</span>
       <span class="cell">{{ row.pairs }}</span>
       <span class="cell">{{ row.adapter }}</span>
       <span class="cell">{{ row.evals }}</span>
     </div>
-    <div class="grid-mantra" :class="{ appear: appeared[rows.length] }">
+    <div class="grid-mantra" :class="{ shown: mantraShown }">
       Same recipe. Different results.
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed } from "vue";
+import { revealedRows } from "../lib/clicks";
 
 const props = defineProps({
-  stagger: { type: Number, default: 550 },
+  /** Slide click count. Rows reveal one per click, then the mantra.
+   * The default shows everything, for the closing slide. */
+  clicks: { type: Number, default: 5 },
 });
 
 const rows = [
@@ -57,81 +60,73 @@ const rows = [
   },
 ];
 
-const appeared = ref({});
-
-onMounted(() => {
-  for (let index = 0; index <= rows.length; index += 1) {
-    setTimeout(() => {
-      appeared.value[index] = true;
-    }, 400 + index * props.stagger);
-  }
-});
+const shownRows = computed(() => revealedRows(props.clicks, rows.length));
+const mantraShown = computed(() => props.clicks > rows.length);
 </script>
 
 <style scoped>
 .modality-grid {
-  max-width: 680px;
+  max-width: 42rem;
   margin: 0 auto;
-  padding: 20px 24px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  text-align: left;
 }
 
 .grid-head,
 .grid-row {
   display: grid;
   grid-template-columns: 0.7fr 1.2fr 1.2fr 1.2fr;
-  gap: 12px;
+  gap: 0.8rem;
   align-items: baseline;
 }
 
 .grid-head {
-  font-size: 0.72rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #64748b;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--ink-faint);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--ink);
 }
 
+/* Rows always occupy their space; clicks toggle visibility only. */
 .grid-row {
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.07);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
   opacity: 0;
-  transform: translateX(-18px);
-  transition: all 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 250ms var(--ease);
 }
 
-.grid-row.appear {
+.grid-row.shown {
   opacity: 1;
-  transform: translateX(0);
 }
 
 .modality {
-  font-weight: 700;
-  color: #f59e0b;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .cell {
-  font-family: ui-monospace, monospace;
-  font-size: 0.82rem;
-  color: #cbd5e1;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .grid-mantra {
-  margin-top: 16px;
+  margin-top: 0.9rem;
   text-align: center;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--ink);
   opacity: 0;
-  transform: scale(0.94);
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 250ms var(--ease);
 }
 
-.grid-mantra.appear {
+.grid-mantra.shown {
   opacity: 1;
-  transform: scale(1);
 }
 </style>

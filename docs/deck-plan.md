@@ -191,33 +191,48 @@ click-revealed), `DatasetShapes`' 3.2s carousel.
 
 ## Placeholder inventory
 
-Assets Ramon supplies. Every one renders through `MediaFrame` with the
-stated file name and aspect ratio; the slide is complete the moment the
-file lands in `deck/assets/`.
+Assets Ramon supplies. Every one renders through `MediaFrame` or
+`PhoneTuiReplay` with the stated file name and aspect ratio; the slide
+is complete the moment the file lands in `deck/public/assets/`. A deck
+test asserts every referenced file name appears in this table.
 
 | file | ratio | content |
 | --- | --- | --- |
-| `assets/origin-photo.jpg` | 4:3 | childhood photo, readable from the back |
-| `assets/origin-book.jpg` | 3:4 | the chess book bought and abandoned |
-| `assets/duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
-| `assets/duolingo-app.png` | 9:19.5 | Duolingo chess app screenshot |
-| `assets/oscar-game.png` | 9:19.5 | one game against Oscar, app screenshot |
-| `assets/oscar.png` | 9:19.5 | Oscar himself |
-| `assets/queens-gambit.jpg` | 16:9 | Queen's Gambit still |
-| `assets/no-internet.png` | 9:19.5 | Duolingo chess offline on the Sydney flight |
-| `assets/meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
-| `assets/tui-recording.mp4` + `assets/tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
-| `assets/meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
-| `assets/goth-minions.jpg` | 4:3 | goth Minions |
-| `assets/corporate-lamp.txt` | text block | the jargon-heavy lamp announcement paragraph |
-| `assets/style-translation.mp4` | 16:9 | bachata background or Thinking Machines translation clip |
-| `assets/canva-template.mp4` | 16:9 | the real Canva video-template example |
-| `assets/mapping-{1,2,3}.png` | 16:9 | three real-world mapping artifacts (board, log, mapping) |
-| `assets/image-{base,adapted}.png` | 1:1 | image adaptation pair, same prompt |
-| `assets/audio-{base,adapted}.wav` | native audio | audio adaptation pair |
-| `assets/video-scene.mp4` + poster | 16:9 | Luna scene video, no chess objects |
-| `assets/ab-{text,image,audio,video}-{a,b}.*` | per modality | the four A/B pairs with provenance |
-| `assets/future-tree.png` | 16:9 | the model tree diagram from v1 |
+| `cover.jpg` | 4:3 | one strong chess image or a frame of the actual TUI board |
+| `origin-photo.jpg` | 4:3 | childhood photo, readable from the back |
+| `origin-book.jpg` | 3:4 | the chess book, photographed as an object |
+| `duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
+| `duolingo-app.png` | 9:19.5 | Duolingo chess app screenshot |
+| `oscar-game.png` | 9:19.5 | one game against Oscar, app screenshot |
+| `oscar.png` | 9:19.5 | Oscar |
+| `queens-gambit.jpg` | 16:9 | Queen's Gambit still |
+| `no-internet.png` | 9:19.5 | Duolingo chess offline on the Sydney flight |
+| `meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
+| `tui-recording.mp4`, `tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
+| `mapping-game.png` | 4:5 | the completed board and game log the mapping slides share |
+| `image-base.png`, `image-adapted.png` | 1:1 | image adaptation pair, same prompt |
+| `image-style-2.png` | 1:1 | optional second style |
+| `audio-capture.wav` | audio | a capture: wooden piece on wood |
+| `audio-genre.wav` | audio | background music, one genre |
+| `audio-move.wav` | audio | optional spoken move |
+| `video-scene.mp4`, `video-scene-poster.png` | 16:9 | Luna scene video, no chess objects |
+| `ab-text-a.png`, `ab-text-b.png` | 16:10 | text A/B pair, rendered replies |
+| `ab-image-a.png`, `ab-image-b.png` | 1:1 | image A/B pair |
+| `ab-audio-a.wav`, `ab-audio-b.wav` | audio | audio A/B pair |
+| `ab-video-a.mp4`, `ab-video-b.mp4` | 16:9 | video A/B pair |
+| `goth-minions.jpg` | 4:3 | goth Minions |
+| `corporate-lamp.txt` | text block | the jargon-heavy lamp announcement paragraph |
+| `style-translation.mp4` | 16:9 | bachata background or Thinking Machines translation clip |
+| `canva-template.mp4` | 16:9 | the real Canva video-template example |
+| `meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
+| `future-tree.png` | 16:9 | the model tree diagram from v1 |
+
+Text placeholders pending from Ramon or phase 34, marked PLACEHOLDER
+in the slide source: the three real-world mappings and their approved
+edits, the Luna scene prompt, the four A/B answers with provenance,
+the reveal-table rows, the OutcomeCompare eval numbers, all economics
+numbers, the recorded TUI result, and the repo URL/QR on the closing
+slide.
 
 ## Deck commands
 

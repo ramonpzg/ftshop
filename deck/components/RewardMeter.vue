@@ -1,5 +1,9 @@
 <template>
   <div class="reward-meter">
+    <div class="meter-head">
+      <span class="head-label">Environment feedback</span>
+      <span class="head-note">python-chess owns the rules. This function owns what they are worth.</span>
+    </div>
     <div class="meter-buttons">
       <button
         v-for="outcome in outcomes"
@@ -16,12 +20,9 @@
     </div>
 
     <div class="meter-readout">
-      <transition name="reward-pop" mode="out-in">
-        <div v-if="last" :key="stamp" class="last-reward" :class="{ negative: last.reward < 0 }">
-          {{ last.reward > 0 ? "+" : "" }}{{ last.reward }}
-        </div>
-        <div v-else class="last-reward idle">play a move</div>
-      </transition>
+      <div class="last-reward" :class="{ negative: last && last.reward < 0, idle: !last }">
+        {{ last ? `${last.reward > 0 ? "+" : ""}${last.reward}` : "press an outcome" }}
+      </div>
       <div class="total-row">
         <span class="total-label">return</span>
         <span class="total-value" :class="{ negative: total < 0 }">{{ total }}</span>
@@ -32,21 +33,19 @@
       <span
         v-for="(entry, index) in trail"
         :key="index"
-        class="chip"
+        class="trail-chip"
         :class="{ negative: entry.reward < 0 }"
         >{{ entry.short }}</span
       >
     </div>
-
-    <p class="meter-footnote">
-      The whole environment: python-chess knows the rules, this function knows what they are worth.
-    </p>
   </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
 
+// Presenter-controlled by design: nothing here moves until a button
+// is pressed, and remounting the slide resets to the same idle state.
 const outcomes = [
   { label: "illegal move", short: "ill", reward: -1 },
   { label: "legal move", short: "ok", reward: 1 },
@@ -57,163 +56,159 @@ const outcomes = [
 const last = ref(null);
 const total = ref(0);
 const trail = ref([]);
-const stamp = ref(0);
 
 function play(outcome) {
   last.value = outcome;
   total.value += outcome.reward;
   trail.value = [...trail.value.slice(-11), outcome];
-  stamp.value += 1;
 }
 </script>
 
 <style scoped>
 .reward-meter {
-  max-width: 560px;
+  max-width: 36rem;
   margin: 0 auto;
-  padding: 20px 24px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  text-align: left;
+}
+
+.meter-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--ink);
+  margin-bottom: 0.9rem;
+}
+
+.head-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.head-note {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
 }
 
 .meter-buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 0.6rem;
 }
 
 .outcome {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 8px;
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 10px;
+  gap: 0.2rem;
+  padding: 0.6rem 0.5rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 150ms var(--ease);
 }
 
 .outcome:hover {
-  background: rgba(148, 163, 184, 0.16);
-  transform: translateY(-2px);
+  border-color: var(--ink);
 }
 
 .outcome:active {
-  transform: translateY(0);
+  border-color: var(--accent);
 }
 
 .outcome-label {
-  font-size: 0.78rem;
-  color: #cbd5e1;
+  font-size: 0.75rem;
+  color: var(--ink);
 }
 
 .outcome-reward {
-  font-family: ui-monospace, monospace;
-  font-weight: 700;
-  color: #34d399;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  color: var(--good);
 }
 
 .outcome-reward.negative {
-  color: #f87171;
+  color: var(--bad);
 }
 
 .meter-readout {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 18px;
-  min-height: 64px;
+  margin-top: 1rem;
+  min-height: 3.4rem;
 }
 
 .last-reward {
-  font-family: ui-monospace, monospace;
-  font-size: 2.6rem;
-  font-weight: 800;
-  color: #34d399;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: var(--good);
 }
 
 .last-reward.negative {
-  color: #f87171;
+  color: var(--bad);
 }
 
 .last-reward.idle {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 400;
-  color: #64748b;
-  font-style: italic;
+  color: var(--ink-faint);
 }
 
 .total-row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 0.6rem;
 }
 
 .total-label {
-  font-size: 0.8rem;
-  color: #94a3b8;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .total-value {
-  font-family: ui-monospace, monospace;
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #e2e8f0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
 .total-value.negative {
-  color: #f87171;
+  color: var(--bad);
 }
 
 .trail {
   display: flex;
-  gap: 6px;
+  gap: 0.4rem;
   flex-wrap: wrap;
-  min-height: 26px;
-  margin-top: 6px;
+  min-height: 1.5rem;
+  margin-top: 0.4rem;
 }
 
-.chip {
-  font-family: ui-monospace, monospace;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(52, 211, 153, 0.12);
-  color: #6ee7b7;
+.trail-chip {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--good);
+  border-radius: 2px;
+  color: var(--good);
 }
 
-.chip.negative {
-  background: rgba(248, 113, 113, 0.12);
-  color: #fca5a5;
-}
-
-.meter-footnote {
-  margin: 14px 0 0;
-  font-size: 0.82rem;
-  color: #94a3b8;
-  font-style: italic;
-}
-
-.reward-pop-enter-active {
-  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.reward-pop-enter-from {
-  opacity: 0;
-  transform: scale(0.4);
-}
-
-.reward-pop-leave-active {
-  transition: all 0.15s ease;
-}
-
-.reward-pop-leave-to {
-  opacity: 0;
+.trail-chip.negative {
+  border-color: var(--bad);
+  color: var(--bad);
 }
 </style>

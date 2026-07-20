@@ -1,0 +1,143 @@
+/** Fixed placeholder fixtures for slides whose data arrives with the
+ * accepted phase 34 result or from Ramon.
+ *
+ * The parallel-stage rule: do not invent interfaces for phase 34 data
+ * and do not invent measured values. Structure is real, values are
+ * explicit placeholders. `PENDING` cells render as an en-dash-free
+ * "--" on the slide; the provenance line states what is missing.
+ */
+
+export interface CompareMetric {
+  name: string;
+  base: string;
+  adapted: string;
+  /** "good" | "bad" | "none": direction of the change once measured. */
+  delta: "good" | "bad" | "none";
+}
+
+export interface CompareFixture {
+  task: string;
+  input: string;
+  baseLabel: string;
+  adaptedLabel: string;
+  baseOutput: string;
+  adaptedOutput: string;
+  metrics: CompareMetric[];
+  regression: string;
+  provenance: string;
+}
+
+/** Base versus adapted on the frozen text eval suite. Values land at
+ * phase 34 integration; metric names are the accepted phase 33 ones. */
+export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
+  task: "Legal move as JSON, frozen eval suite",
+  input: "PLACEHOLDER: one FEN + prompt from the frozen suite",
+  baseLabel: "BASE",
+  adaptedLabel: "ADAPTED",
+  baseOutput: "--",
+  adaptedOutput: "--",
+  metrics: [
+    { name: "model_legal_move_rate", base: "--", adapted: "--", delta: "none" },
+    { name: "valid_json_rate", base: "--", adapted: "--", delta: "none" },
+    { name: "latency p50", base: "--", adapted: "--", delta: "none" },
+  ],
+  regression: "PLACEHOLDER: the metric that got worse, stated plainly",
+  provenance: "PENDING PHASE 34 INTEGRATION",
+};
+
+export interface CostRow {
+  modality: string;
+  task: string;
+  target: string;
+  local: string;
+  api: string;
+  cost: string;
+}
+
+/** Slide 22 economics rows. Every number is a placeholder until
+ * checked close to the session; sources and access dates required. */
+export const COST_ROWS: CostRow[] = [
+  {
+    modality: "Text",
+    task: "legal-move JSON",
+    target: "legal rate and JSON rate at threshold",
+    local: "Gemma base/adapted, presenter laptop",
+    api: "configured API model, same task",
+    cost: "[SOURCE, DATE]",
+  },
+  {
+    modality: "Image",
+    task: "themed set, same prompt",
+    target: "piece identity + style adherence",
+    local: "FLUX base/style-adapted",
+    api: "API reference, same prompt",
+    cost: "[SOURCE, DATE]",
+  },
+  {
+    modality: "Audio",
+    task: "same prompt and duration",
+    target: "adherence, no clipping",
+    local: "MusicGen base/adapted",
+    api: "API reference",
+    cost: "[SOURCE, DATE]",
+  },
+  {
+    modality: "Video",
+    task: "saved Luna scene prompt",
+    target: "case adherence + continuity",
+    local: "LTX on rented hardware",
+    api: "configured API video path",
+    cost: "[SOURCE, DATE]",
+  },
+];
+
+export interface AbPair {
+  modality: string;
+  question: string;
+  aFile: string;
+  bFile: string;
+  ratio: string;
+  kind: "text" | "image" | "audio" | "video";
+  expected: string;
+}
+
+/** The four A/B slides. Only actual adapted/reference pairs may fill
+ * these; provenance travels with the files when they land. */
+export const AB_PAIRS: AbPair[] = [
+  {
+    modality: "text",
+    question: "Two move choices for the same position. Which model was adapted?",
+    aFile: "ab-text-a.png",
+    bFile: "ab-text-b.png",
+    ratio: "16/10",
+    kind: "image",
+    expected: "rendered model reply, matched input",
+  },
+  {
+    modality: "image",
+    question: "Same prompt, two sets of pieces. Which came from the adapter?",
+    aFile: "ab-image-a.png",
+    bFile: "ab-image-b.png",
+    ratio: "1/1",
+    kind: "image",
+    expected: "generated board image",
+  },
+  {
+    modality: "audio",
+    question: "Two clips for the same text. Which model was adapted?",
+    aFile: "ab-audio-a.wav",
+    bFile: "ab-audio-b.wav",
+    ratio: "16/3",
+    kind: "audio",
+    expected: "generated audio clip",
+  },
+  {
+    modality: "video",
+    question: "Same scene prompt, two clips. Which one was adapted?",
+    aFile: "ab-video-a.mp4",
+    bFile: "ab-video-b.mp4",
+    ratio: "16/9",
+    kind: "video",
+    expected: "generated scene clip, no chess objects",
+  },
+];
