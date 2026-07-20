@@ -573,9 +573,12 @@ hash-match on purpose rather than by accident.
 
 - Run api commands from `api/` (`uv run pytest` at repo root picks up
   the notebook venv on Python 3.14 and collects nothing useful).
-- `expire_if_over` commits. If you compose it inside a larger
-  transaction, your uncommitted writes get committed with it. Call it
-  before starting composed writes, as `make_move` does.
+- `expire_if_over` commits. `make_move` intentionally calls it after
+  acquiring `BEGIN IMMEDIATE` but before any move writes. If the clock has
+  expired, it commits the timeout and the action immediately raises. If the
+  clock is still live, it writes nothing. Do not move this check before the
+  lock because that reopens the deadline race. In other composed actions,
+  never call it after unrelated uncommitted writes.
 - `ChatOutcome` is frozen; tests that stub `llm_client.chat` must
   return one (see `fake_outcome` helpers in the action tests).
 - The WorkspacePanel model-reply effect fires on fen changes only. An

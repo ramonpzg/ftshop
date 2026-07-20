@@ -43,10 +43,8 @@ first responsibility of this phase.
   must still follow actions/calculations/data from the start.
 - Preserve phase 33's Chat Completions, transaction, structured 409, dataset,
   and metric contracts. Do not replace them while building the learning UI.
-  One sentence in the phase 33 handover is stale: `make_move` now checks
-  `expire_if_over` inside `BEGIN IMMEDIATE`, before any move writes, so a wait
-  for the lock cannot carry a move past its deadline. The final source and
-  `docs/architecture.md` are authoritative for this boundary.
+  `make_move` checks `expire_if_over` inside `BEGIN IMMEDIATE`, before any move
+  writes, so a wait for the lock cannot carry a move past its deadline.
 - Do not add a notebook panel or iframe. Where the run of show uses Jupyter,
   describe a deliberate switch to a separately opened local notebook and a
   return to the board or deck only when useful.
