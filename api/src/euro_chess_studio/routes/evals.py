@@ -30,11 +30,18 @@ class EvalResultOut(BaseModel):
     # model/checkpoint identify which version this result scopes to, so
     # a base and an adapted model's rows can be told apart at a glance.
     # run_id groups every metric one job execution produced. sample_ids
-    # is the frozen input set: the exact move/attempt ids counted.
+    # is an audit trail back to the exact move/attempt rows counted.
     model: str | None = None
     checkpoint: str | None = None
     run_id: str | None = None
     sample_ids: list[str] = []
+    # The actual frozen input set: the exact fens the sample rows were
+    # about, and a deterministic hash of that set. Two rows with
+    # matching position_set_id were measured over the identical
+    # positions and are honestly comparable; different ids mean they
+    # were not, regardless of how similar model/checkpoint look.
+    position_set_id: str | None = None
+    positions: list[str] = []
     created_at: str
 
 
@@ -42,6 +49,8 @@ def _eval_result_out(row: sqlite3.Row) -> EvalResultOut:
     data = dict(row)
     sample_ids_json = data.pop("sample_ids_json", None)
     data["sample_ids"] = json.loads(sample_ids_json) if sample_ids_json else []
+    position_set_json = data.pop("position_set_json", None)
+    data["positions"] = json.loads(position_set_json) if position_set_json else []
     return EvalResultOut(**data)
 
 

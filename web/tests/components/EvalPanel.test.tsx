@@ -23,6 +23,8 @@ function makeResult(overrides: Partial<EvalResult> = {}): EvalResult {
     checkpoint: null,
     run_id: null,
     sample_ids: [],
+    position_set_id: null,
+    positions: [],
     created_at: "now",
     ...overrides,
   };

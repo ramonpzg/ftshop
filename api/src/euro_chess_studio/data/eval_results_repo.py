@@ -27,6 +27,8 @@ def insert_eval_result(
     checkpoint: str | None = None,
     run_id: str | None = None,
     sample_ids_json: str | None = None,
+    position_set_id: str | None = None,
+    position_set_json: str | None = None,
 ) -> sqlite3.Row:
     result_id = generate_id("eval")
     created_at = datetime.now(UTC).isoformat()
@@ -35,8 +37,9 @@ def insert_eval_result(
         INSERT INTO eval_results
             (id, modality, metric, value, workspace_id, source, numerator,
              denominator, unit, direction, definition, version, scope_json,
-             note, model, checkpoint, run_id, sample_ids_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             note, model, checkpoint, run_id, sample_ids_json,
+             position_set_id, position_set_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             result_id,
@@ -57,6 +60,8 @@ def insert_eval_result(
             checkpoint,
             run_id,
             sample_ids_json,
+            position_set_id,
+            position_set_json,
             created_at,
         ),
     )
@@ -65,15 +70,27 @@ def insert_eval_result(
     return row
 
 
-def _scoped_identity_clause() -> str:
-    # A row's identity is everything that must distinguish two results
-    # that should coexist: same modality/metric/workspace/source but a
-    # different model or checkpoint are different results (base vs
-    # adapted), not the same one re-run. IS handles NULL on both sides.
+def _scope_clause() -> str:
+    # Everything that identifies "this metric, for this model/checkpoint,
+    # in this workspace" without regard to which positions it covered.
+    # Used to clear every window under a scope when the underlying data
+    # disappears entirely (delete_eval_result): if there is now zero
+    # data for the scope, no previously recorded window for it is still
+    # trustworthy either.
     return (
         "modality = ? AND metric = ? AND source = ? AND workspace_id IS ? "
         "AND model IS ? AND checkpoint IS ?"
     )
+
+
+def _scoped_identity_clause() -> str:
+    # A row's full identity: the scope above, plus which position set
+    # (evaluation window) produced it. Same scope, same position set ->
+    # the same measurement re-run, and replaces in place. Same scope, a
+    # different position set -> a different window, and coexists rather
+    # than overwriting -- the fix for two evaluation windows on the same
+    # model/checkpoint silently clobbering each other.
+    return f"{_scope_clause()} AND position_set_id IS ?"
 
 
 def delete_eval_result(
@@ -86,12 +103,13 @@ def delete_eval_result(
     model: str | None = None,
     checkpoint: str | None = None,
 ) -> None:
-    """Removes any existing row for this exact scope without inserting a
+    """Removes every window's row for this scope without inserting a
     replacement. Used when a metric becomes unavailable (an empty
     sample): the prior number must not keep showing as if it were
-    still current."""
+    still current, and an empty sample carries no position set to
+    target a single window with."""
     conn.execute(
-        f"DELETE FROM eval_results WHERE {_scoped_identity_clause()}",
+        f"DELETE FROM eval_results WHERE {_scope_clause()}",
         (modality, metric, source, workspace_id, model, checkpoint),
     )
 
@@ -116,15 +134,19 @@ def replace_eval_result(
     checkpoint: str | None = None,
     run_id: str | None = None,
     sample_ids_json: str | None = None,
+    position_set_id: str | None = None,
+    position_set_json: str | None = None,
 ) -> sqlite3.Row:
     """Insert an eval result, replacing any previous row for the same
-    (modality, metric, workspace, source, model, checkpoint). Re-running
-    the same scoped eval updates its number instead of stacking
-    duplicates; a differently-scoped result (a different model or
-    checkpoint) is a different row and coexists."""
+    (modality, metric, workspace, source, model, checkpoint,
+    position_set_id). Re-running the same scoped eval over the same
+    position set updates its number instead of stacking duplicates; a
+    differently-scoped result, or the same scope over a different
+    position set (a different evaluation window), is a different row
+    and coexists."""
     conn.execute(
         f"DELETE FROM eval_results WHERE {_scoped_identity_clause()}",
-        (modality, metric, source, workspace_id, model, checkpoint),
+        (modality, metric, source, workspace_id, model, checkpoint, position_set_id),
     )
     return insert_eval_result(
         conn,
@@ -145,6 +167,8 @@ def replace_eval_result(
         checkpoint=checkpoint,
         run_id=run_id,
         sample_ids_json=sample_ids_json,
+        position_set_id=position_set_id,
+        position_set_json=position_set_json,
     )
 
 

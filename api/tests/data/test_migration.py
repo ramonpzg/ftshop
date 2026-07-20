@@ -134,6 +134,8 @@ def test_pre_phase_database_migrates_without_losing_moves(tmp_path: Path):
         assert eval_row["checkpoint"] is None
         assert eval_row["run_id"] is None
         assert eval_row["sample_ids_json"] is None
+        assert eval_row["position_set_id"] is None
+        assert eval_row["position_set_json"] is None
 
         tables = {
             row["name"]

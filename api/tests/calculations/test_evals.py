@@ -9,14 +9,21 @@ import pytest
 from euro_chess_studio.calculations.evals import (
     compute_legal_move_rate,
     compute_model_legal_move_rate,
+    compute_position_set_id,
     compute_valid_json_rate,
 )
 
 _ids = itertools.count(1)
 
 
-def move(actor: str, legal: bool) -> dict:
-    return {"id": f"move_{next(_ids)}", "actor": actor, "is_legal": int(legal)}
+def move(actor: str, legal: bool, *, fen_before: str | None = None) -> dict:
+    idx = next(_ids)
+    return {
+        "id": f"move_{idx}",
+        "actor": actor,
+        "is_legal": int(legal),
+        "fen_before": fen_before or f"fen_{idx}",
+    }
 
 
 def attempt(
@@ -30,9 +37,11 @@ def attempt(
     game_id: str | None = None,
     checkpoint: str | None = None,
     applied_move_id: str | None = None,
+    fen: str | None = None,
 ) -> dict:
+    idx = next(_ids)
     return {
-        "id": f"attempt_{next(_ids)}",
+        "id": f"attempt_{idx}",
         "task": task,
         "actor": actor,
         "raw_response": raw,
@@ -42,6 +51,7 @@ def attempt(
         "game_id": game_id,
         "checkpoint": checkpoint,
         "applied_move_id": applied_move_id,
+        "fen": fen or f"fen_{idx}",
     }
 
 
@@ -63,9 +73,9 @@ def test_legal_move_rate_counts_only_the_requested_actor():
     assert result.scope == {"actor": "participant"}
     assert result.direction == "higher_is_better"
     assert result.unit == "ratio"
-    # The frozen input set is exactly the two participant moves, in
-    # order -- auditable after the fact, not re-derived later.
+    # The audit trail is exactly the two participant moves, in order.
     assert result.sample_ids == tuple(m["id"] for m in participant_moves)
+    assert result.positions == tuple(m["fen_before"] for m in participant_moves)
 
 
 def test_legal_move_rate_for_only_other_actors_is_unavailable_not_perfect():
@@ -129,6 +139,24 @@ def test_model_legal_move_rate_filters_by_model_and_game():
     assert game_one_gemma.denominator == 1 and game_one_gemma.numerator == 0
 
 
+def test_model_legal_move_rate_filters_by_checkpoint():
+    attempts = [
+        attempt(model="gemma-4-2b-local", checkpoint="base", is_legal=0, fen="p1"),
+        attempt(model="gemma-4-2b-local", checkpoint="adapter", is_legal=1, fen="p1"),
+    ]
+    base = compute_model_legal_move_rate(attempts, model="gemma-4-2b-local", checkpoint="base")
+    adapter = compute_model_legal_move_rate(
+        attempts, model="gemma-4-2b-local", checkpoint="adapter"
+    )
+    assert base.denominator == 1 and base.numerator == 0
+    assert adapter.denominator == 1 and adapter.numerator == 1
+    # Same model, same position, different checkpoint: comparable, and
+    # distinguishable in scope.
+    assert base.scope["checkpoint"] == "base"
+    assert adapter.scope["checkpoint"] == "adapter"
+    assert compute_position_set_id(base.positions) == compute_position_set_id(adapter.positions)
+
+
 def test_valid_json_rate_with_no_attempts_is_unavailable():
     result = compute_valid_json_rate([])
     assert result.available is False
@@ -148,6 +176,7 @@ def test_valid_json_rate_measures_raw_replies_not_app_serialization():
     assert result.denominator == 3
     assert result.scope == {"json_requested": True, "task": "move"}
     assert result.sample_ids == tuple(a["id"] for a in attempts[:3])
+    assert result.positions == tuple(a["fen"] for a in attempts[:3])
 
 
 def test_valid_json_rate_filters_by_model():
@@ -161,6 +190,23 @@ def test_valid_json_rate_filters_by_model():
     assert result.scope["model"] == "gemma-4-2b-local"
 
 
+def test_valid_json_rate_filters_by_checkpoint():
+    """Reproduces the reported bug: with one model and base/adapter
+    checkpoints in play, valid_json_rate used to have no checkpoint
+    filter at all, so a single unscoped row silently pooled attempts
+    from both checkpoints."""
+    attempts = [
+        attempt(model="gemma-4-2b-local", checkpoint="base", raw="not json", fen="p1"),
+        attempt(model="gemma-4-2b-local", checkpoint="adapter", raw='{"move": "e2e4"}', fen="p1"),
+    ]
+    base = compute_valid_json_rate(attempts, model="gemma-4-2b-local", checkpoint="base")
+    adapter = compute_valid_json_rate(attempts, model="gemma-4-2b-local", checkpoint="adapter")
+    assert base.denominator == 1 and base.value == 0.0
+    assert adapter.denominator == 1 and adapter.value == 1.0
+    assert base.scope["checkpoint"] == "base"
+    assert adapter.scope["checkpoint"] == "adapter"
+
+
 def test_valid_json_rate_ignores_attempts_that_did_not_ask_for_json():
     attempts = [
         attempt(raw="plain prose", json_requested=False),
@@ -169,3 +215,59 @@ def test_valid_json_rate_ignores_attempts_that_did_not_ask_for_json():
     result = compute_valid_json_rate(attempts)
     assert result.denominator == 1
     assert result.value == 1.0
+
+
+def test_compute_position_set_id_is_order_and_duplicate_independent():
+    forward = compute_position_set_id(["fen-a", "fen-b"])
+    backward = compute_position_set_id(["fen-b", "fen-a"])
+    with_duplicates = compute_position_set_id(["fen-a", "fen-b", "fen-a"])
+    assert forward == backward == with_duplicates
+    assert forward is not None
+
+
+def test_compute_position_set_id_differs_for_different_position_sets():
+    assert compute_position_set_id(["fen-a", "fen-b"]) != compute_position_set_id(
+        ["fen-a", "fen-c"]
+    )
+
+
+def test_compute_position_set_id_of_empty_set_is_none():
+    assert compute_position_set_id([]) is None
+    assert compute_position_set_id([None, None]) is None
+
+
+def test_two_models_over_the_same_positions_get_the_same_position_set_id():
+    """The concrete guarantee the frozen-input-set contract provides:
+    two different models measured over the identical positions can
+    prove it, rather than a reader having to trust matching scope."""
+    shared_positions = ["start", "after-e4", "after-e4-e5"]
+    base_attempts = [
+        attempt(model="gpt-5.6-luna", checkpoint="base", is_legal=1, fen=fen)
+        for fen in shared_positions
+    ]
+    adapted_attempts = [
+        attempt(model="gpt-5.6-luna", checkpoint="adapter", is_legal=1, fen=fen)
+        for fen in shared_positions
+    ]
+    base_result = compute_model_legal_move_rate(
+        base_attempts, model="gpt-5.6-luna", checkpoint="base"
+    )
+    adapted_result = compute_model_legal_move_rate(
+        adapted_attempts, model="gpt-5.6-luna", checkpoint="adapter"
+    )
+    assert compute_position_set_id(base_result.positions) == compute_position_set_id(
+        adapted_result.positions
+    )
+
+    # A run over a different (even overlapping) position set must not
+    # silently claim comparability.
+    different_attempts = [
+        attempt(model="gpt-5.6-luna", checkpoint="adapter", is_legal=1, fen=fen)
+        for fen in [*shared_positions, "after-nf3"]
+    ]
+    different_result = compute_model_legal_move_rate(
+        different_attempts, model="gpt-5.6-luna", checkpoint="adapter"
+    )
+    assert compute_position_set_id(base_result.positions) != compute_position_set_id(
+        different_result.positions
+    )

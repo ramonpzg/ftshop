@@ -13,6 +13,7 @@ from euro_chess_studio.calculations.evals import (
     MetricResult,
     compute_legal_move_rate,
     compute_model_legal_move_rate,
+    compute_position_set_id,
     compute_valid_json_rate,
 )
 from euro_chess_studio.calculations.ids import generate_id
@@ -27,10 +28,14 @@ def _persist_metric(
     conn: sqlite3.Connection, workspace_id: str | None, result: MetricResult, run_id: str
 ) -> None:
     """An available metric replaces any prior result for its exact scope
-    (model, checkpoint, and the rest of the identity together). An
-    unavailable metric removes that prior result instead of leaving it
-    on display: an empty sample must not keep showing a stale number
-    from before the data disappeared (a page reset, for instance)."""
+    and position set (model, checkpoint, which positions it covered, and
+    the rest of the identity together): the same window re-run updates
+    in place, a genuinely different window (a different position set)
+    coexists instead of overwriting. An unavailable metric removes every
+    window's prior result for the scope instead of leaving one on
+    display: an empty sample must not keep showing a stale number from
+    before the data disappeared (a page reset, for instance), and has no
+    position set to target a single window's row with anyway."""
     model = result.scope.get("model")
     checkpoint = result.scope.get("checkpoint")
     if not result.available or result.value is None:
@@ -44,6 +49,7 @@ def _persist_metric(
             checkpoint=checkpoint,
         )
         return
+    position_set_id = compute_position_set_id(result.positions)
     replace_eval_result(
         conn,
         modality="text",
@@ -62,6 +68,8 @@ def _persist_metric(
         checkpoint=checkpoint,
         run_id=run_id,
         sample_ids_json=json.dumps(list(result.sample_ids)),
+        position_set_id=position_set_id,
+        position_set_json=json.dumps(list(result.positions)),
     )
 
 
@@ -82,7 +90,7 @@ def text_prompt_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
     results = [
         compute_legal_move_rate(moves, actor="participant"),
         compute_model_legal_move_rate(attempts, model=model, checkpoint=checkpoint),
-        compute_valid_json_rate(attempts, task="move", model=model),
+        compute_valid_json_rate(attempts, task="move", model=model, checkpoint=checkpoint),
     ]
     for result in results:
         _persist_metric(conn, job.workspace_id, result, run_id)

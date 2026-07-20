@@ -180,11 +180,22 @@ CREATE TABLE IF NOT EXISTS eval_results (
     checkpoint TEXT,
     -- Which job execution produced this row (shared by every metric
     -- from one run_job call) and exactly which move/attempt ids fed
-    -- the numerator and denominator: the frozen input set, auditable
-    -- after the fact instead of re-derived from whatever the tables
-    -- happen to contain later.
+    -- the numerator and denominator: an audit trail back to the
+    -- underlying rows, auditable after the fact instead of re-derived
+    -- from whatever the tables happen to contain later.
     run_id TEXT,
     sample_ids_json TEXT,
+    -- The actual frozen input set: the exact fens the sample rows were
+    -- about (position_set_json), and a deterministic hash of that set
+    -- (position_set_id) so two rows -- a base and an adapted model, or
+    -- two runs of the same model -- can prove they measured the same
+    -- positions instead of assuming it from matching scope alone.
+    -- Included in a computed row's replace identity, so a genuinely
+    -- different position set (a different evaluation window) coexists
+    -- instead of silently overwriting an earlier one for the same
+    -- model/checkpoint.
+    position_set_id TEXT,
+    position_set_json TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -249,6 +260,8 @@ def init_db(conn: sqlite3.Connection) -> None:
         ("checkpoint", "TEXT"),
         ("run_id", "TEXT"),
         ("sample_ids_json", "TEXT"),
+        ("position_set_id", "TEXT"),
+        ("position_set_json", "TEXT"),
     ]:
         if column not in eval_columns:
             conn.execute(f"ALTER TABLE eval_results ADD COLUMN {column} {column_type}")

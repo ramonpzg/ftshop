@@ -2,13 +2,20 @@
 
 Every metric returns a MetricResult that says what was measured, over
 what, and how: numerator, denominator, unit, direction, definition,
-version, the scope filters that produced the sample, and the exact
-row ids that made up the sample (the frozen input set, auditable after
-the fact rather than re-derived from whatever the tables contain
-later). An empty sample is an explicit unavailable result, never a
-zero or a perfect score.
+version, the scope filters that produced the sample, the exact row ids
+that made up the sample (an audit trail back to moves/model_attempts),
+and the exact input positions (FENs) those rows were about. The
+positions are the actual frozen input set: two eval runs -- a base
+model and an adapted one, or the same model on two different days --
+can only be compared honestly if they measured the same positions, and
+compute_position_set_id turns that set into one deterministic id so
+two runs can prove they match (or prove they don't) instead of asking
+a reader to trust that two separately-filtered queries happened to
+cover the same ground. An empty sample is an explicit unavailable
+result, never a zero or a perfect score.
 """
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -35,9 +42,30 @@ class MetricResult:
     unit: str = "ratio"
     direction: str = "higher_is_better"
     scope: dict = field(default_factory=dict)
-    # The id of every row in the denominator: the exact frozen input set
-    # this value was computed from.
+    # The id of every row in the denominator: an audit trail back to the
+    # moves/model_attempts rows, not itself a stable cross-model identity
+    # (two different models produce two different sets of row ids even
+    # over the identical position).
     sample_ids: tuple[str, ...] = ()
+    # The fen of every row in the denominator, in sample order. This is
+    # the actual input the metric measured over; compute_position_set_id
+    # turns it into one id two runs can compare.
+    positions: tuple[str, ...] = ()
+
+
+def compute_position_set_id(positions: Sequence[str | None]) -> str | None:
+    """A deterministic id for a set of input positions: order- and
+    duplicate-independent, so the same position set always hashes the
+    same way regardless of how the sample was assembled. Two eval
+    results with matching ids were measured over the identical set of
+    positions and are honestly comparable; a mismatch means they were
+    not, no matter how similar their scope looks otherwise. None for an
+    empty set -- there is no position set to identify."""
+    unique = sorted({position for position in positions if position is not None})
+    if not unique:
+        return None
+    digest = hashlib.sha256("\n".join(unique).encode()).hexdigest()
+    return digest[:16]
 
 
 def _unavailable(metric: str, definition: str, version: str, scope: dict) -> MetricResult:
@@ -76,6 +104,7 @@ def compute_legal_move_rate(moves: Sequence[Row], *, actor: str = "participant")
         version=LEGAL_MOVE_RATE_VERSION,
         scope=scope,
         sample_ids=tuple(move["id"] for move in sample),
+        positions=tuple(move["fen_before"] for move in sample),
     )
 
 
@@ -131,19 +160,27 @@ def compute_model_legal_move_rate(
         version=MODEL_LEGAL_MOVE_RATE_VERSION,
         scope=scope,
         sample_ids=tuple(attempt["id"] for attempt in sample),
+        positions=tuple(attempt["fen"] for attempt in sample),
     )
 
 
 def compute_valid_json_rate(
-    attempts: Sequence[Row], *, task: str | None = None, model: str | None = None
+    attempts: Sequence[Row],
+    *,
+    task: str | None = None,
+    model: str | None = None,
+    checkpoint: str | None = None,
 ) -> MetricResult:
     """Share of raw model replies that parsed as a JSON object.
 
     Measured over attempts where the task asked for JSON and a reply
     arrived, by parsing the stored raw reply with the same extractor the
     app uses to consume replies. This is raw model output, not the
-    application's own serialization. An optional model filter lets a
-    base and an adapted model's rates coexist rather than blend.
+    application's own serialization. Optional model and checkpoint
+    filters let a base and an adapted checkpoint's rates coexist rather
+    than blend: without a checkpoint filter, one model with two
+    checkpoints in play would silently pool both checkpoints' attempts
+    into a single unscoped number.
     """
     definition = "raw replies parsing as a JSON object / replies received where JSON was asked"
     scope: dict = {"json_requested": True}
@@ -151,6 +188,8 @@ def compute_valid_json_rate(
         scope["task"] = task
     if model is not None:
         scope["model"] = model
+    if checkpoint is not None:
+        scope["checkpoint"] = checkpoint
 
     sample = [
         attempt
@@ -159,6 +198,7 @@ def compute_valid_json_rate(
         and attempt["raw_response"] is not None
         and (task is None or attempt["task"] == task)
         and (model is None or attempt["model"] == model)
+        and (checkpoint is None or attempt["checkpoint"] == checkpoint)
     ]
     if not sample:
         return _unavailable("valid_json_rate", definition, VALID_JSON_RATE_VERSION, scope)
@@ -173,4 +213,5 @@ def compute_valid_json_rate(
         version=VALID_JSON_RATE_VERSION,
         scope=scope,
         sample_ids=tuple(attempt["id"] for attempt in sample),
+        positions=tuple(attempt["fen"] for attempt in sample),
     )

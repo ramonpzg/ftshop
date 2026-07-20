@@ -530,8 +530,18 @@ export interface EvalResult {
   checkpoint: string | null;
   /** Groups every metric produced by one eval job execution. */
   run_id: string | null;
-  /** The exact move/attempt ids counted: the frozen input set. */
+  /** An audit trail back to the exact move/attempt rows counted. Not a
+   * stable cross-model identity by itself -- two models produce two
+   * different sets of row ids even over the identical position. */
   sample_ids: string[];
+  /** The actual frozen input set: a deterministic hash of the exact
+   * fens the sample was measured over. Two results with matching ids
+   * were measured on the identical positions and are honestly
+   * comparable; different ids mean they were not, no matter how
+   * similar model/checkpoint look. */
+  position_set_id: string | null;
+  /** The fens themselves, in sample order. */
+  positions: string[];
   created_at: string;
 }
 

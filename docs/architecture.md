@@ -312,19 +312,51 @@ filters.
 - `valid_json_rate` parses the stored raw replies of JSON-requesting
   tasks with the same extractor the app uses to consume replies. It
   measures model output, not the application's own serialization.
+  Filterable by both `model` and `checkpoint` -- with one model and two
+  checkpoints in play, an unfiltered call would otherwise pool both
+  checkpoints' attempts into one misleading number.
 
 An empty sample is an explicit unavailable result: the eval job
-reports it in its payload and *removes* any prior stored result for
-that exact scope rather than persisting nothing and leaving the old
-number on display. `text.prompt_eval` also accepts optional `model`
-and `checkpoint` job params, threaded into the model-facing metrics;
+reports it in its payload and *removes* every stored result for that
+scope (every window; see below) rather than persisting nothing and
+leaving old numbers on display. `text.prompt_eval` also accepts
+optional `model` and `checkpoint` job params, threaded into every
+model-facing metric.
+
+### The frozen input set
+
+`sample_ids` (on `MetricResult` and the stored row) is an audit trail
+back to the exact `moves`/`model_attempts` rows a number came from --
+useful for debugging, but not itself a cross-model identity, since two
+different models produce two different sets of row ids even over the
+identical chess position. The actual frozen input set is `positions`:
+the fen of every sampled row, in order. `compute_position_set_id`
+turns that list into one deterministic hash (order- and
+duplicate-independent), stored as `position_set_id` alongside the full
+list as `position_set_json`. Two eval results with matching
+`position_set_id` were measured over the identical positions and are
+honestly comparable; a mismatch means they were not, regardless of how
+similar their scope otherwise looks. This does not make the app
+capable of forcing two different models to play through identical
+positions -- there is no benchmark-runner here, only organic gameplay
+-- but it does make comparability provable after the fact instead of
+assumed from matching `model`/`checkpoint` alone.
+
 `eval_results`' storage identity is `(modality, metric, workspace,
-source, model, checkpoint)`, so a base and an adapted model's results
-coexist as two rows instead of one overwriting the other, and a page
-reset clears computed results for the workspaces it wipes. Every
-metric from one `run_job` call shares a `run_id`. That is the
-phase-34 before/after contract: same frozen input set (auditable via
-`sample_ids`), both model versions identified and stored side by side.
+source, model, checkpoint, position_set_id)`: a base and an adapted
+model's results coexist as two rows instead of one overwriting the
+other, and so do two runs of the *same* model/checkpoint over two
+different position sets (two evaluation windows), which previously
+clobbered each other because identity stopped at model/checkpoint. A
+metric becoming unavailable clears every window for its
+`(modality, metric, workspace, source, model, checkpoint)` scope, since
+an empty sample carries no position set to target a single window with
+and, in practice, means the underlying data disappeared entirely (a
+page reset). A page reset also clears computed results for the
+workspaces it wipes directly. Every metric from one `run_job` call
+shares a `run_id`. That is the phase-34 before/after contract: an
+honestly comparable frozen input set, both model versions identified,
+stored side by side, distinguishable by window.
 
 `cached` rows are seeded from `artifacts/cached/{modality}/evals.json`
 on every backend startup. These are the metrics that need
