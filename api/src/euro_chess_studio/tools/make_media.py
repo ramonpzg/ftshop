@@ -64,7 +64,7 @@ def _paper(np, rng, size: int):
     spread = np.ptp(coarse) + 1e-9
     grain = Image.fromarray(
         ((coarse - coarse.min()) / spread * 18).astype("uint8"), mode="L"
-    ).resize((size, size), Image.BILINEAR)
+    ).resize((size, size), Image.Resampling.BILINEAR)
     base = Image.new("RGB", (size, size), (247, 244, 236))
     arr = np.asarray(base).astype(int) - np.asarray(grain)[..., None] // 3
     return Image.fromarray(arr.clip(0, 255).astype("uint8"))
@@ -117,7 +117,7 @@ def make_image_pair() -> list[Path]:
         jitter = (int(rng.randint(-10, 11)), int(rng.randint(-8, 9)))
         wash_mask = mask.transform(
             mask.size,
-            Image.AFFINE,
+            Image.Transform.AFFINE,
             (1, 0, jitter[0], 0, 1, jitter[1]),
         ).filter(ImageFilter.GaussianBlur(blur))
         layer = Image.new("RGBA", after.size, (*color, 0))
@@ -382,7 +382,7 @@ def _scene_frame(np, rng_flicker, index: int, *, jitter_rng=None):
     left = (width - crop_w) // 2
     top = (height - crop_h) // 2
     image = image.crop((left, top, left + crop_w, top + crop_h)).resize(
-        (width, height), Image.LANCZOS
+        (width, height), Image.Resampling.LANCZOS
     )
     return image.filter(ImageFilter.GaussianBlur(0.4))
 
@@ -430,7 +430,7 @@ def make_video() -> list[Path]:
     thumb_w, thumb_h = 200, 112
     strip = Image.new("RGB", (thumb_w * 6 + 10, thumb_h + 4), (250, 250, 250))
     for slot, index in enumerate(sample_indices):
-        thumb = frames[index].resize((thumb_w - 2, thumb_h), Image.LANCZOS)
+        thumb = frames[index].resize((thumb_w - 2, thumb_h), Image.Resampling.LANCZOS)
         strip.paste(thumb, (2 + slot * thumb_w, 2))
     frames_path = out / "scene_frames.png"
     strip.save(frames_path, optimize=True)
