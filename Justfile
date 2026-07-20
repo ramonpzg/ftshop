@@ -29,13 +29,13 @@ download-models:
     echo "Verifying Gemma with an offline load"
     llama cli \
         -hf "{{ gemma_model }}:Q4_0" \
-        --offline --no-mmproj --single-turn \
-        --no-display-prompt --no-show-timings \
-        --prompt "Reply with OK." --predict 1 >/dev/null
+        --no-mmproj --single-turn \
+        --no-display-prompt --no-show-timings --reasoning off \
+        --prompt "Tell a quick one-line joke." --predict 64
 
     audio_models=(
         "facebook/musicgen-small"
-        "stabilityai/stable-audio-open-1.0"
+        # "stabilityai/stable-audio-open-1.0"
     )
     for model in "${audio_models[@]}"; do
         echo "Downloading ${model}"
