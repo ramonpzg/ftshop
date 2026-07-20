@@ -1,7 +1,9 @@
 # Phase 4 prompt: deck identity and copy
 
-Use this prompt only after phase 34 has established the truthful teaching
-machinery. `deck/PLAN_V2.md` is the narrative source of truth for the refresh.
+This phase may begin while phase 34 is still in progress, using the two-stage
+workflow below. `deck/PLAN_V2.md` is the narrative source of truth for the
+refresh. Phase 35 must not merge until the accepted phase 34 result has been
+integrated and the final checks pass.
 
 ## Prompt
 
@@ -21,14 +23,42 @@ default dark Seriph deck with repeated slate cards. Its automatic component
 timers can get ahead of the speaker. Product and deck copy also contain puns,
 swagger, and familiar AI-talk phrases that do not match the requested voice.
 
+### Parallel workflow
+
+When phase 34 is already accepted, start from that result and complete the
+whole prompt normally.
+
+When phase 34 is still running in another workspace:
+
+1. Start `phase-35-deck-identity-copy` from the current accepted `main`.
+2. Complete the deck foundation using only `deck/`, deck-owned tests and
+   assets, `docs/deck-plan.md`, and the phase 35 handover/learning guide. Do not
+   inspect, copy from, or depend on the unreviewed phase 34 worktree.
+3. Do not edit `api/`, `web/`, `docs/session-plan.md`, or
+   `docs/demo-plan.md` during the parallel stage. Do not invent interfaces for
+   phase 34 data. Use the current accepted contracts or a fixed placeholder.
+4. Commit and push the foundation, but label the report `phase 34 integration
+   pending`. This is a reviewable checkpoint, not a completed phase and not a
+   branch that may merge.
+5. After phase 34 is reviewed and merged into `main`, bring that accepted
+   `main` into the phase 35 branch. Read its handover, reconcile new deck data
+   and teaching components without reverting phase 34, then complete the
+   repository copy pass and all acceptance checks in this prompt.
+
+Keep the integration commit distinct from the visual-foundation commits. A
+conflict is not permission to choose the phase 35 version wholesale. Inspect
+the accepted phase 34 behavior and preserve it.
+
 ### Branch and boundaries
 
-- Start from the accepted phase 34 result and create
-  `phase-35-deck-identity-copy`.
+- Create `phase-35-deck-identity-copy` from the base allowed by the parallel
+  workflow above.
 - Read `AGENTS.md`, all of `CLAUDE.md` with particular attention to its final
   tone guide, `deck/PLAN_V2.md`, `docs/deck-plan.md`, the accepted session/demo
-  plan, and phase 34 handover. When an older narrative document conflicts with
-  `deck/PLAN_V2.md`, the V2 plan wins for deck order and delivery.
+  plan, and every available accepted handover. Read the phase 34 handover after
+  its integration if it is not available at branch creation. When an older
+  narrative document conflicts with `deck/PLAN_V2.md`, the V2 plan wins for
+  deck order and delivery.
 - Inspect `/home/rpg/d2/projects/polyglot` on branch `deck-polish-1` as a
   reference for component variety, Shiki Magic Move, morphing, easing, and
   presenter interaction. Do not modify that repository. Do not copy its
@@ -137,8 +167,10 @@ phrases such as "rooks before feelings", "GPU sulking", "Pawns dream", "not
 vibes", "pocket money", "all yours to keep", and similar attempts at wit.
 Do not replace them with different jokes.
 
-Audit all visible app copy, deck copy, speaker notes, session/demo documents,
-errors, loading states, and fallback messages. Apply these rules:
+During the parallel foundation, audit deck copy and speaker notes only. After
+the accepted phase 34 result is integrated, audit all visible app copy,
+session/demo documents, errors, loading states, and fallback messages too.
+Apply these rules:
 
 - direct, terse, practical;
 - no emojis or em dashes;
@@ -153,6 +185,9 @@ errors, loading states, and fallback messages. Apply these rules:
 Add a lightweight, maintainable copy check for banned punctuation and a short
 list of genuinely unwanted stock phrases. It should support a narrow explicit
 allowlist and should not pretend tone can be completely linted.
+
+Do not add that check to phase 34-owned files during the parallel foundation.
+Wire it into the accepted repository only during the integration stage.
 
 ### Tests and visual acceptance
 
@@ -178,6 +213,8 @@ calls for it.
 Run `just lint`, `just typecheck`, `just test`, the deck build, and relevant
 E2E checks. Record screenshot paths or a visual-regression artifact in the
 handover. Do not report visual completion from a successful build alone.
+When running in parallel, repeat these checks after integrating phase 34. The
+pre-integration result is not sufficient for final acceptance.
 
 ### Documentation and final report
 
@@ -192,10 +229,11 @@ Create:
 
 The handover must distinguish what was inspired by Polyglot, what was rejected,
 which placeholders remain for Ramon, what copy was deliberately retained, and
-what the screenshot review found. The learning guide should ask why a shared
-design system does not require every component to look identical and why an
-automatic three-second transition is a teaching decision, not merely an
-animation setting.
+what the screenshot review found. If phase 34 is still pending, it must also
+name every deferred integration and say plainly that phase 35 is incomplete.
+The learning guide should ask why a shared design system does not require every
+component to look identical and why an automatic three-second transition is a
+teaching decision, not merely an animation setting.
 
 Finish with a concise summary of the visual system, motion model, copy changes,
 checks run, and remaining Ramon-owned placeholders.
