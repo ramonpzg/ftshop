@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from euro_chess_studio.calculations.llm_prompts import extract_json_object, has_explanation
+from euro_chess_studio.calculations.llm_prompts import extract_json_object, has_explanation_field
 
 # Each row is a dict or sqlite3.Row -- anything indexable by column name.
 Row = Any
@@ -28,7 +28,9 @@ Row = Any
 LEGAL_MOVE_RATE_VERSION = "2"
 MODEL_LEGAL_MOVE_RATE_VERSION = "1"
 VALID_JSON_RATE_VERSION = "2"
-EXPLANATION_RATE_VERSION = "1"
+# v2: counts the contract's optional "why" field instead of prose
+# outside the JSON, which the contract forbids and v1 wrongly rewarded.
+EXPLANATION_RATE_VERSION = "2"
 
 
 @dataclass(frozen=True)
@@ -238,15 +240,18 @@ def compute_explanation_rate(
     model: str | None = None,
     checkpoint: str | None = None,
 ) -> MetricResult:
-    """Share of received replies that explain the move beyond the JSON.
+    """Share of received replies whose JSON carries the optional "why"
+    explanation the sft-v2 contract invites.
 
-    Higher is better for a model meant to teach: a tutor that only emits
-    {"move": ...} is precise but mute. This is the workshop's honest
-    trade-off metric -- an adapter trained on bare-completion pairs gets
-    better at legality and format while this number falls, because
-    nothing in the training data asked it to keep explaining.
+    Higher is better for a model meant to teach, and legitimately so:
+    the explanation lives inside the JSON the prompt asks for, so a
+    reply cannot score here by breaking the format. This is the
+    workshop's honest trade-off metric -- an adapter trained on
+    bare-completion pairs gets better at legality and format while this
+    number falls, because nothing in the training data filled the why
+    field.
     """
-    definition = "replies with any explanation text beyond the JSON move object / replies received"
+    definition = 'replies whose JSON includes a non-empty "why" field / replies received'
     scope: dict = {}
     if task is not None:
         scope["task"] = task
@@ -265,7 +270,7 @@ def compute_explanation_rate(
     ]
     if not sample:
         return _unavailable("explanation_rate", definition, EXPLANATION_RATE_VERSION, scope)
-    explained = sum(1 for attempt in sample if has_explanation(attempt["raw_response"]))
+    explained = sum(1 for attempt in sample if has_explanation_field(attempt["raw_response"]))
     return MetricResult(
         metric="explanation_rate",
         available=True,

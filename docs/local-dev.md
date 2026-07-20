@@ -112,6 +112,7 @@ startup, never overriding the shell, never committed):
 | `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
 | `MODEL_TURN_MAX_ATTEMPTS` | Model-turn retries before the deterministic fallback | 2 (clamped 1-5) |
 | `MODEL_TURN_DEADLINE_SECONDS` | Overall wall-clock budget for one model turn, regardless of attempt count | 30 (clamped 5-120) |
+| `BENCHMARK_RUN_DEADLINE_SECONDS` | Overall wall-clock budget for one live benchmark run; unreached examples are recorded as failures | 60 (clamped 10-300) |
 | `OPENAI_RECENT_KEY_401_RETRY` | Set to `1` right after creating or rotating a key: allows one or two retries of the exact generic-permissions 401 seen during key propagation | unset (401 fails immediately) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
@@ -310,6 +311,13 @@ how the tldraw canvas and backend state relate. In short:
   `smoke.spec.ts` covers the single-client basics, including the
   custom-shape double-click-to-edit interaction (see "Interacting with
   workspace shapes" below).
+- The e2e stacks pin `OPENAI_API_KEY`, `VIDEO_PROMPT_API_KEY`,
+  `FAL_KEY`, and `OPPONENT_MODELS` to empty strings, so whatever
+  credentials your shell or a repo-root `.env` carries cannot leak in
+  and change what the app under test offers (a live-benchmark button
+  appearing because your personal key was inherited, for example).
+  Tests that need credential-dependent behavior must set their own
+  values explicitly.
 - Playwright discovers its browser from its own cache by default. Set
   `CHESS_STUDIO_CHROMIUM` to point at a specific executable (the old
   hardcoded `/opt/pw-browsers/chromium` machine sets exactly that).
@@ -334,7 +342,11 @@ double-click would.
   in every normal client and unidentified sessions are read-only at
   the socket, but a hand-rolled WebSocket client could bypass the
   per-shape rules. That is an accepted boundary for a room of workshop
-  attendees, not a security model.
+  attendees, not a security model. The one server-enforced line: paid
+  generation (image, video, fal audio, live benchmarks) is refused
+  with a 403 for any client that is not on the presenter's machine,
+  so presenter rights on the canvas never include spending the
+  provider budget from an attendee laptop.
 - One room. The sync server hosts a single workshop document; there is
   no room routing and no need for it.
 - The sync server's in-memory clock resets on restart; clients
@@ -347,9 +359,11 @@ double-click would.
   and renders each fixture's `note` under the value, so a cached
   number can never pose as live.
 - Adapter training is a cached replay bound to the reference snapshot
-  by content hash; there is no live training path, and the UI and the
-  409 refusals both say so. The adapted checkpoint has no live serving
-  path either (serving it would need a merge and GGUF conversion), so
-  its benchmark runs are always replayed and labelled.
+  by content hash; there is no live training path, and the panel's
+  banner says it plainly: scripted illustration, no model was trained.
+  The 409 refusals enforce the same honesty. The adapted checkpoint
+  has no live serving path either (serving it would need a merge and
+  GGUF conversion), so its benchmark runs are always replayed and
+  labelled "replayed (scripted)".
 - `CloudRunner` is a stub (`NotImplementedError`), no cloud job
   execution exists yet.

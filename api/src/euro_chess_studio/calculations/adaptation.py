@@ -16,8 +16,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from euro_chess_studio.calculations.evals import compute_position_set_id
-from euro_chess_studio.calculations.export import is_training_eligible
+from euro_chess_studio.calculations.export import (
+    PROMPT_TEMPLATE,
+    SFT_PROMPT_VERSION,
+    is_training_eligible,
+)
 from euro_chess_studio.calculations.llm_prompts import analyze_move_reply
+from euro_chess_studio.chess.board import get_legal_moves
 
 Row = Any
 
@@ -145,7 +150,7 @@ TRAINING_CONFIGS: tuple[TrainingConfig, ...] = (
         epochs=3,
         batch_size=8,
         seed=7,
-        output_task="FEN plus legal moves to one UCI move as JSON (sft-v1 contract)",
+        output_task="FEN plus legal moves to one UCI move as JSON (sft-v2 contract)",
         target_checkpoint="gemma-chess-sft-v1",
         serving_alias="gemma-4-2b-local",
         inference_repo="google/gemma-4-E2B-it-qat-q4_0-gguf",
@@ -226,12 +231,20 @@ class SuiteValidation:
 def validate_suite_examples(
     examples: list[dict], *, prompt_version: str, schema_version: str
 ) -> SuiteValidation:
-    """Structural validation for a frozen suite: durable unique example
-    ids, a FEN, a non-empty legal move list, and the exact rendered
-    prompt for every example. Duplicated FENs are legitimate multiplicity
-    and are preserved in the position-set hash."""
+    """Validation for a frozen suite, semantic as well as structural:
+    durable unique example ids, a FEN python-chess actually accepts, a
+    legal move list that exactly matches the position (the frozen list
+    is the legality judge, so a wrong list would corrupt every score),
+    and a rendered prompt that reproduces the declared contract.
+    Duplicated FENs are legitimate multiplicity and are preserved in the
+    position-set hash."""
     if not examples:
         raise AdaptationError("an evaluation suite needs at least one example")
+    if prompt_version != SFT_PROMPT_VERSION:
+        raise AdaptationError(
+            f"unknown prompt contract {prompt_version!r}: this build renders "
+            f"and verifies {SFT_PROMPT_VERSION!r} only"
+        )
     seen_ids: set[str] = set()
     for example in examples:
         example_id = example.get("example_id")
@@ -240,13 +253,31 @@ def validate_suite_examples(
         if example_id in seen_ids:
             raise AdaptationError(f"duplicate suite example_id: {example_id}")
         seen_ids.add(example_id)
-        if not isinstance(example.get("fen"), str) or not example["fen"]:
+        fen = example.get("fen")
+        if not isinstance(fen, str) or not fen:
             raise AdaptationError(f"suite example {example_id} has no fen")
+        try:
+            derived_legal = sorted(get_legal_moves(fen))
+        except ValueError as exc:
+            raise AdaptationError(f"suite example {example_id} has an invalid fen: {exc}") from exc
         legal_moves = example.get("legal_moves")
         if not isinstance(legal_moves, list) or not legal_moves:
             raise AdaptationError(f"suite example {example_id} has no legal move list")
-        if not isinstance(example.get("prompt"), str) or not example["prompt"]:
+        if sorted(legal_moves) != derived_legal:
+            raise AdaptationError(
+                f"suite example {example_id}'s legal move list does not match "
+                "its position; the frozen list is the legality judge and must "
+                "be derived, not asserted"
+            )
+        prompt = example.get("prompt")
+        if not isinstance(prompt, str) or not prompt:
             raise AdaptationError(f"suite example {example_id} has no rendered prompt")
+        expected_prompt = PROMPT_TEMPLATE.format(fen=fen, legal_moves=", ".join(legal_moves))
+        if prompt != expected_prompt:
+            raise AdaptationError(
+                f"suite example {example_id}'s prompt does not render the "
+                f"declared {prompt_version} contract for its position"
+            )
     position_set_id = compute_position_set_id([example["fen"] for example in examples])
     assert position_set_id is not None  # examples is non-empty
     return SuiteValidation(

@@ -2,6 +2,23 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdaptationPanel } from "../../src/components/adaptation/AdaptationPanel";
 import type { AdaptationState } from "../../src/data/api";
+import { PresenterContext } from "../../src/lib/presenterContext";
+
+function renderPanel(opts: { isPresenter?: boolean } = {}) {
+  return render(
+    <PresenterContext.Provider
+      value={{
+        locked: false,
+        resetToken: 0,
+        isPresenter: opts.isPresenter ?? true,
+        presenterMode: "idle",
+        reportNotice: () => {},
+      }}
+    >
+      <AdaptationPanel isEditing={true} />
+    </PresenterContext.Provider>,
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -214,7 +231,7 @@ function installFetch(state: () => AdaptationState) {
 describe("AdaptationPanel", () => {
   test("renders the chain state: snapshot identity, config, suite", async () => {
     installFetch(baseState);
-    render(<AdaptationPanel isEditing={true} />);
+    renderPanel();
     await waitFor(() => expect(screen.getByTestId("snapshot-card")).toBeTruthy());
     expect(screen.getByTestId("snapshot-hash").textContent).toBe("bd4a79d8");
     expect(screen.getByText(/24 eligible, 0 excluded/)).toBeTruthy();
@@ -231,7 +248,7 @@ describe("AdaptationPanel", () => {
 
   test("shows signed deltas with verdict words and explicit refusals", async () => {
     installFetch(() => withComparison(baseState()));
-    render(<AdaptationPanel isEditing={true} />);
+    renderPanel();
     await waitFor(() => expect(screen.getByTestId("comparison")).toBeTruthy());
     expect(screen.getByTestId("delta-model_legal_move_rate").textContent).toBe("+0.42 improved");
     expect(screen.getByTestId("delta-explanation_rate").textContent).toBe("-0.75 regressed");
@@ -250,7 +267,7 @@ describe("AdaptationPanel", () => {
 
   test("a freeze refusal from the backend is shown as-is", async () => {
     installFetch(baseState);
-    render(<AdaptationPanel isEditing={true} />);
+    renderPanel();
     await waitFor(() => expect(screen.getByTestId("freeze-snapshot")).toBeTruthy());
     fireEvent.click(screen.getByTestId("freeze-snapshot"));
     await waitFor(() => expect(screen.getByTestId("adaptation-notice")).toBeTruthy());
@@ -261,7 +278,7 @@ describe("AdaptationPanel", () => {
 
   test("train and benchmark buttons run the registry jobs with honest params", async () => {
     const calls = installFetch(baseState);
-    render(<AdaptationPanel isEditing={true} />);
+    renderPanel();
     await waitFor(() => expect(screen.getByTestId("train-adapter")).toBeTruthy());
 
     fireEvent.click(screen.getByTestId("train-adapter"));
@@ -293,9 +310,45 @@ describe("AdaptationPanel", () => {
     shrunk.position_set_id = "different";
     state.runs = [shrunk];
     installFetch(() => state);
-    render(<AdaptationPanel isEditing={true} />);
+    renderPanel();
     await waitFor(() => expect(screen.getByTestId("benchmark-runs")).toBeTruthy());
     expect(screen.getByText(/11\/12 replies, 1 failed/)).toBeTruthy();
     expect(screen.getByText("position set differs from suite")).toBeTruthy();
+  });
+});
+
+describe("AdaptationPanel access and honesty", () => {
+  test("the scripted banner is prominent for everyone", async () => {
+    installFetch(baseState);
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId("adaptation-scripted-banner")).toBeTruthy());
+    expect(screen.getByTestId("adaptation-scripted-banner").textContent).toContain(
+      "no model was trained",
+    );
+  });
+
+  test("attendees see the evidence but no controls", async () => {
+    installFetch(() => withComparison(baseState()));
+    renderPanel({ isPresenter: false });
+    await waitFor(() => expect(screen.getByTestId("snapshot-card")).toBeTruthy());
+    // Evidence renders for the whole room.
+    expect(screen.getByTestId("suite-card")).toBeTruthy();
+    expect(screen.getByTestId("comparison")).toBeTruthy();
+    expect(screen.getByTestId("adaptation-presenter-note")).toBeTruthy();
+    // No control can spend anything from an attendee client.
+    expect(screen.queryByTestId("freeze-snapshot")).toBeNull();
+    expect(screen.queryByTestId("train-adapter")).toBeNull();
+    expect(screen.queryByTestId("bench-base")).toBeNull();
+    expect(screen.queryByTestId("bench-adapted")).toBeNull();
+    expect(screen.queryByTestId("bench-base-live")).toBeNull();
+  });
+
+  test("replayed runs are labelled scripted in the run list", async () => {
+    const state = baseState();
+    state.runs = [runRow("base")];
+    installFetch(() => state);
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId("benchmark-runs")).toBeTruthy());
+    expect(screen.getByText("replayed (scripted)")).toBeTruthy();
   });
 });

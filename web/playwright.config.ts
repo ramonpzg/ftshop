@@ -34,6 +34,14 @@ export default defineConfig({
         CHESS_STUDIO_DB_PATH: e2eDbPath,
         CHESS_STUDIO_CANVAS_DIR: e2eCanvasDir,
         CHESS_STUDIO_ASSETS_DIR: e2eAssetsDir,
+        // The specs assert keyless behavior (no live-benchmark button,
+        // model features disabled). Explicit empty strings beat both an
+        // inherited shell credential and a repo-root .env, which the
+        // backend only reads for variables the shell left unset.
+        OPENAI_API_KEY: "",
+        VIDEO_PROMPT_API_KEY: "",
+        FAL_KEY: "",
+        OPPONENT_MODELS: "",
       },
     },
     {

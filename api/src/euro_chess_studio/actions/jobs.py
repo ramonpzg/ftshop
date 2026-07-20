@@ -3,6 +3,7 @@
 import sqlite3
 from dataclasses import dataclass
 
+from euro_chess_studio.calculations.ids import generate_id
 from euro_chess_studio.data.artifacts_repo import insert_artifact
 from euro_chess_studio.data.job_configs_repo import insert_job_config
 from euro_chess_studio.jobs.base import JobConfig
@@ -24,18 +25,33 @@ def run_job(
     runner = get_runner_for_job_type(job_type)  # raises UnknownJobTypeError if invalid
 
     # Run first, persist after: a failed generation (missing API key,
-    # provider error) must not leave an orphaned config row behind. The
-    # config, the artifact, and any eval_results the handler wrote (that
-    # repo no longer commits either) rise or fall together: a failure
-    # anywhere in this block must not leave a committed config with no
-    # matching artifact, or eval numbers computed by a run whose
-    # artifact never landed.
+    # provider error) must not leave an orphaned config row behind, and
+    # a handler that talks to the network before its first write (the
+    # live benchmark gathers every reply up front) must not do so with
+    # SQLite's write lock already held by a config insert. The config id
+    # is generated up front so handlers can link durable records to the
+    # configuration that produced them; the row itself lands after the
+    # runner, inside the same transaction, so the link and the config
+    # commit together or not at all. Config, artifact, and everything
+    # the handler wrote (no repo on this path commits) rise or fall
+    # together.
+    job_config_id = generate_id("job")
     try:
         output = runner.run(
-            conn, JobConfig(job_type=job_type, params=params, workspace_id=workspace_id)
+            conn,
+            JobConfig(
+                job_type=job_type,
+                params=params,
+                workspace_id=workspace_id,
+                job_config_id=job_config_id,
+            ),
         )
         job_config_row = insert_job_config(
-            conn, workspace_id=workspace_id, job_type=job_type, params=params
+            conn,
+            workspace_id=workspace_id,
+            job_type=job_type,
+            params=params,
+            job_config_id=job_config_id,
         )
         artifact_row = insert_artifact(
             conn,

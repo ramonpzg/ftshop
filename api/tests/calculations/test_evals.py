@@ -312,18 +312,25 @@ def test_model_legal_move_rate_task_scopes_benchmark_attempts_separately():
     assert bench_result.scope["task"] == "benchmark_move"
 
 
-def test_explanation_rate_counts_prose_beyond_the_json_move():
+def test_explanation_rate_counts_the_contracted_why_field_only():
     attempts = [
-        attempt(raw='The knight move develops with tempo and eyes the center. {"move": "g1f3"}'),
+        # The invited explanation, inside the JSON: counts.
+        attempt(raw='{"move": "g1f3", "why": "Develops with tempo and eyes the center."}'),
+        # Bare move: allowed by the contract, but no explanation.
         attempt(raw='{"move": "e2e4"}'),
-        attempt(raw='```json\n{"move": "d2d4"}\n```'),
+        # Prose outside the JSON breaks the contract and must not count
+        # as explanation, whatever it says.
+        attempt(raw='The rook lift is thematic here and prepares an attack. {"move": "d2d4"}'),
+        # No JSON at all: nothing to count.
         attempt(raw="I would castle here to keep the king safe from the coming storm."),
+        # An empty why is not an explanation.
+        attempt(raw='{"move": "b1c3", "why": "  "}'),
     ]
     result = compute_explanation_rate(attempts)
     assert result.available is True
-    assert result.numerator == 2
-    assert result.denominator == 4
-    assert result.value == 0.5
+    assert result.numerator == 1
+    assert result.denominator == 5
+    assert result.value == 0.2
     assert result.direction == "higher_is_better"
 
 
@@ -331,7 +338,7 @@ def test_explanation_rate_excludes_transport_failures_and_scopes_by_checkpoint()
     attempts = [
         attempt(raw=None, checkpoint="base"),
         attempt(
-            raw='Solid choice because it controls d5 outright. {"move": "c2c4"}',
+            raw='{"move": "c2c4", "why": "Controls d5 outright."}',
             checkpoint="base",
         ),
         attempt(raw='{"move": "c2c4"}', checkpoint="adapted-v1"),

@@ -1,21 +1,21 @@
 {
-  "suite_content_hash": "08c32382dcc38ec6",
+  "suite_content_hash": "a274c01d640a346e",
   "checkpoints": {
     "base": {
       "model": "gemma-4-2b-local",
       "provider_alias": "fixture",
       "replies": {
-        "ex-01-ruy-lopez-m5": "Looking at this Ruy Lopez position, the standard plan is to gain space on the queenside and question the bishop. {\"move\": \"b7b5\"}",
-        "ex-02-sicilian-najdorf-m6": "The main line here is the English Attack setup. {\"move\": \"Be3\"} develops with ideas of f3 and Qd2.",
-        "ex-03-french-advance-m4": "Black should strike at the center immediately before White consolidates the pawn chain. {\"move\": \"e6e5\"}",
-        "ex-04-caro-kann-m5": "Develop the kingside knight first; the bishop on f5 is already well placed.\n```json\n{\"move\": \"g8f6\"}\n```",
+        "ex-01-ruy-lopez-m5": "Happy to help with this Ruy Lopez position. {\"move\": \"b7b5\", \"why\": \"Gains queenside space and puts the question to the bishop.\"}",
+        "ex-02-sicilian-najdorf-m6": "{\"move\": \"Be3\", \"why\": \"Standard English Attack development with f3 and Qd2 to follow.\"}",
+        "ex-03-french-advance-m4": "{\"move\": \"e6e5\", \"why\": \"Strikes at the center before White consolidates the chain.\"}",
+        "ex-04-caro-kann-m5": "Here is my choice.\n```json\n{\"move\": \"g8f6\", \"why\": \"Develop the kingside knight before committing the queenside.\"}\n```",
         "ex-05-qgd-m5": "I would castle kingside here. It is the safest continuation and connects the rooks before Black commits the queenside pawns.",
         "ex-06-kid-m6": "{\"move\": \"f1e2\"}",
-        "ex-07-london-m4": "Castling short keeps the king safe before the center opens. {\"move\": \"e8g8\"}",
-        "ex-08-english-m4": "Recapturing the pawn is consistent; the knight lands on a strong central square. {\"move\": \"f6d5\"}",
-        "ex-09-scholars-defense-m3": "The queen raid must be blunted right away, and g6 hits the queen while covering the mate threat on f7. {\"move\": \"g7g6\"}",
+        "ex-07-london-m4": "{\"move\": \"e8g8\", \"why\": \"Castling short keeps the king safe before the center opens.\"}",
+        "ex-08-english-m4": "{\"move\": \"f6d5\", \"why\": \"Recaptures the pawn and centralizes the knight.\"}",
+        "ex-09-scholars-defense-m3": "{\"move\": \"g7g6\", \"why\": \"Blunts the queen raid while covering the mate threat on f7.\"}",
         "ex-10-opera-house-m7": "{\"move\": \"c4f7\"",
-        "ex-11-vienna-m4": "Taking on e5 opens the f-file for the rook, which is the whole point of the Vienna setup. {\"move\": \"f4e5\"}",
+        "ex-11-vienna-m4": "{\"move\": \"f4e5\", \"why\": \"Taking on e5 opens the f-file, the point of the Vienna.\"}",
         "ex-12-ruy-lopez-m5-again": "{\"move\": \"d7d6\"}"
       }
     },
@@ -38,5 +38,5 @@
       }
     }
   },
-  "note": "Authored, reviewed replies representing typical base-checkpoint and adapted-checkpoint behavior on the held-out suite. Replayed runs mark every attempt reply_source='replayed', carry no provider request ids, and never pose as live model attempts. The base replies deliberately mix clean JSON, prose, SAN inside JSON, an illegal move, and one truncated reply; the adapted replies are uniform bare JSON, including answering the repeated position identically where the base run sampled two different answers."
+  "note": "Scripted illustration: no model produced these replies. They were authored for the workshop to represent typical base and adapted behavior on the held-out suite. Replayed runs mark every attempt reply_source='replayed', carry no provider request ids, and never pose as live model attempts. The base replies deliberately mix clean JSON with the optional why field, prose, SAN inside JSON, an illegal move, and one truncated reply; the adapted replies are uniform bare JSON with no why field, including answering the repeated position identically where the scripted base run answers it twice differently."
 }

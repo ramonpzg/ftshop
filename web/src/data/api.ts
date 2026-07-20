@@ -503,10 +503,12 @@ export function runJob(
   jobType: string,
   params: Record<string, unknown> = {},
   workspaceId?: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<RunJobResponse> {
   return request<RunJobResponse>("/jobs", {
     method: "POST",
     body: JSON.stringify({ job_type: jobType, params, workspace_id: workspaceId ?? null }),
+    signal: opts.signal,
   });
 }
 

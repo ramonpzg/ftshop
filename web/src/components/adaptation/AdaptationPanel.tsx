@@ -1,5 +1,5 @@
 import { ArrowsLeftRight, Cube, Database, Flask, Play } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { shortHash } from "../../calculations/adaptationView";
 import { formatDelta, formatMetricValue, metricLabel } from "../../calculations/formatting";
 import {
@@ -9,22 +9,32 @@ import {
   freezeDatasetSnapshot,
   runJob,
 } from "../../data/api";
+import { usePresenterState } from "../../lib/presenterContext";
 import "./AdaptationPanel.css";
 
 interface AdaptationPanelProps {
   isEditing: boolean;
 }
 
+// The browser stops waiting for a live run after this long; the server
+// bounds the run itself (BENCHMARK_RUN_DEADLINE_SECONDS, max 300s).
+const LIVE_RUN_WAIT_MS = 120_000;
+
 /** The presenter's vertical slice of the adaptation loop: freeze a
- * dataset, pick the config, replay the training, benchmark base and
- * adapted checkpoints on one frozen suite, read the comparison. Every
- * step renders the backend's evidence; nothing here invents state. */
+ * dataset, pick the config, replay the scripted training, benchmark
+ * base and adapted checkpoints on one frozen suite, read the
+ * comparison. Every step renders the backend's evidence; nothing here
+ * invents state. Attendees see all of the evidence; only the presenter
+ * client gets the controls, and the backend additionally restricts
+ * paid live runs to the presenter's machine. */
 export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
+  const { isPresenter } = usePresenterState();
   const [state, setState] = useState<AdaptationState | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const liveControllerRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(() => {
     fetchAdaptationState()
@@ -45,12 +55,36 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
     try {
       await run();
     } catch (error) {
-      // The backend's refusals are teaching material; show them as-is.
-      setNotice(apiErrorDetail(error) ?? "The request failed.");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setNotice(
+          "Stopped waiting for the live run. It may still finish on the " +
+            "server; the run list shows it when it does.",
+        );
+      } else {
+        // The backend's refusals are teaching material; show them as-is.
+        setNotice(apiErrorDetail(error) ?? "The request failed.");
+      }
     } finally {
       setBusy(null);
       refresh();
     }
+  }
+
+  function runLiveBenchmark(suiteId: string) {
+    return act("bench-live", () => {
+      const controller = new AbortController();
+      liveControllerRef.current = controller;
+      const timeout = setTimeout(() => controller.abort(), LIVE_RUN_WAIT_MS);
+      return runJob(
+        "text.benchmark_eval",
+        { suite_id: suiteId, checkpoint: "base", source: "live" },
+        undefined,
+        { signal: controller.signal },
+      ).finally(() => {
+        clearTimeout(timeout);
+        liveControllerRef.current = null;
+      });
+    });
   }
 
   if (loadFailed) {
@@ -77,6 +111,17 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
         <span>Adaptation. Pairs in, adapter out, eval always.</span>
         {!isEditing && <span className="adaptation-panel-hint">Double-click to open</span>}
       </header>
+      <p className="adaptation-scripted-banner" data-testid="adaptation-scripted-banner">
+        Scripted illustration: no model was trained. Training and replayed
+        benchmarks replay authored fixtures. Only a live base run calls a
+        real model.
+      </p>
+      {!isPresenter && (
+        <p className="adaptation-presenter-note" data-testid="adaptation-presenter-note">
+          The presenter runs these steps. Everything below is the room's
+          shared evidence.
+        </p>
+      )}
       {notice && (
         <p className="adaptation-notice" data-testid="adaptation-notice">
           {notice}
@@ -87,27 +132,29 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
           <h3>
             <Database size={13} weight="bold" /> 1. Dataset
           </h3>
-          <div className="adaptation-controls">
-            <select
-              value={snapshot?.id ?? ""}
-              onChange={(event) => setSelectedSnapshotId(event.target.value)}
-              data-testid="snapshot-select"
-            >
-              {state.snapshots.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label} ({s.row_count} rows, {s.origin})
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => act("freeze", () => freezeDatasetSnapshot())}
-              disabled={busy !== null}
-              data-testid="freeze-snapshot"
-            >
-              Freeze room dataset
-            </button>
-          </div>
+          {isPresenter && (
+            <div className="adaptation-controls">
+              <select
+                value={snapshot?.id ?? ""}
+                onChange={(event) => setSelectedSnapshotId(event.target.value)}
+                data-testid="snapshot-select"
+              >
+                {state.snapshots.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label} ({s.row_count} rows, {s.origin})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => act("freeze", () => freezeDatasetSnapshot())}
+                disabled={busy !== null}
+                data-testid="freeze-snapshot"
+              >
+                Freeze room dataset
+              </button>
+            </div>
+          )}
           {snapshot && (
             <dl className="adaptation-card" data-testid="snapshot-card">
               <div>
@@ -197,27 +244,29 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
           <h3>
             <Play size={13} weight="bold" /> 3. Train
           </h3>
-          <div className="adaptation-controls">
-            <button
-              type="button"
-              onClick={() =>
-                act("train", () =>
-                  runJob("text.train_adapter", {
-                    dataset_snapshot_id: snapshot?.id,
-                    config_id: config?.config_id,
-                  }),
-                )
-              }
-              disabled={busy !== null || !snapshot || !config}
-              data-testid="train-adapter"
-            >
-              {busy === "train" ? "Training..." : "Train adapter"}
-            </button>
-            <span className="adaptation-source-note">
-              Cached replay bound to the reference snapshot. Live training is not part of the
-              workshop build.
-            </span>
-          </div>
+          {isPresenter && (
+            <div className="adaptation-controls">
+              <button
+                type="button"
+                onClick={() =>
+                  act("train", () =>
+                    runJob("text.train_adapter", {
+                      dataset_snapshot_id: snapshot?.id,
+                      config_id: config?.config_id,
+                    }),
+                  )
+                }
+                disabled={busy !== null || !snapshot || !config}
+                data-testid="train-adapter"
+              >
+                {busy === "train" ? "Training..." : "Train adapter"}
+              </button>
+              <span className="adaptation-source-note">
+                Scripted replay bound to the reference snapshot. No model is
+                trained; live training is not part of the workshop build.
+              </span>
+            </div>
+          )}
           {adapter && (
             <dl className="adaptation-card" data-testid="adapter-card">
               <div>
@@ -227,6 +276,7 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
                   <span className="adaptation-badge" data-testid="adapter-source">
                     {adapter.result_source}
                   </span>
+                  <span className="adaptation-scripted-tag"> scripted; no model was trained</span>
                 </dd>
               </div>
               <div>
@@ -296,64 +346,69 @@ export function AdaptationPanel({ isEditing }: AdaptationPanelProps) {
                   </ul>
                 </details>
               </dl>
-              <div className="adaptation-controls">
-                <button
-                  type="button"
-                  onClick={() =>
-                    act("bench-base", () =>
-                      runJob("text.benchmark_eval", {
-                        suite_id: suite.id,
-                        checkpoint: "base",
-                        source: "replayed",
-                      }),
-                    )
-                  }
-                  disabled={busy !== null}
-                  data-testid="bench-base"
-                >
-                  Run base (replayed)
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    act("bench-adapted", () =>
-                      runJob("text.benchmark_eval", {
-                        suite_id: suite.id,
-                        checkpoint: config?.target_checkpoint ?? "gemma-chess-sft-v1",
-                        source: "replayed",
-                      }),
-                    )
-                  }
-                  disabled={busy !== null}
-                  data-testid="bench-adapted"
-                >
-                  Run adapted (replayed)
-                </button>
-                {state.live_benchmark.available && (
+              {isPresenter && (
+                <div className="adaptation-controls">
                   <button
                     type="button"
                     onClick={() =>
-                      act("bench-live", () =>
+                      act("bench-base", () =>
                         runJob("text.benchmark_eval", {
                           suite_id: suite.id,
                           checkpoint: "base",
-                          source: "live",
+                          source: "replayed",
                         }),
                       )
                     }
                     disabled={busy !== null}
-                    data-testid="bench-base-live"
+                    data-testid="bench-base"
                   >
-                    Run base live ({state.live_benchmark.model})
+                    Run base (replayed)
                   </button>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      act("bench-adapted", () =>
+                        runJob("text.benchmark_eval", {
+                          suite_id: suite.id,
+                          checkpoint: config?.target_checkpoint ?? "gemma-chess-sft-v1",
+                          source: "replayed",
+                        }),
+                      )
+                    }
+                    disabled={busy !== null}
+                    data-testid="bench-adapted"
+                  >
+                    Run adapted (replayed)
+                  </button>
+                  {state.live_benchmark.available && busy !== "bench-live" && (
+                    <button
+                      type="button"
+                      onClick={() => runLiveBenchmark(suite.id)}
+                      disabled={busy !== null}
+                      data-testid="bench-base-live"
+                    >
+                      Run base live ({state.live_benchmark.model})
+                    </button>
+                  )}
+                  {busy === "bench-live" && (
+                    <button
+                      type="button"
+                      onClick={() => liveControllerRef.current?.abort()}
+                      data-testid="bench-live-cancel"
+                    >
+                      Stop waiting
+                    </button>
+                  )}
+                </div>
+              )}
               {suiteRuns.length > 0 && (
                 <ul className="adaptation-runs" data-testid="benchmark-runs">
                   {suiteRuns.map((run) => (
                     <li key={run.id}>
                       <span className="adaptation-run-checkpoint">{run.checkpoint}</span>
-                      <span className="adaptation-badge">{run.source}</span>
+                      <span className="adaptation-badge">
+                        {run.source === "replayed" ? "replayed (scripted)" : run.source}
+                      </span>
                       <span>{run.model}</span>
                       <span>
                         {run.reply_count}/{run.example_count} replies
@@ -401,8 +456,8 @@ function ComparisonView({
   return (
     <div data-testid="comparison">
       <p className="adaptation-comparison-runs">
-        {comparison.base_run.checkpoint} ({comparison.base_run.source}) vs{" "}
-        {comparison.adapted_run.checkpoint} ({comparison.adapted_run.source}) on{" "}
+        {comparison.base_run.checkpoint} ({sourceLabel(comparison.base_run.source)}) vs{" "}
+        {comparison.adapted_run.checkpoint} ({sourceLabel(comparison.adapted_run.source)}) on{" "}
         {comparison.suite_label}
       </p>
       {!comparison.comparable && (
@@ -478,6 +533,10 @@ function ComparisonView({
       </details>
     </div>
   );
+}
+
+function sourceLabel(source: string): string {
+  return source === "replayed" ? "replayed, scripted" : source;
 }
 
 function replySummary(reply: { parsed_move: string | null; is_legal: boolean | null } | null) {

@@ -25,6 +25,9 @@ export default defineConfig({
       "/api": {
         target: apiTarget,
         changeOrigin: true,
+        // The backend distinguishes the presenter's machine from LAN
+        // attendees for paid generation; xfwd forwards the real client.
+        xfwd: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/sync": {

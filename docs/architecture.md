@@ -195,7 +195,13 @@ transaction too; every repository on this path (`job_configs_repo`,
 so a failure between them (a provider error while building the
 artifact, say) rolls back a job_config that would otherwise have no
 matching artifact, and eval numbers computed by a run whose artifact
-never landed.
+never landed. Order matters inside that transaction: the handler runs
+*first* and the config row is inserted after it returns, with an id
+generated up front so handlers can reference it. A handler that talks
+to the network (the live benchmark) therefore gathers every reply
+before any write begins, and SQLite's single write lock is never held
+across a network wait -- attendees keep making moves while the
+presenter's benchmark waits on a provider.
 
 ### Turn ownership
 
@@ -360,6 +366,17 @@ Three runner implementations behind one interface (`jobs/base.py`):
 Callers, the `run_job` action and the frontend, only ever say "run
 job type X"; they never know or care which runner answered.
 
+The jobs route adds one policy on top: paid generation (image, video,
+fal-backed audio, live benchmarks; the classification is the pure
+`requests_paid_generation` calculation) is refused with a 403 unless
+the request comes from the presenter's own machine. The backend binds
+localhost and the dev proxies forward the client address, so loopback
+is a trustworthy stand-in for "the presenter's browser" in this
+deployment, and the full-room guardrail (one presenter spends the
+budget, forty attendees cannot) is enforcement, not UI courtesy. Free
+jobs (replayed fixtures, local evals, local audio synthesis) stay open
+to the room.
+
 ## Why some eval numbers are cached and some are computed
 
 `GET /evals` returns rows with a `source` of either `computed` or
@@ -478,10 +495,17 @@ comparison, all owned by the backend:
   preserved.
 - `eval_suites`: a frozen held-out benchmark. Durable example ids, the
   exact FEN, legal move list, and rendered prompt per example, a
-  schema version, the prompt-contract version (`sft-v1`, the same
-  template training pairs use), a content hash covering all of it, and
+  schema version, the prompt-contract version (`sft-v2`, the same
+  template training pairs use, whose optional `why` field invites an
+  in-JSON explanation), a content hash covering all of it, and
   the suite's own `position_set_id`. The seeded suite repeats one
-  position on purpose: multiplicity is data.
+  position on purpose: multiplicity is data. Validation is semantic,
+  not just structural: every FEN must be a legal python-chess
+  position, the stored legal-move list must equal the list derived
+  from that FEN, and the stored prompt must render exactly from the
+  contract's template, so a suite cannot smuggle in an impossible
+  position, a wrong move list, or an off-contract prompt and still
+  freeze.
 - `adapters`: durable adapter provenance. Checkpoint label, base model
   (always the unquantized training start, never the GGUF inference
   repo; the serving alias is a third thing and the config keeps all
@@ -491,8 +515,11 @@ comparison, all owned by the backend:
 - `benchmark_runs`: one row per benchmark execution, keyed by the same
   id that lands as `run_id` on its eval rows and `benchmark_run_id` on
   its attempts. Records the suite identity it ran against, checkpoint,
-  resolved model, live/replayed source, reply and failure counts, and
-  the position set actually measured.
+  resolved model, live/replayed source, reply and failure counts, the
+  position set actually measured, and the `job_config_id` of the job
+  that produced it (a plain TEXT reference, not a foreign key: the
+  config row is written after the handler inside the same `run_job`
+  transaction, so an FK would point forward in insertion order).
 
 Two job types run the chain through the ordinary registry.
 `text.train_adapter` replays the reviewed cached training fixture and
@@ -506,7 +533,16 @@ Replayed runs load reviewed replies and mark every attempt
 `reply_source='replayed'` with no provider request ids; live runs
 (base checkpoint only; the adapter has no live serving path and the
 error says so) call the opponent profile per example and record real
-request ids and transport provenance. Every attempt is a
+request ids and transport provenance. The whole chain labels itself:
+the fixtures' notes, the artifact payloads, and the panel all say
+scripted illustration, no model was trained, so the replayed evidence
+teaches the shape of the loop without posing as a run that happened.
+A live run is bounded three ways: a per-call timeout, a whole-run
+deadline (60s default, `BENCHMARK_RUN_DEADLINE_SECONDS`, clamped
+10-300), and an abort after three consecutive transport failures;
+examples the run never reached are recorded as failures with the
+reason, so a hung provider costs the presenter a bounded wait, not
+the segment. Every attempt is a
 `model_attempts` row with `task='benchmark_move'`, a non-null
 checkpoint, the resolved model, and a null `workspace_id` (benchmark
 evidence belongs to the room, which is why that column went nullable
@@ -516,10 +552,16 @@ denominator, which honestly shrinks that run's position set.
 Metrics reuse the phase-33 calculations over those attempts --
 `compute_model_legal_move_rate` with a task parameter,
 `compute_valid_json_rate`, and the phase-34 `compute_explanation_rate`
-(the trade-off metric: bare-completion training improves legality and
-format while the model stops explaining) -- persisted through the same
-`persist_metric` identity rules, so base and adapted rows coexist per
-checkpoint and window.
+(the trade-off metric: the contract's optional `why` field is one the
+base model often fills and a bare-completion adapter never does) --
+but their persistence differs from organic evals: benchmark metric
+rows are insert-only per run (`record_benchmark_metric`), keyed by
+their `run_id`, and are never replaced. Rerunning a benchmark adds a
+new run with new rows; the prior run's evidence is immutable history.
+Organic gameplay evals keep the `persist_metric` replace-per-identity
+rules described above, because there the newest measurement over a
+scope supersedes the older one instead of standing beside it as a
+separate run.
 
 The comparison (`calculations/comparison.py`, assembled by
 `GET /adaptation/state`) produces a signed delta with an

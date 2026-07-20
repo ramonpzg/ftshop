@@ -87,3 +87,18 @@ def file_extension_for(url: str, kind: str) -> str:
         if ext.isalnum() and len(ext) <= 5:
             return ext
     return {"image": "png", "video": "mp4", "audio": "wav"}.get(kind, "bin")
+
+
+def requests_paid_generation(job_type: str, params: dict) -> bool:
+    """Whether this job would spend provider money or make a live model
+    call. Replay and local jobs are free; fal-backed generation and a
+    live benchmark are paid. Unknown audio models count as paid so the
+    guard stays conservative (they fail model validation later anyway)."""
+    if job_type in ("image.generate", "video.generate"):
+        return True
+    if job_type == "audio.generate":
+        model = AUDIO_MODELS.get(str(params.get("model")))
+        return model is None or model.get("engine") == "fal"
+    if job_type == "text.benchmark_eval":
+        return params.get("source") == "live"
+    return False

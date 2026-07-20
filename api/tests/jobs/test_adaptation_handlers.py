@@ -222,7 +222,7 @@ def test_benchmark_metrics_are_scoped_and_position_matched(tmp_path: Path):
     assert base_metrics["model_legal_move_rate"]["numerator"] == 7
     assert base_metrics["model_legal_move_rate"]["denominator"] == 12
     assert adapted_metrics["model_legal_move_rate"]["numerator"] == 12
-    assert base_metrics["explanation_rate"]["numerator"] == 9
+    assert base_metrics["explanation_rate"]["numerator"] == 8
     assert adapted_metrics["explanation_rate"]["numerator"] == 0
 
 
@@ -361,3 +361,191 @@ def test_benchmark_rejects_unknown_source_and_suite(tmp_path: Path):
             {"suite_id": suite["id"], "source": "psychic"},
             None,
         )
+
+
+def test_live_gather_holds_no_write_lock_during_network_calls(tmp_path: Path, monkeypatch):
+    """Finding: the first attempt insert used to open the write
+    transaction, which then stayed open across every further provider
+    call. The fake provider here writes through a second real
+    connection with a short busy timeout on every call; if the handler
+    held SQLite's write lock while 'on the network', these writes would
+    raise 'database is locked'."""
+    from euro_chess_studio.data.llm_client import ChatOutcome
+
+    db_path = tmp_path / "test.db"
+    conn = get_connection(db_path)
+    init_db(conn)
+    seed_adaptation_fixtures(conn)
+    suite = seeded_suite(conn)
+
+    calls = {"count": 0}
+
+    def chatty_writer(messages, *, json_response=False, timeout=None, model=None):
+        calls["count"] += 1
+        import sqlite3 as sqlite3_module
+
+        other = sqlite3_module.connect(db_path, timeout=0.2)
+        try:
+            other.execute("PRAGMA busy_timeout = 200")
+            other.execute(
+                "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)",
+                (f"probe_{calls['count']}", "Probe", "now"),
+            )
+            other.commit()
+        finally:
+            other.close()
+        return ChatOutcome(
+            content='{"move": "a2a3"}',
+            model="gpt-5.6-luna",
+            provider_alias="opponent",
+            attempts=1,
+            request_ids=(f"req-{calls['count']}",),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    monkeypatch.setattr(adaptation_handlers.llm_client, "chat", chatty_writer)
+    monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gpt-5.6-luna")
+    run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": suite["id"], "checkpoint": BASE_CHECKPOINT, "source": "live"},
+        None,
+    )
+    assert calls["count"] == suite["example_count"]
+    probes = conn.execute("SELECT COUNT(*) FROM users WHERE name = 'Probe'").fetchone()[0]
+    assert probes == suite["example_count"]
+
+
+def test_rerunning_a_benchmark_keeps_both_runs_metric_rows(tmp_path: Path):
+    """Benchmark metrics are immutable history: a re-run must add its
+    own rows, not replace the previous run's."""
+    conn = make_conn(tmp_path)
+    train(conn)
+    suite = seeded_suite(conn)
+    run_ids = []
+    for _ in range(2):
+        payload = json.loads(
+            run_job(
+                conn,
+                "text.benchmark_eval",
+                {"suite_id": suite["id"], "checkpoint": BASE_CHECKPOINT},
+                None,
+            ).artifact["payload_json"]
+        )
+        run_ids.append(payload["run_id"])
+    counts = [
+        conn.execute("SELECT COUNT(*) FROM eval_results WHERE run_id = ?", (run_id,)).fetchone()[0]
+        for run_id in run_ids
+    ]
+    assert counts == [3, 3]
+
+
+def test_benchmark_run_links_to_its_job_config(tmp_path: Path):
+    conn = make_conn(tmp_path)
+    result = run_job(
+        conn,
+        "text.benchmark_eval",
+        {"suite_id": seeded_suite(conn)["id"], "checkpoint": BASE_CHECKPOINT},
+        None,
+    )
+    payload = json.loads(result.artifact["payload_json"])
+    run_row = conn.execute(
+        "SELECT * FROM benchmark_runs WHERE id = ?", (payload["run_id"],)
+    ).fetchone()
+    assert run_row["job_config_id"] == result.job_config["id"]
+
+
+class _FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def monotonic(self):
+        return self.now
+
+
+def test_live_run_respects_the_overall_deadline(tmp_path: Path, monkeypatch):
+    """Per-example timeouts alone let twelve slow calls stack; the run
+    deadline bounds the whole thing and records never-attempted
+    examples as transport failures naming the reason."""
+    from euro_chess_studio.data.llm_client import ChatOutcome
+
+    conn = make_conn(tmp_path)
+    suite = seeded_suite(conn)
+    clock = _FakeClock()
+    monkeypatch.setattr(adaptation_handlers.time, "monotonic", clock.monotonic)
+    monkeypatch.setenv("BENCHMARK_RUN_DEADLINE_SECONDS", "60")
+
+    calls = {"count": 0}
+
+    def slow_chat(messages, *, json_response=False, timeout=None, model=None):
+        calls["count"] += 1
+        clock.now += 25.0
+        return ChatOutcome(
+            content='{"move": "a2a3"}',
+            model="gpt-5.6-luna",
+            provider_alias="opponent",
+            attempts=1,
+            request_ids=("req-x",),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    monkeypatch.setattr(adaptation_handlers.llm_client, "chat", slow_chat)
+    monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gpt-5.6-luna")
+    payload = json.loads(
+        run_job(
+            conn,
+            "text.benchmark_eval",
+            {"suite_id": suite["id"], "checkpoint": BASE_CHECKPOINT, "source": "live"},
+            None,
+        ).artifact["payload_json"]
+    )
+    # 60s budget at 25s per call: three calls fit, nine never start.
+    assert calls["count"] == 3
+    assert payload["reply_count"] == 3
+    assert payload["transport_failed_count"] == suite["example_count"] - 3
+    deadline_rows = conn.execute(
+        "SELECT COUNT(*) FROM model_attempts WHERE benchmark_run_id = ? "
+        "AND error_detail = 'run deadline exceeded'",
+        (payload["run_id"],),
+    ).fetchone()[0]
+    assert deadline_rows == suite["example_count"] - 3
+
+
+def test_live_run_aborts_after_consecutive_transport_failures(tmp_path: Path, monkeypatch):
+    from euro_chess_studio.data.llm_client import LlmRequestError
+
+    conn = make_conn(tmp_path)
+    suite = seeded_suite(conn)
+    calls = {"count": 0}
+
+    def dead_provider(messages, *, json_response=False, timeout=None, model=None):
+        calls["count"] += 1
+        raise LlmRequestError(
+            "provider unreachable", status_code=None, request_ids=(), transport_attempts=1
+        )
+
+    monkeypatch.setattr(adaptation_handlers.llm_client, "chat", dead_provider)
+    monkeypatch.setattr(adaptation_handlers.llm_client, "get_llm_model", lambda: "gpt-5.6-luna")
+    payload = json.loads(
+        run_job(
+            conn,
+            "text.benchmark_eval",
+            {"suite_id": suite["id"], "checkpoint": BASE_CHECKPOINT, "source": "live"},
+            None,
+        ).artifact["payload_json"]
+    )
+    # A dead provider costs three calls, not twelve.
+    assert calls["count"] == 3
+    assert payload["reply_count"] == 0
+    aborted_rows = conn.execute(
+        "SELECT COUNT(*) FROM model_attempts WHERE benchmark_run_id = ? "
+        "AND error_detail LIKE 'aborted after%'",
+        (payload["run_id"],),
+    ).fetchone()[0]
+    assert aborted_rows == suite["example_count"] - 3

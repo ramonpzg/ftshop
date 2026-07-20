@@ -48,6 +48,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/euro_chess_studio"]
 
+[tool.ty.rules]
+# The audio and media extras are optional by design; their imports carry
+# `ty: ignore[unresolved-import]` so a clean install typechecks. With an
+# extra installed those suppressions become unused, which must not fail
+# the other configuration.
+unused-ignore-comment = "ignore"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

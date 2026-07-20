@@ -80,25 +80,18 @@ def extract_json_object(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def has_explanation(text: str) -> bool:
-    """Whether a reply says anything beyond its JSON object. The JSON
-    span extract_json_object would use is removed (fenced block first,
-    then the widest brace span, the same precedence), and whatever
-    remains counts as explanation if it still contains at least twelve
-    letters -- enough to rule out stray punctuation or a lone "json"
-    fence tag without trying to judge the prose. The definition of the
-    explanation_rate metric, so the metric and this helper can never
-    disagree."""
-    remainder = text.strip()
-    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", remainder, re.DOTALL)
-    if fence:
-        remainder = remainder[: fence.start()] + remainder[fence.end() :]
-    else:
-        brace = re.search(r"\{.*\}", remainder, re.DOTALL)
-        if brace:
-            remainder = remainder[: brace.start()] + remainder[brace.end() :]
-    letters = sum(1 for char in remainder if char.isalpha())
-    return letters >= 12
+def has_explanation_field(text: str) -> bool:
+    """Whether a reply's JSON object carries a non-empty "why" string,
+    the optional explanation the sft-v2 prompt contract invites. Prose
+    outside the JSON deliberately does not count: the contract asks for
+    JSON, so rewarding stray prose would score contract violations as a
+    virtue. The definition of the explanation_rate metric, so the
+    metric and this helper can never disagree."""
+    parsed = extract_json_object(text)
+    if parsed is None:
+        return False
+    why = parsed.get("why")
+    return isinstance(why, str) and bool(why.strip())
 
 
 @dataclass(frozen=True)

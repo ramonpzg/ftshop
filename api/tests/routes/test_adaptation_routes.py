@@ -124,8 +124,57 @@ def test_live_benchmark_without_credentials_maps_to_503(client: TestClient):
             "job_type": "text.benchmark_eval",
             "params": {"suite_id": suite["id"], "checkpoint": "base", "source": "live"},
         },
+        # The proxy on the presenter's machine forwards the local browser.
+        headers={"x-forwarded-for": "127.0.0.1"},
     )
     assert response.status_code == 503
+
+
+def test_paid_jobs_are_refused_for_lan_clients(client: TestClient):
+    """The full-room guardrail, enforced server-side: a browser that is
+    not on the presenter's machine cannot spend the provider budget,
+    whatever the UI hides."""
+    state = client.get("/adaptation/state").json()
+    suite = state["suites"][0]
+    lan = {"x-forwarded-for": "192.168.1.23"}
+    live = client.post(
+        "/jobs",
+        json={
+            "job_type": "text.benchmark_eval",
+            "params": {"suite_id": suite["id"], "checkpoint": "base", "source": "live"},
+        },
+        headers=lan,
+    )
+    assert live.status_code == 403
+    assert "presenter" in live.json()["detail"]
+    generate = client.post(
+        "/jobs",
+        json={
+            "job_type": "image.generate",
+            "params": {"prompt": "a bishop", "model": "flux-2-klein"},
+        },
+        headers=lan,
+    )
+    assert generate.status_code == 403
+    # Free jobs stay open to the room: a replayed benchmark from a LAN
+    # client works.
+    replay = client.post(
+        "/jobs",
+        json={"job_type": "text.benchmark_eval", "params": {"suite_id": suite["id"]}},
+        headers=lan,
+    )
+    assert replay.status_code == 200
+    # Local audio synthesis is not a paid call and is not blocked here
+    # (it 503s on missing local deps, never 403).
+    local_audio = client.post(
+        "/jobs",
+        json={
+            "job_type": "audio.generate",
+            "params": {"prompt": "a click", "model": "musicgen-small"},
+        },
+        headers=lan,
+    )
+    assert local_audio.status_code != 403
 
 
 def test_cached_media_route_serves_committed_files_only(client: TestClient, tmp_path):

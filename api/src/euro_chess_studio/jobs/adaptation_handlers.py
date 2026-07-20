@@ -13,8 +13,10 @@ Honesty rules enforced here rather than in the UI:
 """
 
 import json
+import os
 import sqlite3
-from dataclasses import asdict
+import time
+from dataclasses import asdict, dataclass
 
 from euro_chess_studio.calculations.adaptation import (
     BASE_CHECKPOINT,
@@ -46,11 +48,18 @@ from euro_chess_studio.data.dataset_snapshots_repo import get_snapshot
 from euro_chess_studio.data.eval_suites_repo import get_suite, list_suites
 from euro_chess_studio.data.model_attempts_repo import insert_attempt, list_attempts
 from euro_chess_studio.jobs.base import JobConfig, JobOutput
-from euro_chess_studio.jobs.metric_persistence import persist_metric
+from euro_chess_studio.jobs.metric_persistence import record_benchmark_metric
 
 # A benchmark example is one prompt with no game clock behind it; a
 # stuck provider should fail the example, not stall the whole run.
 BENCHMARK_CALL_TIMEOUT_SECONDS = 15.0
+# The whole live run is bounded too (BENCHMARK_RUN_DEADLINE_SECONDS,
+# clamped 10-300): per-example timeouts alone would let a slow provider
+# hold the presenter's screen for minutes.
+BENCHMARK_RUN_DEADLINE_DEFAULT_SECONDS = 60.0
+# A provider that fails this many examples in a row is down; stop
+# burning the deadline on it.
+BENCHMARK_MAX_CONSECUTIVE_FAILURES = 3
 
 
 def adapter_payload(row) -> dict:
@@ -141,45 +150,165 @@ def text_train_adapter(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
     )
 
 
-def _judged_attempt_row(
+@dataclass(frozen=True)
+class _GatheredReply:
+    """One example's outcome from the gather phase: either a raw reply
+    or a transport failure, with whatever provenance the source carried.
+    Gathering is pure collection -- by the time anything touches the
+    database, every network call is already over."""
+
+    example: dict
+    reply_source: str
+    raw_response: str | None
+    request_ids: tuple[str, ...] = ()
+    transport_attempts: int | None = None
+    json_mode_dropped: bool | None = None
+    reasoning_effort_dropped: bool | None = None
+    error_detail: str | None = None
+
+
+def _run_deadline_seconds() -> float:
+    """Overall wall-clock budget for one live benchmark run, across all
+    examples. Without it, twelve sequential 15-second timeouts could
+    hold the presenter's screen for three minutes."""
+    raw = os.environ.get("BENCHMARK_RUN_DEADLINE_SECONDS", "")
+    try:
+        value = float(raw)
+    except ValueError:
+        value = BENCHMARK_RUN_DEADLINE_DEFAULT_SECONDS
+    return min(300.0, max(10.0, value))
+
+
+def _gather_live_replies(examples: list[dict]) -> tuple[list[_GatheredReply], str, str]:
+    """Calls the provider for every example while holding no database
+    state at all. Bounded twice over: one overall run deadline, and an
+    abort after consecutive transport failures (a dead provider should
+    cost seconds, not the full deadline). Examples never attempted are
+    recorded as transport failures naming the reason."""
+    # Raises LlmNotConfiguredError before any attempt when no key is
+    # set; the route maps it to 503.
+    model = llm_client.get_llm_model()
+    deadline = time.monotonic() + _run_deadline_seconds()
+    consecutive_failures = 0
+    aborted_reason: str | None = None
+    gathered: list[_GatheredReply] = []
+    for example in examples:
+        if aborted_reason is None and consecutive_failures >= BENCHMARK_MAX_CONSECUTIVE_FAILURES:
+            aborted_reason = f"aborted after {consecutive_failures} consecutive transport failures"
+        remaining = deadline - time.monotonic()
+        if aborted_reason is None and remaining <= 0:
+            aborted_reason = "run deadline exceeded"
+        if aborted_reason is not None:
+            gathered.append(
+                _GatheredReply(
+                    example=example,
+                    reply_source="live",
+                    raw_response=None,
+                    error_detail=aborted_reason,
+                )
+            )
+            continue
+        try:
+            outcome = llm_client.chat(
+                [{"role": "user", "content": example["prompt"]}],
+                json_response=True,
+                timeout=min(BENCHMARK_CALL_TIMEOUT_SECONDS, remaining),
+            )
+        except llm_client.LlmRequestError as exc:
+            consecutive_failures += 1
+            gathered.append(
+                _GatheredReply(
+                    example=example,
+                    reply_source="live",
+                    raw_response=None,
+                    request_ids=exc.request_ids,
+                    transport_attempts=exc.transport_attempts,
+                    json_mode_dropped=exc.json_mode_dropped,
+                    reasoning_effort_dropped=exc.reasoning_effort_dropped,
+                    error_detail=str(exc),
+                )
+            )
+            continue
+        consecutive_failures = 0
+        gathered.append(
+            _GatheredReply(
+                example=example,
+                reply_source="live",
+                raw_response=outcome.content,
+                request_ids=outcome.request_ids,
+                transport_attempts=outcome.attempts,
+                json_mode_dropped=outcome.json_mode_dropped,
+                reasoning_effort_dropped=outcome.reasoning_effort_dropped,
+            )
+        )
+    return gathered, model, "opponent"
+
+
+def _gather_replayed_replies(
+    suite: sqlite3.Row, examples: list[dict], checkpoint: str
+) -> tuple[list[_GatheredReply], str, str]:
+    fixture = load_benchmark_replies_fixture()
+    if fixture["suite_content_hash"] != suite["content_hash"]:
+        raise AdaptationError(
+            "the replay fixture was recorded for a different suite "
+            f"(fixture {fixture['suite_content_hash']}, suite "
+            f"{suite['content_hash']}); a replayed run cannot pose as "
+            "answers to these examples"
+        )
+    checkpoint_data = fixture["checkpoints"].get(checkpoint)
+    if checkpoint_data is None:
+        raise AdaptationError(f"the replay fixture has no replies for checkpoint '{checkpoint}'")
+    gathered: list[_GatheredReply] = []
+    for example in examples:
+        raw_response = checkpoint_data["replies"].get(example["example_id"])
+        if raw_response is None:
+            raise AdaptationError(
+                f"the replay fixture has no reply for example {example['example_id']}"
+            )
+        gathered.append(
+            _GatheredReply(example=example, reply_source="replayed", raw_response=raw_response)
+        )
+    return gathered, checkpoint_data["model"], checkpoint_data["provider_alias"]
+
+
+def _persist_gathered_reply(
     conn: sqlite3.Connection,
+    record: _GatheredReply,
     *,
-    example: dict,
-    raw_response: str,
     run_id: str,
     checkpoint: str,
     model: str,
     provider_alias: str,
     prompt_version: str,
-    reply_source: str,
-    request_ids: tuple[str, ...] = (),
-    transport_attempts: int | None = None,
-    json_mode_dropped: bool | None = None,
-    reasoning_effort_dropped: bool | None = None,
 ) -> None:
-    judgment = judge_benchmark_reply(raw_response, example["legal_moves"])
+    example = record.example
+    if record.raw_response is None:
+        judgment = None
+    else:
+        judgment = judge_benchmark_reply(record.raw_response, example["legal_moves"])
     insert_attempt(
         conn,
         workspace_id=None,
         task=BENCHMARK_TASK,
         actor="model",
         attempt_number=1,
-        status="scored",
+        status="scored" if judgment is not None else "transport_failed",
         model=model,
         provider_alias=provider_alias,
         prompt_version=prompt_version,
         checkpoint=checkpoint,
         fen=example["fen"],
-        raw_response=raw_response,
-        request_ids=request_ids,
+        raw_response=record.raw_response,
+        request_ids=record.request_ids,
         json_requested=True,
-        parse_ok=judgment.parse_ok,
-        parsed_move=judgment.parsed_move,
-        is_legal=judgment.is_legal,
-        transport_attempts=transport_attempts,
-        json_mode_dropped=json_mode_dropped,
-        reasoning_effort_dropped=reasoning_effort_dropped,
-        reply_source=reply_source,
+        parse_ok=judgment.parse_ok if judgment is not None else False,
+        parsed_move=judgment.parsed_move if judgment is not None else None,
+        is_legal=judgment.is_legal if judgment is not None else None,
+        error_detail=record.error_detail,
+        transport_attempts=record.transport_attempts,
+        json_mode_dropped=record.json_mode_dropped,
+        reasoning_effort_dropped=record.reasoning_effort_dropped,
+        reply_source=record.reply_source,
         benchmark_run_id=run_id,
         suite_example_id=example["example_id"],
     )
@@ -205,8 +334,10 @@ def text_benchmark_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
         if adapter is None:
             raise AdaptationError(f"no adapter with checkpoint '{checkpoint}'; train it first")
 
-    run_id = generate_id("benchrun")
-
+    # Gather first, persist after: a live run makes up to a suite's
+    # worth of provider calls, and SQLite's write lock must never be
+    # held across a network wait. Nothing below touches the database
+    # until every reply (or failure) is already in memory.
     if source == "live":
         if checkpoint != BASE_CHECKPOINT:
             raise AdaptationError(
@@ -214,95 +345,26 @@ def text_benchmark_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
                 "workshop build (the adapter would need merging and GGUF "
                 "conversion first); run it replayed"
             )
-        # Raises LlmNotConfiguredError before any attempt when no key is
-        # set; the route maps it to 503.
-        settings_model = llm_client.get_llm_model()
-        provider_alias = "opponent"
-        model = settings_model
-        for example in examples:
-            try:
-                outcome = llm_client.chat(
-                    [{"role": "user", "content": example["prompt"]}],
-                    json_response=True,
-                    timeout=BENCHMARK_CALL_TIMEOUT_SECONDS,
-                )
-            except llm_client.LlmRequestError as exc:
-                insert_attempt(
-                    conn,
-                    workspace_id=None,
-                    task=BENCHMARK_TASK,
-                    actor="model",
-                    attempt_number=1,
-                    status="transport_failed",
-                    model=settings_model,
-                    provider_alias=provider_alias,
-                    prompt_version=prompt_version,
-                    checkpoint=checkpoint,
-                    fen=example["fen"],
-                    request_ids=exc.request_ids,
-                    json_requested=True,
-                    error_detail=str(exc),
-                    transport_attempts=exc.transport_attempts,
-                    json_mode_dropped=exc.json_mode_dropped,
-                    reasoning_effort_dropped=exc.reasoning_effort_dropped,
-                    reply_source="live",
-                    benchmark_run_id=run_id,
-                    suite_example_id=example["example_id"],
-                )
-                continue
-            model = outcome.model
-            _judged_attempt_row(
-                conn,
-                example=example,
-                raw_response=outcome.content,
-                run_id=run_id,
-                checkpoint=checkpoint,
-                model=outcome.model,
-                provider_alias=outcome.provider_alias,
-                prompt_version=prompt_version,
-                reply_source="live",
-                request_ids=outcome.request_ids,
-                transport_attempts=outcome.attempts,
-                json_mode_dropped=outcome.json_mode_dropped,
-                reasoning_effort_dropped=outcome.reasoning_effort_dropped,
-            )
+        gathered, model, provider_alias = _gather_live_replies(examples)
         note = "Live benchmark run against the configured opponent endpoint."
     else:
-        fixture = load_benchmark_replies_fixture()
-        if fixture["suite_content_hash"] != suite["content_hash"]:
-            raise AdaptationError(
-                "the replay fixture was recorded for a different suite "
-                f"(fixture {fixture['suite_content_hash']}, suite "
-                f"{suite['content_hash']}); a replayed run cannot pose as "
-                "answers to these examples"
-            )
-        checkpoint_data = fixture["checkpoints"].get(checkpoint)
-        if checkpoint_data is None:
-            raise AdaptationError(
-                f"the replay fixture has no replies for checkpoint '{checkpoint}'"
-            )
-        model = checkpoint_data["model"]
-        provider_alias = checkpoint_data["provider_alias"]
-        for example in examples:
-            raw_response = checkpoint_data["replies"].get(example["example_id"])
-            if raw_response is None:
-                raise AdaptationError(
-                    f"the replay fixture has no reply for example {example['example_id']}"
-                )
-            _judged_attempt_row(
-                conn,
-                example=example,
-                raw_response=raw_response,
-                run_id=run_id,
-                checkpoint=checkpoint,
-                model=model,
-                provider_alias=provider_alias,
-                prompt_version=prompt_version,
-                reply_source="replayed",
-            )
+        gathered, model, provider_alias = _gather_replayed_replies(suite, examples, checkpoint)
         note = (
-            "Replies replayed from the reviewed fixture; the metrics are "
-            "computed live over those replies."
+            "Scripted illustration: replies replayed from the authored "
+            "fixture (no model produced them); the metrics are computed "
+            "live over those scripted replies."
+        )
+
+    run_id = generate_id("benchrun")
+    for record in gathered:
+        _persist_gathered_reply(
+            conn,
+            record,
+            run_id=run_id,
+            checkpoint=checkpoint,
+            model=model,
+            provider_alias=provider_alias,
+            prompt_version=prompt_version,
         )
 
     attempts = list_attempts(conn, task=BENCHMARK_TASK, benchmark_run_id=run_id)
@@ -314,8 +376,10 @@ def text_benchmark_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
         compute_valid_json_rate(attempts, task=BENCHMARK_TASK, model=model, checkpoint=checkpoint),
         compute_explanation_rate(attempts, task=BENCHMARK_TASK, model=model, checkpoint=checkpoint),
     ]
+    # Benchmark metrics are immutable history: one insert per run, never
+    # replacing an earlier run's rows.
     for result in results:
-        persist_metric(conn, None, result, run_id)
+        record_benchmark_metric(conn, result, run_id)
 
     position_set_id = compute_position_set_id([a["fen"] for a in replied])
     run_row = insert_run(
@@ -332,6 +396,7 @@ def text_benchmark_eval(conn: sqlite3.Connection, job: JobConfig) -> JobOutput:
         reply_count=len(replied),
         transport_failed_count=len(examples) - len(replied),
         position_set_id=position_set_id,
+        job_config_id=job.job_config_id,
         note=note,
     )
 

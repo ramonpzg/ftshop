@@ -58,7 +58,7 @@ def _out_dir(kind: str) -> Path:
 
 def _paper(np, rng, size: int):
     """Warm paper: low-frequency noise over an off-white base."""
-    from PIL import Image
+    from PIL import Image  # ty: ignore[unresolved-import]
 
     coarse = rng.normal(0, 1, (size // 8, size // 8))
     spread = np.ptp(coarse) + 1e-9
@@ -72,8 +72,8 @@ def _paper(np, rng, size: int):
 
 def _piece_silhouette(size: int):
     """The Cburnett white bishop rasterized at working size."""
-    import cairosvg
-    from PIL import Image
+    import cairosvg  # ty: ignore[unresolved-import]
+    from PIL import Image  # ty: ignore[unresolved-import]
 
     svg_path = REPO_ROOT / "web" / "public" / "pieces" / "wB.svg"
     png_bytes = cairosvg.svg2png(
@@ -83,8 +83,8 @@ def _piece_silhouette(size: int):
 
 
 def make_image_pair() -> list[Path]:
-    import numpy as np
-    from PIL import Image, ImageDraw, ImageFilter
+    import numpy as np  # ty: ignore[unresolved-import]
+    from PIL import Image, ImageDraw, ImageFilter  # ty: ignore[unresolved-import]
 
     rng = np.random.RandomState(SEED)
     out = _out_dir("image")
@@ -167,7 +167,7 @@ def make_image_pair() -> list[Path]:
 
 
 def _write_wav(path: Path, samples) -> None:
-    import numpy as np
+    import numpy as np  # ty: ignore[unresolved-import]
 
     clipped = np.clip(samples, -1.0, 1.0)
     pcm = (clipped * 32767).astype("<i2")
@@ -179,8 +179,8 @@ def _write_wav(path: Path, samples) -> None:
 
 
 def _waveform_png(path: Path, samples, width: int = 800, height: int = 160) -> None:
-    import numpy as np
-    from PIL import Image, ImageDraw
+    import numpy as np  # ty: ignore[unresolved-import]
+    from PIL import Image, ImageDraw  # ty: ignore[unresolved-import]
 
     image = Image.new("RGB", (width, height), (250, 250, 250))
     draw = ImageDraw.Draw(image)
@@ -242,7 +242,7 @@ _TENSION = [
 
 
 def make_audio() -> list[Path]:
-    import numpy as np
+    import numpy as np  # ty: ignore[unresolved-import]
 
     rng = np.random.RandomState(SEED)
     out = _out_dir("audio")
@@ -299,7 +299,7 @@ def _scene_frame(np, rng_flicker, index: int, *, jitter_rng=None):
     jitter_rng, when given, renders the "base checkpoint" take: every
     element's position and tone wobbles per frame, the classic temporal
     flicker an unadapted video model produces."""
-    from PIL import Image, ImageDraw, ImageFilter
+    from PIL import Image, ImageDraw, ImageFilter  # ty: ignore[unresolved-import]
 
     def wobble(limit: int) -> int:
         if jitter_rng is None:
@@ -388,9 +388,9 @@ def _scene_frame(np, rng_flicker, index: int, *, jitter_rng=None):
 
 
 def make_video() -> list[Path]:
-    import av
-    import numpy as np
-    from PIL import Image
+    import av  # ty: ignore[unresolved-import]
+    import numpy as np  # ty: ignore[unresolved-import]
+    from PIL import Image  # ty: ignore[unresolved-import]
 
     out = _out_dir("video")
     frame_count = VIDEO_FPS * VIDEO_SECONDS

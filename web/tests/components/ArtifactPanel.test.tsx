@@ -200,3 +200,28 @@ describe("ArtifactPanel media and evidence", () => {
     expect(screen.getByTestId("artifact-primary-media-unsupported")).toBeTruthy();
   });
 });
+
+describe("ArtifactPanel frame evidence", () => {
+  test("a media ref's frame strip renders inside its figure", () => {
+    const artifact: Artifact = {
+      id: "artifact_1",
+      job_config_id: null,
+      modality: "video",
+      kind: "adaptation_evidence",
+      payload: {
+        after: {
+          label: "Adapted take (illustrative)",
+          file_url: "/artifacts/media/video/scene_clip.mp4",
+          poster_url: "/artifacts/media/video/scene_poster.png",
+          frames_url: "/artifacts/media/video/scene_frames.png",
+          duration_seconds: 8.0,
+        },
+      },
+      cached: true,
+      created_at: "now",
+    };
+    render(<ArtifactPanel artifact={artifact} />);
+    const strip = screen.getByTestId("artifact-after-frames") as HTMLImageElement;
+    expect(strip.getAttribute("src")).toBe("/api/artifacts/media/video/scene_frames.png");
+  });
+});

@@ -4,6 +4,7 @@ validation, held-out overlap detection, and benchmark reply judging."""
 
 import dataclasses
 
+import chess
 import pytest
 
 from euro_chess_studio.calculations.adaptation import (
@@ -18,18 +19,21 @@ from euro_chess_studio.calculations.adaptation import (
     overlapping_fens,
     validate_suite_examples,
 )
-from euro_chess_studio.calculations.export import PROMPT_TEMPLATE
+from euro_chess_studio.calculations.export import PROMPT_TEMPLATE, SFT_PROMPT_VERSION
 
 FEN_A = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 FEN_B = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
 
 
 def example(example_id: str, fen: str = FEN_A) -> dict:
+    """A semantically valid suite example: real legal moves derived from
+    the position, prompt rendered from the actual contract."""
+    legal_moves = sorted(move.uci() for move in chess.Board(fen).legal_moves)
     return {
         "example_id": example_id,
         "fen": fen,
-        "legal_moves": ["e2e4", "d2d4"],
-        "prompt": PROMPT_TEMPLATE.format(fen=fen, legal_moves="e2e4, d2d4"),
+        "legal_moves": legal_moves,
+        "prompt": PROMPT_TEMPLATE.format(fen=fen, legal_moves=", ".join(legal_moves)),
     }
 
 
@@ -44,8 +48,8 @@ def test_snapshot_content_hash_is_order_independent_but_multiplicity_sensitive()
 
 def test_suite_content_hash_covers_the_prompt_contract():
     examples = [example("ex-1")]
-    v1 = compute_suite_content_hash(examples, prompt_version="sft-v1", schema_version="s1")
-    v2 = compute_suite_content_hash(examples, prompt_version="sft-v2", schema_version="s1")
+    v1 = compute_suite_content_hash(examples, prompt_version="contract-a", schema_version="s1")
+    v2 = compute_suite_content_hash(examples, prompt_version="contract-b", schema_version="s1")
     assert v1 != v2
 
 
@@ -117,7 +121,7 @@ def test_validate_suite_rejects_duplicate_example_ids():
     with pytest.raises(AdaptationError, match="duplicate"):
         validate_suite_examples(
             [example("ex-1"), example("ex-1")],
-            prompt_version="sft-v1",
+            prompt_version=SFT_PROMPT_VERSION,
             schema_version=SUITE_SCHEMA_VERSION,
         )
 
@@ -127,17 +131,55 @@ def test_validate_suite_rejects_missing_fields():
     broken.pop("legal_moves")
     with pytest.raises(AdaptationError, match="legal move list"):
         validate_suite_examples(
-            [broken], prompt_version="sft-v1", schema_version=SUITE_SCHEMA_VERSION
+            [broken], prompt_version=SFT_PROMPT_VERSION, schema_version=SUITE_SCHEMA_VERSION
+        )
+
+
+def test_validate_suite_rejects_an_invalid_fen():
+    broken = example("ex-1")
+    broken["fen"] = "not a position at all"
+    with pytest.raises(AdaptationError, match="invalid fen"):
+        validate_suite_examples(
+            [broken], prompt_version=SFT_PROMPT_VERSION, schema_version=SUITE_SCHEMA_VERSION
+        )
+
+
+def test_validate_suite_rejects_a_wrong_legal_move_list():
+    # The frozen list is the legality judge; an asserted list that does
+    # not match the position would corrupt every score it judges.
+    broken = example("ex-1")
+    broken["legal_moves"] = ["zzzz", "e2e4"]
+    with pytest.raises(AdaptationError, match="does not match"):
+        validate_suite_examples(
+            [broken], prompt_version=SFT_PROMPT_VERSION, schema_version=SUITE_SCHEMA_VERSION
+        )
+
+
+def test_validate_suite_rejects_a_prompt_that_breaks_the_contract():
+    broken = example("ex-1")
+    broken["prompt"] = "Answer with your favourite opening."
+    with pytest.raises(AdaptationError, match="does not render"):
+        validate_suite_examples(
+            [broken], prompt_version=SFT_PROMPT_VERSION, schema_version=SUITE_SCHEMA_VERSION
+        )
+
+
+def test_validate_suite_rejects_an_unknown_prompt_contract():
+    with pytest.raises(AdaptationError, match="unknown prompt contract"):
+        validate_suite_examples(
+            [example("ex-1")], prompt_version="sft-v0", schema_version=SUITE_SCHEMA_VERSION
         )
 
 
 def test_validate_suite_preserves_multiplicity_in_the_position_set():
     once = validate_suite_examples(
-        [example("ex-1", FEN_A)], prompt_version="sft-v1", schema_version=SUITE_SCHEMA_VERSION
+        [example("ex-1", FEN_A)],
+        prompt_version=SFT_PROMPT_VERSION,
+        schema_version=SUITE_SCHEMA_VERSION,
     )
     twice = validate_suite_examples(
         [example("ex-1", FEN_A), example("ex-2", FEN_A)],
-        prompt_version="sft-v1",
+        prompt_version=SFT_PROMPT_VERSION,
         schema_version=SUITE_SCHEMA_VERSION,
     )
     # The same position sampled twice is a different measurement, and

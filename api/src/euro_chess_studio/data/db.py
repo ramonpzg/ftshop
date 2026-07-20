@@ -52,6 +52,30 @@ MODEL_ATTEMPTS_COLUMNS_SQL = """(
     created_at TEXT NOT NULL
 )"""
 
+# Shared between the CREATE in SCHEMA and the FK-removal rebuild in
+# init_db, so the two can never drift apart.
+BENCHMARK_RUNS_COLUMNS_SQL = """(
+    id TEXT PRIMARY KEY,
+    suite_id TEXT NOT NULL REFERENCES eval_suites(id),
+    suite_content_hash TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    checkpoint TEXT NOT NULL,
+    model TEXT NOT NULL,
+    provider_alias TEXT,
+    source TEXT NOT NULL,
+    example_count INTEGER NOT NULL,
+    reply_count INTEGER NOT NULL,
+    transport_failed_count INTEGER NOT NULL,
+    position_set_id TEXT,
+    -- The job_configs row id, deliberately without a foreign key: the
+    -- handler writes this row before run_job inserts the config later
+    -- in the same transaction, so the pair commits together or not at
+    -- all, and an FK would reject the forward reference mid-flight.
+    job_config_id TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL
+)"""
+
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -291,23 +315,7 @@ CREATE TABLE IF NOT EXISTS adapters (
 -- live or replayed, and the position-set hash of what actually got
 -- measured. The id doubles as the run_id on eval_results rows and the
 -- benchmark_run_id on model_attempts rows.
-CREATE TABLE IF NOT EXISTS benchmark_runs (
-    id TEXT PRIMARY KEY,
-    suite_id TEXT NOT NULL REFERENCES eval_suites(id),
-    suite_content_hash TEXT NOT NULL,
-    prompt_version TEXT NOT NULL,
-    checkpoint TEXT NOT NULL,
-    model TEXT NOT NULL,
-    provider_alias TEXT,
-    source TEXT NOT NULL,
-    example_count INTEGER NOT NULL,
-    reply_count INTEGER NOT NULL,
-    transport_failed_count INTEGER NOT NULL,
-    position_set_id TEXT,
-    job_config_id TEXT REFERENCES job_configs(id),
-    note TEXT,
-    created_at TEXT NOT NULL
-);
+CREATE TABLE IF NOT EXISTS benchmark_runs {BENCHMARK_RUNS_COLUMNS_SQL};
 
 CREATE TABLE IF NOT EXISTS presenter_state (
     id TEXT PRIMARY KEY,
@@ -340,6 +348,39 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 10000")
     conn.execute("PRAGMA synchronous = NORMAL")
     return conn
+
+
+def _relax_benchmark_runs_job_config(conn: sqlite3.Connection) -> None:
+    """Databases created early in phase 34 declared job_config_id with a
+    foreign key, which rejects the handler's forward reference (the
+    config row lands later in the same run_job transaction). Same
+    documented rebuild as the model_attempts one: create the current
+    shape, copy every row, swap. No-op once the FK is gone."""
+    has_fk = any(
+        row[2] == "job_configs" for row in conn.execute("PRAGMA foreign_key_list(benchmark_runs)")
+    )
+    if not has_fk:
+        return
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        conn.execute(f"CREATE TABLE benchmark_runs_rebuilt {BENCHMARK_RUNS_COLUMNS_SQL}")
+        columns = ", ".join(
+            row[1] for row in conn.execute("PRAGMA table_info(benchmark_runs_rebuilt)")
+        )
+        conn.execute(
+            f"INSERT INTO benchmark_runs_rebuilt ({columns}) SELECT {columns} FROM benchmark_runs"
+        )
+        conn.execute("DROP TABLE benchmark_runs")
+        conn.execute("ALTER TABLE benchmark_runs_rebuilt RENAME TO benchmark_runs")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        conn.execute("DROP TABLE IF EXISTS benchmark_runs_rebuilt")
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
 
 
 def _relax_model_attempts_workspace(conn: sqlite3.Connection) -> None:
@@ -428,6 +469,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         if column not in attempt_columns:
             conn.execute(f"ALTER TABLE model_attempts ADD COLUMN {column} {column_type}")
     _relax_model_attempts_workspace(conn)
+    _relax_benchmark_runs_job_config(conn)
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")

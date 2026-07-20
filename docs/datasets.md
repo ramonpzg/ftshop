@@ -119,7 +119,10 @@ examples are never conflated.
 A snapshot is the durable, hashed form of the SFT export: the
 `fen_legal_moves_to_move` rows converted through the same
 `build_sft_rows` as `chess_sft.jsonl` (`{"prompt", "completion"}` per
-row, schema `sft-prompt-completion-v1`, prompt contract `sft-v1`),
+row, schema `sft-prompt-completion-v1`, prompt contract `sft-v2`:
+the prompt invites an optional in-JSON `why` explanation, while the
+completions stay bare moves, which is exactly why an adapter trained
+on them stops filling the field),
 frozen at a moment in time with the rows stored inline. The
 eligibility rule above applies at freeze time and the snapshot records
 what it excluded rather than hiding it. Scenario mappings ride along

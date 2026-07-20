@@ -197,3 +197,7 @@
   color: #868e96;
   font-size: 11px;
 }
+
+.artifact-frames-strip {
+  max-height: 72px;
+}

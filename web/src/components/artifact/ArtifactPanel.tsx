@@ -67,6 +67,7 @@ function MediaFigure({ media, testId }: { media: MediaRef; testId: string }) {
   const kind = mediaKind(url);
   const waveform = apiUrl(media.waveform_url);
   const poster = apiUrl(media.poster_url);
+  const frames = apiUrl(media.frames_url);
   return (
     <figure className="artifact-media" data-testid={testId}>
       {media.label && <figcaption className="artifact-media-label">{media.label}</figcaption>}
@@ -93,6 +94,14 @@ function MediaFigure({ media, testId }: { media: MediaRef; testId: string }) {
         </p>
       )}
       {media.caption && <figcaption>{media.caption}</figcaption>}
+      {frames && !failed && (
+        <img
+          className="artifact-frames-strip"
+          src={frames}
+          alt="sampled frames"
+          data-testid={`${testId}-frames`}
+        />
+      )}
       {media.duration_seconds !== undefined && (
         <span className="artifact-media-duration">{media.duration_seconds}s</span>
       )}

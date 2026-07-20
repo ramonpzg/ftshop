@@ -118,6 +118,13 @@ function startBackend() {
       CHESS_STUDIO_DB_PATH: path.join(scratch, "db.sqlite"),
       CHESS_STUDIO_CANVAS_DIR: path.join(scratch, "canvas"),
       CHESS_STUDIO_ASSETS_DIR: path.join(scratch, "assets"),
+      // Same credential isolation as the shared webServer stack: the
+      // spec's behavior must not depend on whatever keys the shell or
+      // a repo-root .env happens to carry.
+      OPENAI_API_KEY: "",
+      VIDEO_PROMPT_API_KEY: "",
+      FAL_KEY: "",
+      OPPONENT_MODELS: "",
     },
   );
   return { child, ready: waitForReady(child, `http://localhost:${apiPort}/health`, 30_000) };

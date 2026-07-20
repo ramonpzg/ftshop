@@ -1,12 +1,12 @@
 import sqlite3
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from euro_chess_studio.actions.jobs import run_job
 from euro_chess_studio.calculations.adaptation import AdaptationError
-from euro_chess_studio.calculations.generation import UnknownModelError
+from euro_chess_studio.calculations.generation import UnknownModelError, requests_paid_generation
 from euro_chess_studio.data.adaptation_fixtures import AdaptationFixtureError
 from euro_chess_studio.data.fal_client import FalNotConfiguredError, FalRequestError
 from euro_chess_studio.data.llm_client import LlmNotConfiguredError
@@ -44,8 +44,40 @@ class RunJobResponse(BaseModel):
     artifact: ArtifactOut
 
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+def _effective_client_host(request: Request) -> str:
+    """The requesting browser's address. The backend binds localhost, so
+    the only remote path to it is the dev-server proxy on the presenter's
+    machine, which appends the real client to X-Forwarded-For (xfwd);
+    trusting that header is safe exactly because nothing else can reach
+    this port. A direct local call has no forwarded header and reports
+    the socket peer."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client is not None else ""
+
+
 @router.post("/jobs")
-def post_job(body: RunJobRequest, conn: sqlite3.Connection = Depends(get_db)) -> RunJobResponse:
+def post_job(
+    body: RunJobRequest, request: Request, conn: sqlite3.Connection = Depends(get_db)
+) -> RunJobResponse:
+    # Paid or live generation is presenter-controlled: the full-room
+    # guardrail says no attendee browser may spend the presenter's
+    # provider budget, so those jobs only run from the presenter's own
+    # machine. Free jobs (replays, local calculations) stay open to the
+    # room.
+    if requests_paid_generation(body.job_type, body.params):
+        if _effective_client_host(request) not in _LOOPBACK_HOSTS:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "live generation is presenter-controlled and runs only "
+                    "from the presenter's machine"
+                ),
+            )
     try:
         result = run_job(conn, body.job_type, body.params, body.workspace_id)
     except (UnknownJobTypeError, UnknownModelError) as exc:

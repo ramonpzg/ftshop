@@ -235,3 +235,24 @@
   color: #868e96;
   margin: 0;
 }
+
+.adaptation-scripted-banner {
+  margin: 8px 12px 0;
+  padding: 6px 8px;
+  border: 1px solid #ced4da;
+  border-left: 3px solid #495057;
+  border-radius: 4px;
+  background: #f1f3f5;
+  color: #343a40;
+  font-weight: 600;
+}
+
+.adaptation-presenter-note {
+  margin: 8px 12px 0;
+  color: #868e96;
+}
+
+.adaptation-scripted-tag {
+  color: #868e96;
+  font-size: 11px;
+}
