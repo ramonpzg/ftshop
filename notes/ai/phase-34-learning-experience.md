@@ -9,8 +9,9 @@ The phase's sentence: the loop "pairs in, adapter out, eval always" is
 now observable end to end. Cached training exists and says it is
 cached. Invisible training does not exist.
 
-Reviewed 2026-07-20; twelve findings fixed on this branch. The
-"Review corrections" section below is the delta log; the rest of this
+Reviewed 2026-07-20; twelve findings fixed on this branch, then a
+second review round landed eleven more, also fixed here. The "Review
+corrections" sections below are the delta logs; the rest of this
 document has been corrected in place and reads as current truth.
 
 ## The evidence chain, end to end
@@ -51,11 +52,13 @@ One honest path from play to comparison, every link durable:
    template invites an optional in-JSON `why` field), content
    hash, and the suite's `position_set_id`. Example `ex-12` repeats
    `ex-01`'s position deliberately: multiplicity is data and hashes
-   differently. Validation is semantic: FEN legality via python-chess,
-   the stored legal-move list checked against the derived one, and the
-   stored prompt checked against the contract's rendered template.
-   Seeding asserts snapshot/suite disjointness and is idempotent by
-   content hash.
+   differently. Validation is semantic: every FEN must be a playable
+   position (`get_playable_legal_moves` in chess/board.py enforces
+   `board.is_valid()`; chess.Board parses a kingless FEN and happily
+   generates moves for it), the stored legal-move list is checked
+   against the derived one, and the stored prompt against the
+   contract's rendered template. Seeding asserts snapshot/suite
+   disjointness and is idempotent by content hash.
 5. **Benchmark runs.** `text.benchmark_eval` forces one checkpoint
    through the suite. Every reply becomes a `model_attempts` row with
    `task='benchmark_move'`, non-null `checkpoint`, the resolved model,
@@ -79,21 +82,31 @@ One honest path from play to comparison, every link durable:
    `job_config_id` of the job that produced it.
 6. **Comparison.** `calculations/comparison.py` emits a signed delta
    with an improved/regressed/unchanged verdict only when suite hash,
-   prompt contract, metric version, and non-null position-set ids all
-   match. Anything else is "not comparable" with the reason, values
-   still visible. `GET /adaptation/state` assembles everything the
-   panel renders.
+   prompt contract, model lineage (base and adapted runs must record
+   the same model; a live run of some other configured model is its
+   own evidence, never the "before" of a fine-tuning pair), metric
+   version, and non-null position-set ids all match. Anything else is
+   "not comparable" with the reason, values still visible.
+   `GET /adaptation/state` assembles everything the panel renders,
+   prefers the latest lineage-matching base run so a cross-model live
+   experiment never displaces an honest pair, orders suites
+   current-contract-first (`current_contract` flag), and builds the
+   comparison for the primary suite only, so an upgraded database's
+   stale sft-v1 suite can never present as the benchmark again.
 
 The numbers on the seeded chain: base 7/12 legal (0.58), 10/12 valid
 JSON (0.83), 8/12 with a filled `why` field (0.67); adapted 12/12,
 12/12, 0/12. Legality +0.42 improved, JSON +0.17 improved,
 explanation −0.67 regressed. The regression is contract-compatible by
 construction: the sft-v2 prompt invites an optional in-JSON reason,
-the base replies often fill it, and an adapter trained on bare-move
-completions never does, so the collapse measures the training data,
-not a model breaking the format. It is data, not styling; the
-modality evidence fixtures each carry one regression too (piece
-identity, clipping, frame detail). Content hashes on the seeded
+the scripted base replies fill it eight times, the scripted adapted
+replies never do. Say it the way the docs now do: the fixtures are
+authored to stage the trade a bare-completion training set makes, and
+the chain demonstrates how that trade is measured -- the measurement
+is real, the model run is not, and the collapse coexists with a
+perfect JSON score instead of contradicting it. It is data, not
+styling; the modality evidence fixtures each carry one regression too
+(piece identity, clipping, frame detail). Content hashes on the seeded
 chain: snapshot `d03be7acc35d1b96`, suite `a274c01d640a346e`, config
 `0aa29351f8085e56` (all three moved when the prompt template gained
 the `why` invitation; the chain re-derived together, as designed).
@@ -109,12 +122,15 @@ the `why` invitation; the chain re-derived together, as designed).
 - Benchmarks: replayed by default (works keyless), badged "replayed
   (scripted)". Live is base-only, presenter-triggered, button exists
   only when `is_llm_configured()` and only for the presenter client;
-  the backend independently refuses paid jobs (live benchmarks,
-  image/video, fal audio; `requests_paid_generation`) from any
-  non-loopback client with a 403, so the guardrail survives UI
-  bypass. Live and replayed runs coexist as separate immutable rows
-  and never blend (model+checkpoint are part of eval identity, and
-  benchmark metric rows are keyed by run).
+  the backend independently refuses presenter-only work (live
+  benchmarks, image/video/audio generation including local synthesis,
+  assessments, non-default opponents; `requests_presenter_generation`
+  plus the shared `routes/client_host.py` guard) from any non-loopback
+  client with a 403, so the guardrail survives UI bypass. Live and
+  replayed runs coexist as separate immutable rows and never blend
+  (model+checkpoint are part of eval identity, benchmark metric rows
+  are keyed by run, and a live run of a different model refuses
+  comparison outright).
 - Modality evidence (image/audio/video): entirely cached fixtures with
   real local media; the adapter cards there are labelled illustrative.
 - Cached eval numbers from phase 33 (centipawn loss and friends)
@@ -260,8 +276,9 @@ Backend: `calculations/adaptation.py`, `calculations/comparison.py`,
 `compute_explanation_rate` + task-scoped `compute_model_legal_move_rate`
 in `calculations/evals.py`, `has_explanation_field` in
 `calculations/llm_prompts.py`, `SFT_PROMPT_VERSION` in
-`calculations/export.py`, `requests_paid_generation` in
-`calculations/generation.py`; repos `dataset_snapshots_repo`,
+`calculations/export.py`, `requests_presenter_generation` in
+`calculations/generation.py`, the shared presenter-machine guard in
+`routes/client_host.py`; repos `dataset_snapshots_repo`,
 `eval_suites_repo`, `adapters_repo`, `benchmark_runs_repo`,
 `list_eval_results_by_run`; `jobs/adaptation_handlers.py`,
 `jobs/metric_persistence.py` (shared `persist_metric` plus the
@@ -313,21 +330,29 @@ migration rebuild, cached media availability, and panel states.
 
 - `benchmark_runs` and their eval rows accumulate with no pruning
   (immutable history is the point since the review); the panel shows
-  all runs for the suite and the comparison uses the latest per
-  checkpoint. Fine for a workshop day, worth a cleanup action if
-  rehearsals pile up hundreds.
-- The adaptation panel polls nothing; it refreshes after its own
-  actions. Two presenters driving it from two browsers would need a
-  manual reload to see each other's runs.
+  all runs for the suite and the comparison uses the latest
+  lineage-matching pair. Fine for a workshop day, worth a cleanup
+  action if rehearsals pile up hundreds.
+- The adaptation panel polls the shared state every 5 s
+  (single-flight, `pollMs` prop for tests). That is eventual
+  consistency, not sync: two presenters clicking within the same tick
+  can still surprise each other, and 40 attendees add a steady 8
+  requests/second the load test comfortably covers.
 - `web/e2e/adaptation.spec.ts` uses the `window.chessStudioEditor`
   debug hook to bring the off-grid panel into view; if that hook is
   ever gated to dev builds, keep it available to Playwright.
-- The loopback guard trusts the first `X-Forwarded-For` hop because
-  the backend binds localhost and only the repo's own dev proxies
-  (vite, the deck) sit in front of it, forwarding the real client
-  address. If the backend is ever bound to a LAN interface directly,
-  that trust assumption must be revisited before the guard means
-  anything.
+- The presenter-machine guard trusts the LAST `X-Forwarded-For` hop,
+  and both dev proxies overwrite the header with the peer address
+  they accepted (first-hop trust was spoofable by a client sending
+  its own "127.0.0.1" prefix for vite's xfwd to append to). The whole
+  scheme still assumes the backend binds localhost so nothing but the
+  repo's own proxies can reach it; bind it to a LAN interface and the
+  guard must be redesigned, not trusted.
+- Stopping a live benchmark from the panel stops the browser's wait,
+  not the server run; the panel locks live controls until the run
+  lands via the poll or the server's deadline ceiling passes. True
+  server-side cancellation would need the handler to check a
+  cancellation flag between gather calls; not built, deliberately.
 
 ## What the next phase should tackle first
 
@@ -502,3 +527,98 @@ all fixed on this branch. What changed and where:
 Verification after all fixes: ruff and biome clean, ty clean in every
 dependency state, tsc clean, api 438 passed, web 250 passed, deck 10
 passed, e2e 11/11 under the polluted-key shell.
+
+## Review corrections, round two (2026-07-20)
+
+Eleven further findings on the corrected build, all fixed on this
+branch. What changed and where:
+
+1. **Model lineage in the comparison (high).** A `gpt-5.6-luna` live
+   base run received valid deltas against the replayed
+   `gemma-4-2b-local` adapter: selection took the latest base run
+   regardless of model, and comparability checked only suite and
+   prompt identity. `check_run_comparability` now refuses when the
+   runs' models differ, and `_build_comparison` prefers the latest
+   lineage-matching base run (falling back to the mismatch so the
+   refusal renders instead of the comparison vanishing). The old
+   end-to-end test had encoded the bug -- it asserted the Luna pair
+   was comparable -- and was split into three: matching-lineage
+   position-set refusal, the Luna reproduction refusing at run level,
+   and a newer Luna run failing to displace an honest pair.
+2. **Spoofable forwarding guard (high).** Vite's `xfwd` APPENDS to a
+   client-supplied X-Forwarded-For, and the backend trusted the first
+   hop, so "127.0.0.1, <lan-ip>" bypassed the 403. Both proxies now
+   overwrite the header with the peer address they actually accepted
+   (`configure`/`proxyReq`), and the backend
+   (`routes/client_host.py`) trusts only the last hop. Either layer
+   alone defeats the reproduction; both exist.
+3. **Two model calls per exchange per attendee (high).** Every model
+   turn auto-fired a scenario assessment, and every black turn calls
+   the opponent -- forty attendees on Luna is a burst, forty on
+   llama.cpp is a pile-up. The room model policy now exists and is
+   enforced: scenario generation is manual (the auto-trigger and its
+   refreshKey plumbing are gone) and presenter-machine only (403),
+   reviewing stays open to the room; game starts naming a non-default
+   opponent are presenter-machine only, so attendees play the room's
+   default (configure local Gemma as the default; the frontier beat
+   is the presenter's, once, on the projector); the frontend clamps
+   attendee picks to the default and hides the picker.
+4. **Local MusicGen open to the LAN (high).** Generate controls
+   rendered for everyone and local audio was deliberately outside the
+   paid-job guard, so attendees could load multi-GB models onto the
+   presenter's GPU -- and the route test that asserted local audio
+   was "not blocked" actually launched MusicGen on a machine with the
+   audio extra, hanging `just test` for seven minutes.
+   `requests_paid_generation` became `requests_presenter_generation`
+   and covers all generation including local audio; GeneratePanel is
+   presenter-only with an honest note for attendees; the test now
+   asserts the 403 and can never start a synthesis run anywhere.
+5. **Obsolete suite resurfacing (medium).** An upgraded database kept
+   its sft-v1 suite, state assembly picked "the first suite with a
+   comparison", and the panel picked `suites[0]`, so the old suite
+   kept presenting as the benchmark. Suites now order
+   current-contract-first (newest first within a contract), carry a
+   `current_contract` flag, and the comparison belongs to the primary
+   suite or nobody. The panel flags an obsolete primary instead of
+   posing.
+6. **"Stop waiting" was not cancellation (medium).** Aborting the
+   browser request left the server run going, refreshed before it
+   landed, and re-enabled the button for a duplicate paid run. The
+   panel now tracks the wait: on abort, live controls stay locked
+   until a new live run lands through the poll or the server's
+   deadline ceiling (300 s clamp plus slack) passes, and the notice
+   says exactly that. Server-side cancellation was deliberately not
+   built; the deadline bounds the run.
+7. **Attendees never saw new evidence (medium).** The panel fetched
+   once on mount; tldraw sync carries none of this state. A 5 s
+   single-flight poll (test-overridable `pollMs`) keeps every
+   attendee's panel current and doubles as the completion signal for
+   the live-run lock.
+8. **Parseable-but-impossible positions (medium).** Suite validation
+   accepted a FEN with no black king because `chess.Board(fen)`
+   parses it and generates moves. `get_playable_legal_moves` enforces
+   `board.is_valid()`; gameplay keeps the permissive path because its
+   positions only ever come from applying legal moves.
+9. **Media typecheck under installed NumPy (medium).** `t.max()` in
+   the music generator failed ty against the installed NumPy stubs on
+   the review machine. Replaced with `float(t[-1])` -- the identical
+   value for an increasing arange -- and byte-stability verified by
+   regenerating: no diff.
+10. **Jobs ran before workspace identity (medium).** `run_job` now
+    validates a named workspace with a plain read before invoking the
+    runner (no write lock), so a bad id fails in microseconds instead
+    of after provider work, and the stale `JobConfig.job_config_id`
+    comment describing the pre-fix insert order was rewritten.
+11. **Causal training claims in the docs (low).** The plans said the
+    adapter "trained on bare completions" stopped explaining, which
+    narrates a training run that never happened. Session plan, demo
+    plan, architecture, this handover, and the learning guide now
+    describe the scripted outcome as what it is: authored replies
+    staging the trade bare-completion training would buy, with the
+    chain demonstrating how that trade is measured.
+
+Verification after this round: ruff and biome clean, ty clean with
+and without the media extra (numpy 2.4.6 installed for the check),
+tsc clean, api 448 passed, web 255 passed, deck 10 passed and the
+deck builds with the new proxy config, media regeneration
+byte-stable.

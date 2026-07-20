@@ -117,10 +117,10 @@ different measurement. Every delta refuses. Most systems would have
 averaged over the gap and called it robustness.
 
 The multiplicity detail deserves ten seconds of your suspicion.
-Example twelve repeats example one's position. The base model, sampled
-twice, answered differently each time; the adapted model answered
-identically. The position-set hash keeps both copies, so a suite with
-the repeat is a different measurement from a suite without it,
+Example twelve repeats example one's position. The scripted base
+replies differ between the two copies; the scripted adapted replies
+are identical. The position-set hash keeps both copies, so a suite
+with the repeat is a different measurement from a suite without it,
 which is exactly right: the denominator is twelve, not eleven distinct
 positions with an asterisk.
 
@@ -129,18 +129,23 @@ positions with an asterisk.
 The comparison shows legality up, JSON validity up, and explanation
 rate falling from 0.67 to zero. That last metric exists because a
 demo where adaptation only wins is an advertisement, and this is a
-workshop. The mechanism is worth stating precisely. The sft-v2 prompt
-asks for `{"move": ..., "why": ...}` with the why explicitly
-optional. The base model, being a chatty generalist, fills the field
-in eight replies out of twelve. The adapter's training pairs are bare
-`{"move": ...}` completions, so it learned to stop talking. Nothing
-in the data asked it to keep explaining, so it does not. The
-regression is not a bug in the adapter, it is the adapter doing
-exactly what the data said, which is the sharpest sentence about
-fine-tuning the session gets to say. Each modality's cached evidence
-card carries its own regression for the same reason: piece identity
-dips when style pushes hard, clipping rises when the music gets loud,
-frame detail softens when motion stabilizes.
+workshop. The mechanism is worth stating precisely, and so is what
+kind of claim it is. The sft-v2 prompt asks for
+`{"move": ..., "why": ...}` with the why explicitly optional. The
+scripted base replies fill the field eight times in twelve; the
+scripted adapted replies never do. No model produced either set, and
+the second review round rightly objected to prose that said the
+adapter "learned to stop talking" as if narrating a run that
+happened. What the fixtures do is stage the trade that bare
+`{"move": ...}` completions are known to buy, so the chain can
+demonstrate how you would catch it: nothing in such data asks the
+model to keep explaining, and a metric with the explanation inside
+the contract is what makes the collapse measurable instead of
+anecdotal. The measurement is real. The biography is not. Each
+modality's cached evidence card carries its own staged regression for
+the same reason: piece identity dips when style pushes hard, clipping
+rises when the music gets loud, frame detail softens when motion
+stabilizes.
 
 The first version of this metric earned a review finding, and the
 finding is better teaching than the metric. Version one counted prose
@@ -292,6 +297,60 @@ empty in every spawned stack, and the final suite run was executed
 with a deliberately poisoned key in the shell to prove the isolation
 holds. What does your test environment inherit from you? Wrong
 question order. What do your tests assume you are not carrying?
+
+## The review came back
+
+The corrected build got reviewed again and collected eleven more
+findings. If the first round taught mechanism, this one taught
+humility about identity, and one finding is good enough to retell in
+full.
+
+Two benchmark runs, same suite, same prompts, matching position sets,
+matching metric versions. Every check the panel had, green. Still not
+a before and after. What else has to match? Sit with it before
+reading on. The answer is the model. The comparison selected the
+latest base run regardless of who produced it, so a live run of
+gpt-5.6-luna received valid fine-tuning deltas against the scripted
+gemma adapter. Same exam, same grading, different student, and the
+report card said "improved". The fix adds lineage to comparability
+and makes selection prefer the base run whose model the adapter
+actually adapted. The uncomfortable part: our own end-to-end test
+asserted the Luna pair was comparable. A test suite is a list of
+claims you have stopped questioning. Reviews exist because some of
+those claims are wrong on purpose-shaped accident.
+
+The forwarding guard fell to a one-line spoof. Vite's xfwd APPENDS to
+whatever X-Forwarded-For the client sent, and the backend trusted the
+first entry, so "127.0.0.1" from a LAN laptop arrived as
+"127.0.0.1, lan-ip" and read as the presenter. A proxy that appends
+is a witness; a client that writes the first entry is a novelist. The
+proxies now overwrite the header with the peer they actually saw, and
+the backend reads the last word, not the first.
+
+Then arithmetic. Every model turn auto-fired a scenario call, on top
+of the opponent call the turn already needed. Two calls per exchange,
+times forty attendees, times a five-minute game. Multiply before you
+ship. The fix is a policy short enough to say on stage: the room
+plays the local default model; assessments and every generation job,
+local audio included (an attendee could previously load a multi-GB
+MusicGen onto the presenter's GPU, and the route test proved it by
+doing exactly that for seven minutes), belong to the presenter's
+machine, enforced with 403s. Related honesty: "Stop waiting" stopped
+the browser, not the server. The run kept spending after the button
+promised otherwise, and a refreshed panel would happily start a
+duplicate. Ask what your cancel button actually cancels. Ours now
+says it plainly and keeps live controls locked until the run lands or
+the server's own deadline passes.
+
+Small ones, same lesson. A FEN with no black king passed suite
+validation because chess.Board parses it and politely generates moves
+for a position that cannot exist; parseable is not playable, and
+is_valid() is now the gate. An upgraded database kept presenting its
+obsolete sft-v1 suite because "first suite with a comparison" favored
+whoever had history; current contract now outranks seniority. And the
+panel fetched its "shared evidence" exactly once at mount, which
+makes it a screenshot, not a share; it polls now, single-flight,
+five seconds.
 
 ## Where to poke first
 
