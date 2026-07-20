@@ -25,15 +25,42 @@ mismatch raises StaleMoveError, the attempt is recorded as 'stale'
 rather than mislabeled 'applied', and the turn ends with outcome
 'stale' instead of guessing.
 
-MODEL_TURN_MAX_ATTEMPTS configures the limit (default 2, clamped 1-5).
+Two more failure modes get the same "record the evidence, never lose
+it silently" treatment:
+
+- The whole turn (however many attempts MODEL_TURN_MAX_ATTEMPTS allows)
+  is bounded by one overall MODEL_TURN_DEADLINE_SECONDS deadline, not
+  just by attempt count. Attempt count alone let worst-case latency
+  multiply unpredictably: each attempt could itself retry the HTTP call
+  up to three times at MODEL_MOVE_TIMEOUT_SECONDS each, so two
+  model-turn attempts could in principle take several minutes -- longer
+  than the shortest allowed game. The deadline caps total wall-clock
+  time regardless of how retries stack, and the last attempt's own
+  timeout is shortened to whatever time remains.
+- If the game's clock expires between receiving a legitimate reply and
+  applying it (make_move's own clock check raises GameClockExpiredError
+  first), that attempt is recorded before the exception propagates,
+  instead of the model's answer -- possibly a correct one -- vanishing
+  with no trace because the clock happened to run out in between.
+
+MODEL_TURN_MAX_ATTEMPTS configures the retry limit (default 2, clamped
+1-5). MODEL_TURN_DEADLINE_SECONDS configures the overall deadline
+(default 30, clamped 5-120): comfortably under the 60s minimum game
+time limit, so even the shortest match leaves most of its clock after
+one model turn.
 """
 
 import os
 import sqlite3
+import time
 from dataclasses import dataclass
 from typing import Any
 
-from euro_chess_studio.actions.errors import StaleMoveError, WorkspaceNotFoundError
+from euro_chess_studio.actions.errors import (
+    GameClockExpiredError,
+    StaleMoveError,
+    WorkspaceNotFoundError,
+)
 from euro_chess_studio.actions.moves import MakeMoveResult, MovePrecondition, make_move
 from euro_chess_studio.calculations.llm_prompts import (
     MOVE_PROMPT_VERSION,
@@ -49,10 +76,13 @@ from euro_chess_studio.data.workspaces_repo import get_workspace
 
 # A move reply should be fast; the game clock keeps running while the
 # model thinks, so waiting the transport's full two minutes would eat
-# the participant's game. Documented operation-specific timeout.
+# the participant's game. Documented operation-specific timeout, used
+# as the ceiling for any one HTTP attempt -- the overall turn is
+# additionally bounded by MODEL_TURN_DEADLINE_SECONDS below.
 MODEL_MOVE_TIMEOUT_SECONDS = 60.0
 
 DEFAULT_MAX_ATTEMPTS = 2
+DEFAULT_DEADLINE_SECONDS = 30.0
 
 
 class ModelTurnError(RuntimeError):
@@ -80,6 +110,15 @@ def max_attempts() -> int:
     return max(1, min(5, value))
 
 
+def deadline_seconds() -> float:
+    raw = os.environ.get("MODEL_TURN_DEADLINE_SECONDS", "")
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_DEADLINE_SECONDS
+    return max(5.0, min(120.0, value))
+
+
 def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
     workspace = get_workspace(conn, workspace_id)
     if workspace is None:
@@ -105,6 +144,8 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
 
     attempts: list[sqlite3.Row] = []
     limit = max_attempts()
+    deadline = time.monotonic() + deadline_seconds()
+    deadline_exceeded = False
 
     def record(attempt_number: int, *, actor: str = "model", **fields) -> sqlite3.Row:
         row = insert_attempt(
@@ -127,11 +168,22 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
 
     replies_received = 0
     for attempt_number in range(1, limit + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            # The overall turn deadline is up: stop asking, resolve with
+            # whatever attempts already happened rather than starting
+            # another HTTP round trip that would only push latency
+            # further past what a short game clock can afford.
+            deadline_exceeded = True
+            break
         try:
             reply = llm_client.chat(
                 messages,
                 json_response=True,
-                timeout=MODEL_MOVE_TIMEOUT_SECONDS,
+                # The last attempt before the deadline is capped to
+                # whatever time remains, so a single slow call cannot by
+                # itself blow past the overall turn budget.
+                timeout=min(MODEL_MOVE_TIMEOUT_SECONDS, remaining),
                 model=opponent_model,
             )
         except llm_client.LlmRequestError as exc:
@@ -198,6 +250,22 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
                 commit=False,
                 precondition=precondition,
             )
+        except GameClockExpiredError as exc:
+            # The reply arrived -- possibly a perfectly good one -- but
+            # the clock ran out before it could be applied. Record it
+            # before the exception propagates so this evidence is never
+            # just lost; is_legal is left unset because the board was
+            # never actually checked against it.
+            record(
+                attempt_number,
+                status="clock_expired",
+                parse_ok=True,
+                parsed_move=analysis.uci,
+                error_detail=str(exc)[:400],
+                **shared,
+            )
+            conn.commit()
+            raise
         except StaleMoveError as exc:
             record(
                 attempt_number,
@@ -235,14 +303,18 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
         )
 
     if replies_received == 0:
-        return ModelTurnResult(
-            outcome="unavailable",
-            move_result=None,
-            attempts=attempts,
-            detail=(
+        if deadline_exceeded:
+            detail = (
+                f"{requested_model} did not reply within {deadline_seconds():.0f}s. "
+                "No move was played."
+            )
+        else:
+            detail = (
                 f"{requested_model} could not be reached after {limit} "
                 f"attempt{'s' if limit != 1 else ''}. No move was played."
-            ),
+            )
+        return ModelTurnResult(
+            outcome="unavailable", move_result=None, attempts=attempts, detail=detail
         )
 
     # The model answered but never produced a legal move. The documented
@@ -261,6 +333,17 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
             commit=False,
             precondition=precondition,
         )
+    except GameClockExpiredError as exc:
+        record(
+            limit + 1,
+            actor="fallback",
+            status="clock_expired",
+            parse_ok=True,
+            parsed_move=fallback_uci,
+            error_detail=str(exc)[:400],
+        )
+        conn.commit()
+        raise
     except StaleMoveError as exc:
         record(
             limit + 1,

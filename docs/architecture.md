@@ -231,12 +231,29 @@ the model actually said: one immutable row per raw reply, with model,
 provider alias, prompt version, ply, fen, parse and legality judgment,
 request ids, and the applied move if one resulted. `actions/
 model_turn.py` is an explicit state machine over those attempts:
-transport failure, empty, unparsable, invalid syntax, illegal, or
-applied. After the configured limit, a model that answered garbage is
-answered with a deterministic fallback (first legal move in UCI order,
-actor `fallback`), and a provider that never answered yields an
-explicit `unavailable` outcome with a client-side retry. The board can
-never be silently stuck on the model's turn.
+transport failure, empty, unparsable, invalid syntax, illegal, stale
+(the position changed while a reply was in flight), clock-expired (the
+reply arrived after the game's clock ran out), or applied. After the
+configured limit, a model that answered garbage is answered with a
+deterministic fallback (first legal move in UCI order, actor
+`fallback`), and a provider that never answered yields an explicit
+`unavailable` outcome with a client-side retry. The board can never be
+silently stuck on the model's turn.
+
+The whole turn is bounded by one `MODEL_TURN_DEADLINE_SECONDS` overall
+deadline (default 30s, comfortably under the 60s minimum game time
+limit), not just by `MODEL_TURN_MAX_ATTEMPTS`: attempt count alone let
+worst-case latency multiply unpredictably, since each attempt could
+itself retry the HTTP call up to three times at up to
+`MODEL_MOVE_TIMEOUT_SECONDS` (60s) each. The deadline is checked before
+starting each attempt, and the last attempt's own timeout is capped to
+whatever time remains, so total wall-clock time for a turn stays
+predictable regardless of how transport retries stack. If the reply
+does arrive but the clock has since expired, `make_move`'s clock check
+raises before the move is applied; `model_turn` records that attempt
+(status `clock_expired`) before the exception propagates, so a
+legitimate -- possibly correct -- reply is never lost with zero
+evidence just because the clock happened to run out in between.
 
 ### Scenario mappings
 

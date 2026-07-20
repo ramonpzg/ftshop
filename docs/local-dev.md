@@ -108,6 +108,7 @@ startup, never overriding the shell, never committed):
 | `VIDEO_PROMPT_BASE_URL` | Scene-writing endpoint | falls back to `OPENAI_BASE_URL` |
 | `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
 | `MODEL_TURN_MAX_ATTEMPTS` | Model-turn retries before the deterministic fallback | 2 (clamped 1-5) |
+| `MODEL_TURN_DEADLINE_SECONDS` | Overall wall-clock budget for one model turn, regardless of attempt count | 30 (clamped 5-120) |
 | `OPENAI_RECENT_KEY_401_RETRY` | Set to `1` right after creating or rotating a key: allows one or two retries of the exact generic-permissions 401 seen during key propagation | unset (401 fails immediately) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |

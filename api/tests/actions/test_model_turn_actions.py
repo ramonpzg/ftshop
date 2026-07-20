@@ -9,6 +9,8 @@ import chess
 import pytest
 
 from euro_chess_studio.actions import model_turn as model_turn_module
+from euro_chess_studio.actions.errors import GameClockExpiredError
+from euro_chess_studio.actions.games import start_game
 from euro_chess_studio.actions.model_turn import ModelTurnError, model_turn
 from euro_chess_studio.actions.moves import make_move
 from euro_chess_studio.calculations.pages import PAGES
@@ -370,6 +372,128 @@ def test_a_stale_fallback_is_also_caught(tmp_path, monkeypatch):
         m for m in conn.execute("SELECT actor FROM moves").fetchall() if m["actor"] == "model"
     ]
     assert len(model_moves) == 1
+
+
+def test_deadline_exceeded_stops_retrying_before_a_second_attempt(tmp_path, monkeypatch):
+    """Reproduces the reported unbounded-latency risk: without an
+    overall deadline, MODEL_TURN_MAX_ATTEMPTS alone let worst-case
+    wall-clock time multiply with each attempt's own transport retries.
+    The deadline must stop the loop from starting another HTTP round
+    trip once time is up, resolving with whatever already happened."""
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("MODEL_TURN_DEADLINE_SECONDS", "10")
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "5")
+
+    call_log = []
+
+    def fake_chat(*args, **kwargs):
+        call_log.append(kwargs.get("timeout"))
+        return fake_outcome('{"move": "e2e5"}')  # illegal from the start position
+
+    monkeypatch.setattr(model_turn_module.llm_client, "chat", fake_chat)
+
+    # deadline = 0.0 + 10 = 10.0. First loop check (1.0) is still within
+    # budget, so one attempt runs; the second loop check (20.0) is past
+    # it, so the loop stops instead of trying a 2nd, 3rd, 4th, 5th time.
+    clock = iter([0.0, 1.0, 20.0])
+    monkeypatch.setattr(model_turn_module.time, "monotonic", lambda: next(clock))
+
+    result = model_turn(conn, workspace["id"])
+
+    assert len(call_log) == 1
+    assert result.outcome == "fallback_move"
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["illegal", "applied"]
+
+
+def test_deadline_exceeded_with_no_replies_reports_unavailable(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("MODEL_TURN_DEADLINE_SECONDS", "10")
+    monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "5")
+    stub_replies(monkeypatch, [LlmRequestError("down", request_ids=())])
+
+    clock = iter([0.0, 1.0, 20.0])
+    monkeypatch.setattr(model_turn_module.time, "monotonic", lambda: next(clock))
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "unavailable"
+    assert "did not reply within 10s" in result.detail
+    statuses = [attempt["status"] for attempt in result.attempts]
+    assert statuses == ["transport_failed"]
+
+
+def test_the_last_attempts_timeout_is_capped_by_the_remaining_deadline(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    monkeypatch.setenv("MODEL_TURN_DEADLINE_SECONDS", "10")
+
+    seen_timeouts = []
+
+    def fake_chat(*args, **kwargs):
+        seen_timeouts.append(kwargs["timeout"])
+        return fake_outcome('{"move": "e2e4"}')
+
+    monkeypatch.setattr(model_turn_module.llm_client, "chat", fake_chat)
+    # deadline = 0.0 + 10 = 10.0; the loop's only check sees 3s left.
+    clock = iter([0.0, 7.0])
+    monkeypatch.setattr(model_turn_module.time, "monotonic", lambda: next(clock))
+
+    model_turn(conn, workspace["id"])
+
+    assert seen_timeouts == [3.0]
+
+
+def test_clock_expiry_after_a_legitimate_reply_still_records_the_attempt(tmp_path, monkeypatch):
+    """Reproduces the reported data loss: a reply that arrives after the
+    game's clock ran out used to vanish with zero persisted attempts,
+    because make_move's clock check raised before model_turn ever
+    recorded anything for it."""
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 60)
+    stub_replies(monkeypatch, [fake_outcome('{"move": "e2e4"}')])
+
+    # Backdate the game so make_move's clock check reads it as already
+    # expired, simulating a reply that arrived too late.
+    conn.execute(
+        "UPDATE games SET started_at = '2000-01-01T00:00:00+00:00' WHERE workspace_id = ?",
+        (workspace["id"],),
+    )
+    conn.commit()
+
+    with pytest.raises(GameClockExpiredError):
+        model_turn(conn, workspace["id"])
+
+    (attempt,) = conn.execute("SELECT * FROM model_attempts").fetchall()
+    assert attempt["status"] == "clock_expired"
+    assert attempt["parsed_move"] == "e2e4"
+    assert attempt["raw_response"] == '{"move": "e2e4"}'
+    assert attempt["is_legal"] is None
+    # The reply was never applied to the board.
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+    # The clock check itself already recorded the timeout loss.
+    game = conn.execute("SELECT * FROM games WHERE workspace_id = ?", (workspace["id"],)).fetchone()
+    assert game["result"] == "loss_timeout"
+
+
+def test_clock_expiry_during_the_fallback_also_records_the_attempt(tmp_path, monkeypatch):
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 60)
+    stub_replies(monkeypatch, [fake_outcome("not json"), fake_outcome("still not json")])
+
+    conn.execute(
+        "UPDATE games SET started_at = '2000-01-01T00:00:00+00:00' WHERE workspace_id = ?",
+        (workspace["id"],),
+    )
+    conn.commit()
+
+    with pytest.raises(GameClockExpiredError):
+        model_turn(conn, workspace["id"])
+
+    statuses = [
+        row["status"] for row in conn.execute("SELECT status FROM model_attempts").fetchall()
+    ]
+    assert statuses == ["parse_failed", "parse_failed", "clock_expired"]
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
 
 
 def test_attempts_are_queryable_by_scope(tmp_path, monkeypatch):
