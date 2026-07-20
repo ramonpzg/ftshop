@@ -89,8 +89,8 @@ const circles = [
     cx: 402,
     cy: 192,
     r: 56,
-    lx: 402,
-    ly: 130,
+    lx: 462,
+    ly: 122,
     anchor: "middle",
     stroke: "var(--accent)",
   },
@@ -118,10 +118,15 @@ const circles = [
   opacity: 1;
 }
 
+/* Paper halo keeps labels readable where they cross a stroke. */
 .label {
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 13px;
   fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 
 .split-line {

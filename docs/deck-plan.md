@@ -251,7 +251,18 @@ in the root Justfile; phase 36 wires them in.
 
 ## Click-count expectations
 
-Recorded per slide in the speaker notes (`CLICK:` lines) inside
-`deck/slides/*.md`. The copy test asserts the notes contract exists;
-the click counts themselves are verified against the built deck during
-the screenshot pass.
+Each slide's `CLICK:` speaker-note line states what changes and why.
+The totals below were measured against the running deck during the
+phase 35 screenshot pass (slide number: clicks).
+
+```
+1:0   2:1   3:1   4:1   5:4   6:0   7:3   8:1
+9:4   10:1  11:1  12:1  13:1  14:3  15:3  16:2
+17:1  18:1  19:1  20:1  21:4
+22:0  23:4  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
+32:0  33:3  34:3  35:2  36:0
+37:0  38:5  39:5  40:0  41:12  42:2  43:18  44:0  45:2  46:1
+```
+
+46 slides. The two large totals are the Magic Move code slides, where
+inner line-highlight steps are clicks; their speaker notes say so.

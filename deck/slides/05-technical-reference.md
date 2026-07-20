@@ -122,7 +122,7 @@ Return exactly one move...<end_of_turn>
 <!--
 TIMING: 2 minutes.
 SAY: Three forms of the same intent: the raw prompt, the chat template, the rendered turn. The tokenizer sees the third one. Most fine-tuning bugs live between step one and step three.
-CLICK: 8. Each code stage morphs into the next; the inner steps walk the highlighted lines.
+CLICK: 12. Each code stage morphs into the next; the inner steps walk the highlighted lines.
 SOURCE: the template matches the Gemma turn format used in training.
 CUT: the inner highlight steps; the three morphs carry it.
 FALLBACK: static code, no dependencies.
@@ -211,7 +211,7 @@ The whole ladder:
 <!--
 TIMING: 4 minutes.
 SAY: The same run at five levels of abstraction. Rung five actually executes in the notebook. The GGUF is for deployment; training starts from the unquantized weights and the merged result converts back.
-CLICK: 12. Three morphs across the actual code, then the ladder summary steps line by line.
+CLICK: 18. Three morphs across the actual code with their line highlights, then the ladder summary steps line by line.
 SOURCE: model ids are the accepted ones; the axolotl path points at the real dataset file.
 CUT: the inner highlight steps.
 FALLBACK: static code, no dependencies.

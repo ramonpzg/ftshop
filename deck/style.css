@@ -237,9 +237,13 @@
   font-family: "IBM Plex Mono", monospace;
 }
 
-/* Footer, rendered by global-bottom.vue on content slides. */
+/* Footer, rendered by global-bottom.vue on content slides. The layer
+ * mounts before the slide body in the DOM, so it needs a z-index to
+ * paint above the layout's opaque paper ground. */
 .deck-footer {
   position: absolute;
+  z-index: 10;
+  pointer-events: none;
   left: 3.4rem;
   right: 3.4rem;
   bottom: 1.1rem;
