@@ -1,186 +1,242 @@
-# Deck plan (v1 build record)
+# Deck plan
 
 The Slidev deck is one of the workshop's three assets: the board is
 where the room works, the deck is where the narrative lives, the
 standalone Jupyter notebook is pragmatic working material and the
-take-home. This plan follows the
-polyglot workflow: every slide gets its content, layout, and
-animation noted before it gets built; images get a prompt for an
-image model; components get built alongside their slides in bouts.
+take-home. The three keep separate visual languages: hand-drawn
+whiteboard, composed deck, plain notebook.
 
-The authoritative forward plan for the deck is
-[../deck/PLAN_V2.md](../deck/PLAN_V2.md). This file records the v1
-deck as built and stays accurate as a build record, but where the two
-disagree, PLAN_V2 wins and phase 35 rebuilds to it. The known
-conflicts, so nobody inherits them: v2 puts the TUI recording before
-the chess recap (v1 opens chess-first); v2's origin numbers are 5,
-then 20 games a day, then 500 in the first month, with no invented
-Elo or total-game figure (v1's slide 2 counter does not survive); v2
-replaces "fine-tuning is moulding intelligence" (slide 6) with the
-four-interventions decision (prompt, retrieve, tools, fine-tune); v2
-makes the technical material a modular reference section rather than
-a scheduled mid-session return.
+`deck/PLAN_V2.md` is the narrative source of truth for slide order and
+delivery. This document records the deck's design system, component
+inventory, motion rules, placeholder inventory, and per-slide click
+expectations. The v1 slide list that used to live here is superseded by
+PLAN_V2.
 
-Working agreements, carried over from polyglot and this repo:
+## Design rationale
 
-- Writing style: terse, direct, pragmatic. No emojis, no em dashes,
-  no marketing fluff. Speaker notes in HTML comments with TIMING and
-  WARNING annotations.
-- Animations matter: magic-move for code evolution, v-motion with
-  spring physics for hero moments, v-click for pacing, v-mark for
-  annotations. Never animation for its own sake; every motion makes
-  a point about the content.
-- Components: Vue script setup, dark glassy panels, staged reveals,
-  graceful offline states. Where a component can talk to the running
-  FastAPI backend, it should, with a clean fallback when the backend
-  is down.
-- The session plan is the narrative source of truth and follows
-  PLAN_V2: the run of show (docs/demo-plan.md) opens with deck parts
-  1-4 (about 25 minutes including the TUI recording), moves to the
-  board and notebook, and never schedules a return to the deck; the
-  technical-reference material is part 5, modular and unscheduled.
-  The slide order below records v1's sequence only. Restructuring the
-  deck to PLAN_V2's five-part layout is phase 35's job.
+The deck borrows its look from the printed side of chess: scoresheets,
+annotated game columns, tournament wallboards. Those objects are almost
+entirely black ink on paper, set in a small number of type sizes, ruled
+into columns, with one pen color for marks that matter. That maps
+cleanly onto what this deck must do: show notation, code, evidence
+tables, and before/after comparisons, and stay readable from the back
+of a bright room.
 
-Build in bouts of five slides. v1 status is tracked per slide.
+Concretely that means a paper-white ground, near-black ink, thin rules
+instead of boxes where possible, square corners, tabular figures for
+anything counted or timed, and one functional accent used the way an
+arbiter uses a pen: to mark the thing being decided. It is not a
+chessboard theme. No slide is dressed as a board; the board appears
+only when an actual position is being discussed.
 
-## Components
+Every slide is one visual beat. Density lives in the speaker notes, not
+on the canvas.
 
-| Component | What it does | Backend |
-|---|---|---|
-| `LiveRoom.vue` | The room right now: playing/finished/samples totals and per-game countdowns, polled every 3s | GET /presenter/games |
-| `DatasetShapes.vue` | One move (e4) cycling through the six dataset encodings with eased morph transitions | none |
-| `RewardMeter.vue` | Interactive reward function: click an outcome, watch the reward land and the total move | none |
-| `ModalityGrid.vue` | The recipe, four times: pairs in, adapter out, eval always, staggered reveal per modality | none |
+## Type system
 
-## Image prompts
+Self-hosted through Fontsource npm packages: no network fetch at
+presentation time, no Google Fonts. Both families are licensed under
+the SIL Open Font License 1.1; license files ship inside the packages
+under `deck/node_modules/@fontsource/*`. `docs/licenses.md` gets the
+entry at phase 34 integration, since phase 34 owns that file right now.
 
-Placeholders in v1 are styled blocks carrying their prompt. Generate
-with FLUX.2 or similar, hand-drawn/editorial style, monochrome-ish to
-sit near the tldraw aesthetic:
+- `IBM Plex Sans` for display and body. Weights 400, 500, 600, 700.
+- `IBM Plex Mono` for code, notation, clocks, metrics, citations.
+  Weights 400, 500, 600.
 
-1. `cover-board.png`: "Minimalist hand-drawn chess board viewed at a
-   low angle, single knight casting a long shadow shaped like a neural
-   network graph, ink on paper, high contrast, off-white background"
-2. `duolingo-streak.png`: "Hand-drawn calendar with chess pawns
-   marching across the days, one pawn per day growing gradually into
-   a queen, ink sketch, warm accent on the final square"
-3. `elo-ladder.png`: "A ladder drawn in ink where each rung is a chess
-   rating number, small figures climbing, some falling, editorial
-   illustration, off-white paper"
-4. `four-boards.png`: "Four small chess boards in a row, each drawn in
-   a different medium: pencil text, oil paint, sound waves, film
-   strip, unified ink style"
-5. `instructor.png`: "A friendly robot tutor leaning over a chess
-   board across from a human, pointing at a knight, warm hand-drawn
-   editorial style"
+Scale, on Slidev's 980x552 canvas (scaled to the projector):
 
-## The slides
+| role | size | weight | face |
+| --- | --- | --- | --- |
+| display (section titles, big statements) | 3.4rem | 700 | Sans |
+| slide title | 1.9rem | 700 | Sans |
+| body | 1.05rem | 400 | Sans |
+| table/metric | 0.9rem | 400-600 | Mono |
+| code | 0.85rem | 400 | Mono |
+| kicker, footer, citation | 0.7rem | 500 | Mono, uppercase, letterspaced |
 
-Timing target: the deck carries about 25 minutes of talking total,
-now all up front per PLAN_V2. 90 minutes overall.
+Nothing on a content slide goes below 0.7rem, and 0.7rem is reserved
+for the footer and citation rows. No viewport-scaled type.
 
-### Bout 1: opening (slides 1-6)
+## Palette
 
-1. **Title.** "Same Recipe, Different Results." Subtitle: fine-tuning
-   across text, image, audio, video. One domain: chess. Layout:
-   cover, image cover-board right. v-click reveals the three assets
-   line: a whiteboard, a deck, a Jupyter notebook. NOTE: state the URL of the
-   board early and twice.
-2. **The chess story.** Duolingo chess pathway, 2 matches a day, then
-   30, then 50, over 1000 matches, Elo past 1000. v-motion counter
-   easing up from 2 to 1000+. Image duolingo-streak. TIMING: 2 min,
-   this is the personal hook, do not rush it.
-3. **Elo, briefly.** What the number means, why beating the bot at
-   your level is hard. Image elo-ladder. Two v-clicks max.
-4. **Rules refresher.** The board, the pieces, the goal. The Queen's
-   Gambit check: not seen it? Leave, watch it, come back. WARNING:
-   this is a joke, land it and move on.
-5. **Chess today.** AI beat grandmasters years ago; chess is more
-   popular than ever. The point: automation did not kill the game,
-   it changed who plays and why. Sets up "intelligence you own".
-6. **Fine-tuning is moulding intelligence.** The stages that got us
-   here, compressed: rules, statistics, gradients, transformers,
-   diffusion. Why adapt a model instead of training one. magic-move
-   of a two-line "train from scratch" cost table into a "fine-tune"
-   one.
+Neutral ground, one functional accent, two semantic colors. All values
+are CSS custom properties in `deck/style.css`; components use the
+variables, never raw hex.
 
-### Bout 2: the recipe and the room (slides 7-11)
+| token | value | use |
+| --- | --- | --- |
+| `--paper` | `#f6f4ef` | slide ground |
+| `--paper-raised` | `#fdfcf9` | component surfaces, code blocks |
+| `--ink` | `#191713` | text, titles, board diagrams |
+| `--ink-soft` | `#5c564c` | secondary text, speaker asides |
+| `--ink-faint` | `#8a8377` | kickers, footers, disabled |
+| `--rule` | `#d9d3c7` | hairlines, table rules, borders |
+| `--accent` | `#1f4fd8` | the arbiter's pen: current move, adapted result, live data, active state |
+| `--good` | `#1e6b45` | improvement, success, legal |
+| `--bad` | `#a2352a` | regression, error, illegal |
 
-7. **The recipe.** The mantra slide: pairs in, adapter out, eval
-   always. ModalityGrid component, staggered reveal. This slide
-   returns at the end; say the mantra out loud both times.
-8. **The plan.** Four modalities, one domain. Text is the deep
-   tutorial; image, audio, video run faster. Simple grid, v-clicks.
-9. **How to follow along.** The app: join with your name, move
-   pieces, watch the dataset build, run jobs, check evals. Screenshot
-   or live iframe of the board. NOTE: this is where everyone opens
-   the app; budget dead air.
-10. **The room, live.** LiveRoom component against the running
-    backend. Everyone's game on one slide. DEMO PREP: backend must be
-    up; component shows a terse offline hint otherwise.
-11. **SECTION: Building a Chess Machine.** Section layout, text page
-    of the app on screen after this.
+Contrast: ink on paper is about 14:1, accent on paper 6.8:1, good
+6.3:1, bad 6.4:1. All pass at body sizes on a washed-out projector.
+Dark slides exist only as full-bleed media frames (the TUI recording,
+video clips); their captions sit on the media, in paper white.
 
-### Bout 3: text deep dive (slides 12-17)
+## Conventions
 
-12. **One move, six datasets.** DatasetShapes component cycling e4
-    through pgn-prefix, fen, fen+legal, tensor, policy/value, RL
-    trajectory. The point: encoding is a design decision, not a
-    given.
-13. **Prompt to chat template.** magic-move: raw prompt string, then
-    the Jinja chat template, then the tokenized turn structure. lines
-    on, three steps.
-14. **The reward function.** RewardMeter component. Click illegal:
-    -1. Click mate: +10. The RL environment is five lines of Python
-    and a chess library that knows the rules.
-15. **The opponent.** The model plays through the same environment:
-    timed match, quit costs a loss, illegal replies score -1 and do
-    not move the board. Two-model beat: small Gemma, then a frontier
-    model. Same recipe, different results, live on the board.
-16. **Evals before training.** Legal move rate, valid JSON rate, then
-    the heavier ones: centipawn loss, mate-in-one. Evals are the
-    first cell you write, not the last.
-17. **The training ladder.** Five rungs, most to least abstracted:
-    Studio UI, API, axolotl YAML, Unsloth code, raw JAX. magic-move
-    across the actual code: unsloth block morphs into axolotl YAML
-    morphs into the JAX loss loop. TIMING: 4 min, the magic-move
-    carries it.
+- **Alignment.** Left-aligned text on a 12-column mental grid. Centered
+  content only on section openers and single-object slides.
+- **Titles.** A mono uppercase kicker names the part (for example
+  `PART 2 · FOUR ADAPTATION PROBLEMS`), the sans title states the
+  point. Kicker and title sit at a fixed top position on every content
+  slide.
+- **Footer.** Every content slide: hairline rule, then
+  `SAME RECIPE, DIFFERENT RESULTS · EUROSCIPY 2026` left, slide number
+  right, in mono at 0.7rem. Section openers and full-bleed media
+  slides omit it.
+- **Citations and provenance.** One mono line under the object:
+  model or adapter id, exact input reference, `CACHED <date>` or
+  `LIVE`, source. Prices and external claims carry `[SOURCE, DATE]`
+  placeholders until checked.
+- **Code.** Shiki with a light theme on `--paper-raised`, hairline
+  border, square corners. Magic Move only when the code itself is the
+  thing changing. Line highlighting steps under presenter clicks.
+- **Diagrams.** Ink lines on paper, editorial style. No mermaid brand
+  colors, no drop shadows.
+- **Tables.** Hairline horizontal rules only, mono figures, first
+  column sans. Reveal by row when the comparison is the point.
+- **Media.** Images and video sit in fixed-geometry frames with a
+  caption row reserved whether or not the caption is visible.
+  Placeholders occupy the same frame as the final asset.
+- **Section transitions.** Each of the five parts opens with a
+  scoresheet-style opener: oversized part number, part title, hairline
+  rules, no footer. Slide transition stays on a quick fade;
+  within-slide motion carries meaning instead.
 
-### Bout 4: the other modalities (slides 18-24)
+## Geometry
 
-18. **SECTION: Painting Our Pieces.** Image four-boards teased here.
-19. **Image pairs.** (image, caption) rows; DreamBooth-style LoRA;
-    trigger words. Generation on the board via FLUX.
-20. **VLM as judge.** The eval problem for images; a vision model
-    grades piece identity and style adherence. Costs cents.
-21. **SECTION: Giving the Board Sound.** Audio pairs: (text, audio).
-    Local models on a laptop GPU: musicgen-small, stable-audio-open.
-    The click synth: you can also just make the sound yourself.
-22. **Audio evals.** Duration, clipping, spectrogram sanity. Computed
-    from real bytes, not vibes.
-23. **SECTION: Video of the Real-World Use Case.** Luna turns a game
-    into a detailed filmable situation. LTX fast or Veo stages that
-    situation, not a chess move. The cost table is real now: cents per
-    second. Say the numbers out loud.
-24. **Merging.** Two adapters, one model: slerp in a YAML file. And
-    when merging wrecks both. mergekit config on screen.
+16:9 throughout, Slidev's 980x552 canvas. Rules:
 
-### Bout 5: closing (slides 25-28)
+- Title block, content region, and footer have fixed positions.
+  Clicks toggle visibility inside reserved space; they never insert
+  layout that moves neighbors.
+- Media frames declare aspect ratio in CSS (`aspect-ratio`), so a
+  missing asset and its eventual file occupy identical space.
+- Comparison layouts (base/adapted) reserve both columns from click
+  zero.
+- Long lists never scroll on stage; content that does not fit at
+  1280x720 gets split across slides instead.
 
-25. **Same recipe, four times.** ModalityGrid returns, all four rows
-    filled. The mantra again.
-26. **Economics.** What owning the weights buys: no per-token bill on
-    your own domain, no deprecation on someone else's schedule.
-    Karpathy microchat: the barrier keeps dropping.
-27. **Your personalised instructor.** The point of the whole session:
-    a model that teaches chess the way you want to learn it. Mine:
-    win while capturing as few pieces as possible. Image instructor.
-28. **Resources.** The repo, the Jupyter notebook, verifiers, Unsloth,
-    axolotl, mergekit, and fal. QR to the repo. Thanks.
+## Component surfaces
 
-## v1 status
+One surface treatment: `--paper-raised` ground, 1px `--rule` border,
+2px corner radius, no shadow, no blur, no gradient. Interactive
+affordances (RewardMeter buttons) get an ink border on hover and an
+accent border when active. No floating glass cards.
 
-Built: all 28 slides, all four components, image placeholders with
-prompts inline. Not yet: real images, the live iframe on slide 9,
-timing rehearsal.
+## Comparison conventions
+
+- **Base versus adapted.** Two columns, mono labels `BASE` and
+  `ADAPTED`; the adapted column carries a 2px accent top border.
+  Deltas print signed values: green for improvement, red for
+  regression, on the metric they refer to.
+- **Cached versus live.** A mono chip after the citation: `CACHED
+  2026-06-30` outlined in `--rule`, or `LIVE` outlined in `--accent`
+  with a solid accent dot. Components that poll the backend show the
+  same chip.
+- **Modality versus modality.** The recipe grid keeps one fixed row
+  order (text, image, audio, video) and one fixed column order (pairs
+  in, adapter out, eval always) everywhere it appears. A modality is
+  named in sans; its data is set in mono.
+
+## Motion rules
+
+- Every educational transition is presenter-controlled: Slidev clicks
+  or an explicit control the presenter operates. No `setInterval`
+  carousels, no staggered reveals on mount, no autoplay.
+- Motion preserves object identity (the same board while labels
+  change), directs attention (one element enters), or shows a
+  transformation (Magic Move). Entrances that do none of these do not
+  animate.
+- Easing `cubic-bezier(0.25, 0.1, 0.25, 1)`, durations 150-400ms,
+  travel under 24px. No springs, no rotation, no scale-from-zero.
+- `prefers-reduced-motion: reduce` collapses all transition and
+  animation durations to 1ms globally (in `style.css`); every final
+  state reads correctly as a static frame.
+- Components derive their visible state purely from the click count
+  they are handed, so backward and forward navigation always lands on
+  the same frame. Timers and subscriptions are cleared on unmount
+  (LiveRoom's poll loop is data fetching, not motion, and keeps its
+  interval while mounted).
+
+## Component inventory
+
+All components take a `clicks` prop where they participate in slide
+progression; the mapping from click count to visible state lives in
+pure functions under `deck/lib/` so tests can drive it without a DOM.
+
+| component | concept | data |
+| --- | --- | --- |
+| `PhoneTuiReplay` | the TUI outcome as a phone-shaped local video with poster and explicit play control | local file, placeholder until recorded |
+| `OutcomeCompare` | matched input, base/adapted outputs, metrics with deltas, one regression | fixed placeholder fixtures until phase 34 integration |
+| `DatasetShapes` | one move re-encoded, click-stepped | static, real encodings |
+| `RewardMeter` | environment feedback separated from model output; presenter presses outcomes | static reward map |
+| `CostAtTarget` | one task at a target quality, measured deployment facts | `[SOURCE, DATE]` placeholders |
+| `DataUniverse` | the data circles narrowing, then the train/eval split | static |
+| `NotationMorph` | one position and one move across FEN, UCI, SAN, PGN with the board fixed | real game data |
+| `LiveRoom` | actual room state via `GET /presenter/games`, offline fallback | live backend |
+| `MediaFrame` | fixed-geometry placeholder and final-media frame with caption and provenance rows | per-slide |
+
+Removed: `ModalityGrid`'s mount-timer stagger (the recipe grid is now
+click-revealed), `DatasetShapes`' 3.2s carousel.
+
+## Placeholder inventory
+
+Assets Ramon supplies. Every one renders through `MediaFrame` with the
+stated file name and aspect ratio; the slide is complete the moment the
+file lands in `deck/assets/`.
+
+| file | ratio | content |
+| --- | --- | --- |
+| `assets/origin-photo.jpg` | 4:3 | childhood photo, readable from the back |
+| `assets/origin-book.jpg` | 3:4 | the chess book bought and abandoned |
+| `assets/duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
+| `assets/duolingo-app.png` | 9:19.5 | Duolingo chess app screenshot |
+| `assets/oscar-game.png` | 9:19.5 | one game against Oscar, app screenshot |
+| `assets/oscar.png` | 9:19.5 | Oscar himself |
+| `assets/queens-gambit.jpg` | 16:9 | Queen's Gambit still |
+| `assets/no-internet.png` | 9:19.5 | Duolingo chess offline on the Sydney flight |
+| `assets/meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
+| `assets/tui-recording.mp4` + `assets/tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
+| `assets/meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
+| `assets/goth-minions.jpg` | 4:3 | goth Minions |
+| `assets/corporate-lamp.txt` | text block | the jargon-heavy lamp announcement paragraph |
+| `assets/style-translation.mp4` | 16:9 | bachata background or Thinking Machines translation clip |
+| `assets/canva-template.mp4` | 16:9 | the real Canva video-template example |
+| `assets/mapping-{1,2,3}.png` | 16:9 | three real-world mapping artifacts (board, log, mapping) |
+| `assets/image-{base,adapted}.png` | 1:1 | image adaptation pair, same prompt |
+| `assets/audio-{base,adapted}.wav` | native audio | audio adaptation pair |
+| `assets/video-scene.mp4` + poster | 16:9 | Luna scene video, no chess objects |
+| `assets/ab-{text,image,audio,video}-{a,b}.*` | per modality | the four A/B pairs with provenance |
+| `assets/future-tree.png` | 16:9 | the model tree diagram from v1 |
+
+## Deck commands
+
+Deck-owned until phase 36 consolidates them into the Justfile:
+
+```
+cd deck && bun run dev        # slidev on :3030
+cd deck && bun run build      # production build to dist/
+cd deck && bun test           # lib + copy checks (already in `just test`)
+cd deck && bun run lint       # biome, deck only
+cd deck && bun run typecheck  # tsc over lib/ and tests/
+```
+
+`just test` already runs the deck tests. Lint and typecheck are not yet
+in the root Justfile; phase 36 wires them in.
+
+## Click-count expectations
+
+Recorded per slide in the speaker notes (`CLICK:` lines) inside
+`deck/slides/*.md`. The copy test asserts the notes contract exists;
+the click counts themselves are verified against the built deck during
+the screenshot pass.
