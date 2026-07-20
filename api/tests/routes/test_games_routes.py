@@ -306,6 +306,56 @@ def test_a_failed_assessment_survives_reload_as_an_explicit_failed_state(
     reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
     assert reload_response.status_code == 200
     body = reload_response.json()
-    assert body is not None
-    assert body["status"] == "failed"
-    assert "502" in body["error_detail"]
+    assert body["latest"]["status"] == "failed"
+    assert "502" in body["latest"]["error_detail"]
+
+
+def test_reload_restores_the_last_success_alongside_a_later_failure(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the follow-up gap: the endpoint used to return only
+    the single latest row. During a live failure the previous mapping
+    stays visible next to the new error (the component simply never
+    overwrites its state on a failed request), but reload received
+    only the failure and had no way to restore that mapping."""
+    from euro_chess_studio.actions import scenario as scenario_module
+    from euro_chess_studio.data.llm_client import ChatOutcome, LlmRequestError
+
+    good_reply = (
+        '{"assessment": "Level.", "real_world": "A new hire watches the routine '
+        'before touching anything.", "video_prompt": "A documentary shot follows '
+        'an analyst through a quiet control room."}'
+    )
+
+    def succeed(*args, **kwargs):
+        return ChatOutcome(
+            content=good_reply,
+            model="gpt-5.6-luna",
+            provider_alias="video_prompt",
+            attempts=1,
+            request_ids=(),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", succeed)
+    good = client.post(f"/workspaces/{workspace_id}/assess").json()
+
+    def fail_video_prompt_chat(*args, **kwargs):
+        raise LlmRequestError("502 from video_prompt", request_ids=())
+
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", fail_video_prompt_chat)
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assert assess_response.status_code == 502
+
+    reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
+    assert reload_response.status_code == 200
+    body = reload_response.json()
+    assert body["latest"]["status"] == "failed"
+    assert "502" in body["latest"]["error_detail"]
+    assert body["latest_success"]["id"] == good["id"]
+    assert body["latest_success"]["assessment"] == good["assessment"]

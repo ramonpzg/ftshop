@@ -37,20 +37,22 @@ export function ScenarioSection({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ assessment: "", real_world: "", video_prompt: "" });
 
-  // Reload restores the true latest state, including a failure: showing
-  // an older, now-stale suggestion instead would hide that the most
-  // recent attempt (for wherever the game is now) never succeeded.
+  // Reload restores the same combination a live failure already shows
+  // on screen: the last mapping that actually succeeded stays visible
+  // (latest_success), and a more recent failure is surfaced alongside
+  // it (latest) rather than replacing it. Returning only `latest` would
+  // make a still-good mapping unreachable the moment the page
+  // refreshes after a later failure.
   useEffect(() => {
     let cancelled = false;
     fetchScenario(workspaceId)
       .then((restored) => {
-        if (cancelled || !restored) return;
-        if (restored.status === "failed") {
+        if (cancelled) return;
+        if (restored.latest_success) setScenario(restored.latest_success);
+        if (restored.latest?.status === "failed") {
           setState("error");
-          setError(restored.error_detail);
+          setError(restored.latest.error_detail);
           setErrorSource("assessment");
-        } else {
-          setScenario(restored);
         }
       })
       .catch(() => {});

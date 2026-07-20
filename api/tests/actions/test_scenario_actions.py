@@ -122,9 +122,11 @@ def test_reload_restores_the_latest_scenario(tmp_path, monkeypatch):
     other = get_connection(tmp_path / "test.db")
     try:
         restored = latest_scenario_for_workspace(other, workspace["id"])
-        assert restored is not None
-        assert restored["id"] == suggested["id"]
-        assert restored["suggested_video_prompt"] == suggested["suggested_video_prompt"]
+        assert restored.latest is not None
+        assert restored.latest["id"] == suggested["id"]
+        assert restored.latest["suggested_video_prompt"] == suggested["suggested_video_prompt"]
+        # The last attempt succeeded, so latest and latest_success agree.
+        assert restored.latest_success["id"] == suggested["id"]
     finally:
         other.close()
 
@@ -189,16 +191,18 @@ def test_parse_failure_records_raw_and_does_not_erase_prior_records(tmp_path, mo
     # there, still queryable), but reload surfaces the true latest
     # state -- the failure -- rather than silently reverting to a
     # suggestion that predates the participant's most recent move.
-    latest = latest_scenario_for_workspace(conn, workspace["id"])
-    assert latest["id"] != good["id"]
-    assert latest["status"] == "failed"
-    assert latest["error_detail"] == "reply had no usable assessment"
-    assert (
-        conn.execute("SELECT * FROM scenario_assessments WHERE id = ?", (good["id"],)).fetchone()[
-            "suggested_assessment"
-        ]
-        == good["suggested_assessment"]
-    )
+    reload_state = latest_scenario_for_workspace(conn, workspace["id"])
+    assert reload_state.latest["id"] != good["id"]
+    assert reload_state.latest["status"] == "failed"
+    assert reload_state.latest["error_detail"] == "reply had no usable assessment"
+    # Reproduces the reported gap: during a live failure the previous
+    # mapping stays on screen alongside the new error, because the
+    # component simply never overwrites its local state on a failed
+    # request. Reload must be able to restore that same combination --
+    # not just the failure -- or the good suggestion becomes
+    # unreachable the moment the page refreshes.
+    assert reload_state.latest_success["id"] == good["id"]
+    assert reload_state.latest_success["suggested_assessment"] == good["suggested_assessment"]
 
 
 def test_transport_failure_has_a_recoverable_persisted_state(tmp_path, monkeypatch):

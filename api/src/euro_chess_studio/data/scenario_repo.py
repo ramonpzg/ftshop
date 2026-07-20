@@ -110,6 +110,24 @@ def latest_scenario(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.Row 
     ).fetchone()
 
 
+def latest_successful_scenario(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.Row | None:
+    """The latest scenario that actually produced a usable mapping,
+    skipping over any more recent failure. A live failure leaves the
+    previous mapping displayed alongside the new error; reload needs
+    this row (together with latest_scenario) to reconstruct that same
+    combination instead of only ever surfacing whichever row happens to
+    be most recent."""
+    return conn.execute(
+        """
+        SELECT * FROM scenario_assessments
+        WHERE workspace_id = ? AND status != 'failed'
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (workspace_id,),
+    ).fetchone()
+
+
 def list_scenarios(
     conn: sqlite3.Connection, *, workspace_id: str | None = None
 ) -> list[sqlite3.Row]:

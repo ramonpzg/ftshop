@@ -76,6 +76,12 @@ function routedFetch(
     checkOnMove?: boolean;
     opponentModels?: string[];
     scenario?: Record<string, unknown> | null;
+    // Overrides the seeded latest_success independently of `scenario`,
+    // for a workspace whose most recent attempt failed but an earlier
+    // one succeeded. Defaults to `scenario` itself when unset and not
+    // a failure, matching the backend's latest_success falling back to
+    // the same row as latest.
+    scenarioLatestSuccess?: Record<string, unknown> | null;
     modelTurn?: "model_move" | "fallback_move" | "unavailable" | "stale";
     notYourTurnOnMove?: boolean;
     reviewFails?: boolean;
@@ -84,6 +90,17 @@ function routedFetch(
   let lastArtifact: Record<string, unknown> | null = null;
   let activeGame: Record<string, unknown> | null = null;
   let scenario: Record<string, unknown> | null = opts.scenario ?? null;
+  // Mirrors the backend's latest_success: the same object as `scenario`
+  // whenever the last mutation succeeded, but unlike `scenario` it does
+  // not go stale to a failure -- there is nothing in this mock that
+  // ever fails an /assess or /review call, so a failure can only ever
+  // be the seeded initial state.
+  let latestSuccessScenario: Record<string, unknown> | null =
+    opts.scenarioLatestSuccess !== undefined
+      ? opts.scenarioLatestSuccess
+      : opts.scenario && opts.scenario.status !== "failed"
+        ? opts.scenario
+        : null;
   let losses = 0;
   const history: Record<string, unknown>[] = [];
   if (opts.expiredAway) {
@@ -106,10 +123,13 @@ function routedFetch(
   return mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/scenario")) {
-      return new Response(JSON.stringify(scenario));
+      return new Response(
+        JSON.stringify({ latest: scenario, latest_success: latestSuccessScenario }),
+      );
     }
     if (url.endsWith("/assess")) {
       scenario = { ...SUGGESTED_SCENARIO };
+      latestSuccessScenario = scenario;
       return new Response(JSON.stringify(scenario));
     }
     if (url.endsWith("/review")) {
@@ -129,6 +149,7 @@ function routedFetch(
             real_world: body.real_world,
             video_prompt: body.video_prompt,
           };
+      latestSuccessScenario = scenario;
       return new Response(JSON.stringify(scenario));
     }
     if (url.endsWith("/model-move")) {
@@ -686,6 +707,31 @@ describe("WorkspacePanel", () => {
     // button reads as a retry rather than a fresh first assessment.
     expect(screen.queryByText(/Play a move, get a read/)).toBeNull();
     expect(screen.getByTestId("assess-position").textContent).toBe("Retry assessment");
+  });
+
+  test("a previous successful mapping survives reload alongside a later failure", async () => {
+    // Reproduces the reported gap: the reload endpoint used to return
+    // only the single latest row. During a live failure the previous
+    // mapping stays visible next to the new error (the component
+    // simply never overwrites its state on a failed request), but
+    // reload received only the failure and had no way to restore it.
+    globalThis.fetch = routedFetch({
+      scenario: FAILED_SCENARIO,
+      scenarioLatestSuccess: SUGGESTED_SCENARIO,
+    }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("scenario-error"));
+    expect(screen.getByTestId("scenario-error").textContent).toContain("502 from video_prompt");
+    // The last mapping that actually succeeded is restored underneath
+    // the failure, exactly like a live failure would leave on screen.
+    await waitFor(() => screen.getByTestId("scenario-provenance"));
+    expect(screen.getByTestId("scenario-provenance").textContent).toContain("suggested");
+    expect(screen.getByText(SUGGESTED_SCENARIO.real_world)).toBeTruthy();
   });
 
   test("a failed review is not silent", async () => {

@@ -252,6 +252,19 @@ class ScenarioOut(BaseModel):
     created_at: str
 
 
+class ScenarioReloadOut(BaseModel):
+    """Reload needs both rows to reproduce what a live failure already
+    shows on screen: the previous mapping stays visible while the new
+    failure is surfaced alongside it. `latest` is the true most recent
+    row -- possibly a failure -- so the failure is never hidden.
+    `latest_success` is the most recent row that actually produced a
+    usable mapping, for restoring what should stay on screen under it;
+    None when nothing has ever succeeded for this workspace."""
+
+    latest: ScenarioOut | None
+    latest_success: ScenarioOut | None
+
+
 def _scenario_out(row: sqlite3.Row) -> ScenarioOut:
     reviewed = row["status"] in ("accepted", "edited")
     return ScenarioOut(
@@ -307,12 +320,17 @@ def post_assess(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -
 @router.get("/workspaces/{workspace_id}/scenario")
 def get_scenario(
     workspace_id: str, conn: sqlite3.Connection = Depends(get_db)
-) -> ScenarioOut | None:
+) -> ScenarioReloadOut:
     try:
-        row = latest_scenario_for_workspace(conn, workspace_id)
+        state = latest_scenario_for_workspace(conn, workspace_id)
     except WorkspaceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return _scenario_out(row) if row is not None else None
+    return ScenarioReloadOut(
+        latest=_scenario_out(state.latest) if state.latest is not None else None,
+        latest_success=(
+            _scenario_out(state.latest_success) if state.latest_success is not None else None
+        ),
+    )
 
 
 class ScenarioReviewRequest(BaseModel):

@@ -312,9 +312,24 @@ export function assessPosition(workspaceId: string): Promise<Scenario> {
   return request<Scenario>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
 }
 
-/** The latest persisted non-failed scenario, for reload. */
-export function fetchScenario(workspaceId: string): Promise<Scenario | null> {
-  return request<Scenario | null>(`/workspaces/${workspaceId}/scenario`);
+export interface ScenarioReload {
+  /** The true most recent scenario, whatever its status -- possibly a
+   * failure. Never hidden: a failure is a fact about the last attempt. */
+  latest: Scenario | null;
+  /** The most recent scenario that actually produced a usable mapping.
+   * The same row as `latest` when the last attempt succeeded, an older
+   * row when it failed, or null when nothing has ever succeeded. This
+   * is what a live failure leaves on screen while showing the new
+   * error alongside it; reload needs both rows to restore that same
+   * combination instead of only ever surfacing whichever is newest. */
+  latest_success: Scenario | null;
+}
+
+/** The reload read: the latest scenario state plus the last one that
+ * actually succeeded, so a failure never silently hides an earlier
+ * mapping that a live failure would have kept visible. */
+export function fetchScenario(workspaceId: string): Promise<ScenarioReload> {
+  return request<ScenarioReload>(`/workspaces/${workspaceId}/scenario`);
 }
 
 export interface ScenarioReview {

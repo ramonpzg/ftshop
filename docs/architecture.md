@@ -288,15 +288,27 @@ evidence just because the clock happened to run out in between.
 (assessment, real_world, video_prompt) per game and ply. The raw model
 suggestion is written once and never updated; participant review
 (accept or edit) fills separate final columns. Failed calls insert an
-explicit failed row without touching prior records. Reload restores
-the true latest state, including a failed one: `latest_scenario`
-returns the newest row regardless of status, and the frontend renders
-a failed reload exactly like a live failure (an explicit error with a
-retry action), rather than silently reverting to an older suggestion
-or the pristine empty state as if nothing had been attempted since the
-game moved on. Recovery is asking again. Exports
-(`chess_scenarios.jsonl`) carry both raw and approved values with
-model, provider alias, and prompt version.
+explicit failed row without touching prior records. Recovery is asking
+again.
+
+A live failure in the UI does not erase the mapping on screen: the
+component simply never overwrites its state on a failed request, so
+the previous suggestion stays visible with the new error shown
+alongside it. Reload has to reconstruct that same combination, not
+just the newest row's status. `GET /workspaces/{id}/scenario` returns
+both `latest` (the true most recent row, whatever its status --
+`latest_scenario` in `scenario_repo.py`) and `latest_success` (the most
+recent row that actually produced a usable mapping, skipping over any
+more recent failure -- `latest_successful_scenario`). The frontend
+restores `latest_success` into the displayed mapping and, only if
+`latest` is itself a failure, additionally renders the same explicit
+error-with-retry state a live failure shows. Returning only the single
+latest row (an earlier version of this contract) meant a failure after
+a success made that success unreachable on reload: the UI received
+nothing to restore and had no way to tell the difference between "the
+mapping is gone" and "the mapping is fine, the last request just
+failed." Exports (`chess_scenarios.jsonl`) carry both raw and approved
+values with model, provider alias, and prompt version.
 
 ## Job runner
 

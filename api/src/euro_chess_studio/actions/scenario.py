@@ -9,6 +9,7 @@ asking again.
 """
 
 import sqlite3
+from dataclasses import dataclass
 
 from euro_chess_studio.actions.errors import (
     ModelReplyError,
@@ -29,6 +30,7 @@ from euro_chess_studio.data.scenario_repo import (
     get_scenario,
     insert_scenario,
     latest_scenario,
+    latest_successful_scenario,
     set_review,
 )
 from euro_chess_studio.data.workspaces_repo import get_workspace
@@ -184,9 +186,27 @@ def review_scenario(
     return row
 
 
+@dataclass(frozen=True)
+class ScenarioReloadState:
+    """What reload needs to reproduce the same combination a live
+    failure already shows: the previous mapping stays displayed while
+    the new failure is surfaced alongside it. `latest` is the true most
+    recent row, whatever its status, so a failure is never hidden.
+    `latest_success` is the most recent row that actually produced a
+    usable mapping, which may be the same row as `latest` (the last
+    attempt succeeded) or an older one (the last attempt failed) or
+    None (nothing has ever succeeded for this workspace)."""
+
+    latest: sqlite3.Row | None
+    latest_success: sqlite3.Row | None
+
+
 def latest_scenario_for_workspace(
     conn: sqlite3.Connection, workspace_id: str
-) -> sqlite3.Row | None:
+) -> ScenarioReloadState:
     if get_workspace(conn, workspace_id) is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
-    return latest_scenario(conn, workspace_id)
+    return ScenarioReloadState(
+        latest=latest_scenario(conn, workspace_id),
+        latest_success=latest_successful_scenario(conn, workspace_id),
+    )
