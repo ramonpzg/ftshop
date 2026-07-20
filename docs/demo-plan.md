@@ -1,18 +1,21 @@
 # Demo plan
 
 The run of show for the EuroSciPy 2026 session. Narrative and topics
-live in [session-plan.md](session-plan.md); this file is the operational
-walkthrough: every transition, button, hard stop, cut, and fallback in
-one place. Advertised length 90 minutes; the core below is 72, the
-remaining 18 are controlled flex (join dead air, questions, recovery,
-optional stretches).
+live in [session-plan.md](session-plan.md), and the deck's slide-level
+decisions live in [../deck/PLAN_V2.md](../deck/PLAN_V2.md); this file
+is the operational walkthrough: every transition, button, hard stop,
+cut, and fallback in one place. Advertised length 90 minutes; the core
+below is 70, the remaining 20 are controlled flex (join dead air,
+questions, recovery, the optional coda).
 
 Room assumptions: up to 40 attendees, venue wi-fi that drops after idle
 minutes and may demand a captive-portal login. Everything the session
 depends on runs on the presenter's machine from reviewed local
 fixtures. No attendee needs a provider account or API key. No segment
 turns one generation into 40 cloud requests; provider-backed work is
-presenter-controlled with the reviewed local result already on screen.
+presenter-controlled, and the backend enforces it: paid jobs (image,
+video, fal audio, live benchmarks) are refused with a 403 for any
+browser that is not on the presenter's machine, whatever the UI hides.
 
 ## Before the room fills up
 
@@ -26,7 +29,10 @@ just deck        # second terminal, port 3030
 Open http://localhost:5173/?presenter=1 and join as yourself. The
 `?presenter=1` flag shows the presenter panel and exempts your client
 from the editing lock and remote camera moves. It is a convenience
-flag, not auth; anyone who knows it gets the panel too.
+flag, not auth; anyone who knows it gets the panel too. The budget is
+protected one layer down: paid generation is loopback-only at the
+backend, so a curious attendee with the flag can see buttons but
+cannot spend money.
 
 Attendees use the Network URL vite prints on startup (your LAN IP,
 port 5173), without the flag. Write it somewhere visible.
@@ -35,26 +41,43 @@ Prep checklist, in order, on the actual laptop:
 
 1. Throwaway move on the chess-machine page: backend is live.
 2. Open the adaptation panel (left of the workspace grid on the
-   chess-machine page). Train the adapter on the reference snapshot,
-   then run base and adapted benchmarks (replayed). The Compare step
-   must show its table before anyone arrives: the outcome reveal in
-   segment 4 depends on it.
+   chess-machine page). Confirm the scripted-illustration banner is
+   visible; segment 6 opens by reading it out loud. Train the adapter
+   on the reference snapshot, then run base and adapted benchmarks
+   (replayed). Compare must show its table: legality 7/12 to 12/12,
+   JSON validity 10/12 to 12/12, explanation rate 8/12 to 0/12
+   regressed. Segment 6 re-runs these steps live, and benchmark
+   history is immutable, so the prep runs stay in the run list as
+   extra evidence rather than being overwritten.
 3. On each modality page, run "Show adaptation evidence" and "Reveal
-   cached artifact" once: the image pair, both audio clips, and both
-   video takes must render and play from local files with no network.
-4. Deck on 3030, LiveRoom slide shows the room. Open the deck tab with
-   presenter mode and speaker notes.
-5. If OPPONENT_MODELS/keys are set, start one throwaway game to see the
-   model answer; if not, the fallback plan below covers it.
+   cached artifact" once: the image pair, both audio clips with
+   waveforms, and both video takes with poster and frame strip must
+   render and play from local files with no network. These are the
+   board-side copies of the evidence behind the deck's A/B slides,
+   and the coda uses them.
+4. Deck on 3030 with presenter mode and speaker notes. Step through
+   part 1 to the TUI slide: either the local recording plays or the
+   named placeholder shows. Know which one you have before the room
+   does; per PLAN_V2, a missing asset stays a labelled placeholder,
+   never an invented substitute.
+5. If OPPONENT_MODELS/keys are set, start one throwaway game to see
+   the model answer; if not, the fallback plan below covers it. If
+   the live-benchmark beat is planned, rehearse "Run base live" the
+   week before, not while the room fills: the whole run has a
+   deadline (60 s default, `BENCHMARK_RUN_DEADLINE_SECONDS` to
+   change it) and a "Stop waiting" cancel, so the worst case on
+   stage is bounded, but the first try should not be in front of
+   people.
 6. `just session-notebook` once, then close it: JupyterLab starts cold
-   in seconds when segment 8 arrives.
+   in seconds when segment 7 arrives.
 
 Presenter controls (top of the board with `?presenter=1`): Lock
 editing, Unlock editing, Bring everyone to presenter view, Send users
 to their workspace, Prev/Next slide while presenting, Reset page, and
 the Games room monitor with the two dataset export buttons (Download
 SFT dataset, Download all shapes). Presenter actions reach attendee
-browsers within a few seconds.
+browsers within a few seconds. Adaptation-panel controls render only
+for the presenter client; attendees see the evidence read-only.
 
 The week before: run the load test once on the actual laptop
 (`just mock-llm`, backend pointed at it, `just load-test 40`), and time
@@ -67,71 +90,91 @@ predicts before the action, what participants do, the one artifact
 everyone inspects, the sentence that closes the loop, the cut when
 late, and the fallback when something fails.
 
-### 1. Motivation (deck slides 1, 6) - 4 min, hard stop at 0:05
+### 1. Where this came from, ending in the TUI (deck part 1) - 9 min, hard stop at 0:09
 
 - Predict: nothing yet; state the board URL twice while people settle.
-- Participants: open the Network URL, do not join yet.
-- Artifact: the cost-of-training versus cost-of-adapting magic-move.
-- Close the loop: adapting is the affordable end of moulding
-  intelligence.
-- Cut: drop the stages-of-AI beat, keep the URL repetition.
+  Joining waits until segment 4; the deck needs no login.
+- Participants: none; this is origin, not instruction. No chess is
+  explained yet.
+- Artifact: the TUI recording, phone-shaped and readable from the
+  back: local llama.cpp starts, one participant move, one Gemma move,
+  the dry commentary, the game record, a short replay. The origin
+  beats land on the way there: the book opened five times, Duolingo
+  chess found in Japan, Oscar, 5 then 20 games a day then 500 in the
+  first month, the Queen's Gambit finally watched, the Sydney flight
+  where the opponent vanished with the connection. The dog-thinking
+  meme and "what could possibly go wrong" stay.
+- Close the loop: one object already contains the whole workshop:
+  local model, real rules, recorded evidence, and a personal
+  objective (win while taking as few opposing pieces as possible).
+- Cut: compress the origin slides to the flight and the meme; the TUI
+  recording is never cut.
+- Fallback: the recording is a local file with a poster frame. The
+  phone itself stays in the pocket unless chosen. If the recording is
+  still a placeholder, narrate over the placeholder geometry and lean
+  on segment 5, where the room plays the same loop themselves.
+
+### 2. Four adaptation problems, which one was adapted (deck part 2) - 8 min, hard stop at 0:17
+
+- Predict: per modality, which of the two outputs came from the
+  adapted model. Collect shouted votes; if the room is quiet, reveal
+  each answer immediately and keep moving, per PLAN_V2.
+- Participants: voting out loud; nothing to click.
+- Artifact: the reveal table, one row per modality: the answer, the
+  exact target behavior, one metric with sample size, cached-or-live
+  provenance, and one limitation or regression. At least one row
+  improves its target and gets worse somewhere else.
+- Along the way: text does more than choose a move; the real-world
+  mappings are Luna's work and are labelled scenario writer, never a
+  fine-tuned chess model. The video stages the mapped situation and
+  contains no board, pieces, or notation.
+- Close the loop: fine-tuning is a trade, not a ceremony where every
+  score rises. The board will prove this again with hashes in
+  segment 6.
+- Cut: three real-world mappings down to one; the A/B slides and the
+  reveal table stay.
+- Fallback: every pinned output is a local file; a provider request
+  is an optional live replacement, never the only thing the room can
+  see.
+
+### 3. Why adapt anything (deck part 3) - 5 min, hard stop at 0:22
+
+- Predict: for the last model problem they personally hit, which
+  intervention it actually needed.
+- Participants: none; this is the argument.
+- Artifact: economics at a target quality, one row per modality, task
+  and threshold stated, `[SOURCE, DATE]` placeholders until checked;
+  the data circles ending in the train/eval split; the style beats by
+  name (goth Minions, the corporate-lamp paragraph, the cookie GIF)
+  landing on the concrete Canva case; then the decision slide.
+- Close the loop: prompt, retrieve, use tools, or fine-tune. Choose
+  the intervention, not a tribe, and keep the options.
+- Cut: the future model tree first, then the style beats down to
+  Canva alone. The decision slide is never cut.
 - Fallback: none needed; slides are local.
 
-### 2. Chess grounding (deck slides 2-5) - 7 min, hard stop at 0:12
+### 4. The chess objects, after we have seen them (deck part 4) - 3 min, hard stop at 0:25
 
-- Predict: ask who has never played; watch the hands.
-- Participants: none; this is the personal hook.
-- Artifact: the Duolingo streak and Elo counter.
-- Close the loop: chess is checkable, so every claim a model makes here
-  can be verified by the environment. That is why the whole workshop
-  lives in it.
-- Queen's Gambit beat stays. Land it, move on.
-- Cut: compress rules to one slide pass (the board pages re-teach by
-  doing).
-- Fallback: none needed.
+- Predict: what FEN has to encode for a legal-move list to be
+  derivable from it.
+- Participants: join the board with their name now; say the Network
+  URL again and leave it on screen. Joins land while the recap runs,
+  and segment 5's start absorbs stragglers.
+- Artifact: one board, four representations of the same actual move
+  (FEN stores the position, UCI names it for machines, SAN for
+  people, PGN stores the history), and the one-job slide: model
+  proposes, python-chess validates, Stockfish optionally evaluates.
+- Close the loop: the recap names the objects the room already
+  watched in the TUI. En passant lives in the notebook unless someone
+  asks.
+- Cut: the notation morph alone carries the segment.
+- Fallback: if the venue wi-fi blocks joining, continue
+  presenter-only and say so; every board segment has a presenter-led
+  mode.
 
-### 3. The map and the mantra (deck slides 7-11) - 4 min, hard stop 0:16
+### 5. The shared game (board) - 15 min, hard stop at 0:40
 
-- Predict: which of the six outcomes (moves, commentary, instruction,
-  style, sound, scenarios) they would build first.
-- Participants: join the board with their name now. Budget dead air;
-  the LiveRoom slide shows joins landing.
-- Artifact: the ModalityGrid mantra slide. Say it out loud: pairs in,
-  adapter out, eval always.
-- Close the loop: everything after this is that sentence, four times.
-- Cut: skip slide 9's how-to-follow detail; joining already happened.
-- Fallback: if the venue wi-fi blocks the room, continue presenter-only
-  and say so; every later segment has a presenter-led mode.
-
-### 4. Outcome-first reveals (board) - 10 min, hard stop at 0:26
-
-Switch to the board. Bring everyone to presenter view.
-
-- Predict: before each reveal, one guess out loud. Text: how many of
-  twelve held-out positions does the base model answer legally?
-  Audio/video: which take is the adapted one?
-- Participants: watching your screen (their cameras are driven);
-  shout predictions.
-- Artifacts, in order, one inspection each:
-  1. Adaptation panel, step 5: the comparison table. Legality
-     7/12 to 12/12 improved, JSON validity up, explanation rate 0.75
-     to 0.00 regressed. Open one example: the chatty base reply next
-     to the adapted bare JSON.
-  2. Image page, Show adaptation evidence: the watercolor pair.
-  3. Audio page, Show adaptation evidence: play base then adapted
-     motif; the waveforms show the level ramp.
-  4. Video page, Show adaptation evidence: play the flickery base
-     take, then the steady one; the frame strip is the receipt.
-- Close the loop: same recipe, four modalities, and one metric got
-  worse every time. Adaptation trades.
-- Cut: drop the per-example text inspection; keep all four reveals.
-- Fallback: every file is local and committed; if a panel fails to
-  load media it says so in words. Worst case, `just reset-db && just
-  seed` restores state in seconds (canvas untouched).
-
-### 5. The shared game (board) - 14 min, hard stop at 0:40
-
-Send users to their workspace. Unlock editing.
+Switch to the board. Send users to their workspace. Unlock editing.
 
 - Predict: whether the small local model will beat them; whether their
   own moves are all legal.
@@ -144,7 +187,7 @@ Send users to their workspace. Unlock editing.
   celebrate: the failed attempt lands in model_attempts, the turn
   retries, and after the budget a labelled fallback move plays. Run
   the two text jobs (prompt eval, reward eval) and read the live
-  numbers next to the cached ones (the eval rows now open into
+  numbers next to the cached ones (the eval rows open into
   definitions and provenance).
 - The two-game beat when OPPONENT_MODELS is set: one game against the
   small model, one against the frontier model. Same recipe, same
@@ -153,7 +196,7 @@ Send users to their workspace. Unlock editing.
   the mapping. Keep Ramon's aside: rage-quitting against the bot is a
   labeled data point now.
 - Close the loop: pairs in. Everything they just made is the left side
-  of the mantra.
+  of the recipe.
 - Cut: one game instead of two; skip the scenario beat (segment 6's
   freeze still shows raw/approved counts from rehearsal data).
 - Fallback: no key or provider down means Start game reports the model
@@ -161,9 +204,13 @@ Send users to their workspace. Unlock editing.
   volunteer instead and narrate the same dataset rows. The mock LLM
   (`just mock-llm`) is the rehearsal stand-in, not a live-room tool.
 
-### 6. The adaptation evidence chain (board) - 12 min, hard stop 0:52
+### 6. The adaptation evidence chain (board) - 13 min, hard stop 0:53
 
 Bring everyone to presenter view. Adaptation panel, top to bottom.
+Open by reading the banner out loud: this chain is a scripted
+illustration, no model was trained; training and replayed benchmarks
+replay authored fixtures, and only a live base run calls a real model.
+The chain earns trust by narrating exactly what it is.
 
 - Predict: what a training run needs to be reproducible. Collect three
   answers before opening the panel.
@@ -172,42 +219,41 @@ Bring everyone to presenter view. Adaptation panel, top to bottom.
 - Artifacts, one per step:
   1. Freeze room dataset: the new snapshot card with eligible versus
      excluded counts, scenario raw/approved, and its content hash.
-  2. Config card: LoRA parameters, seed, output task, config hash, and
-     the three Gemma roles behind the disclosure.
-  3. Train adapter on the reference snapshot: adapter card, result
-     source cached, runner replay. Then select the just-frozen room
-     snapshot and train again: read the 409 out loud. The cached
-     result is bound to the reference hash and will not pose as
-     training on the room's data. That refusal is the honesty model.
-  4. Run base and adapted benchmarks (replayed). Optionally, with a
-     key configured, Run base live: watch the run list show live
-     provenance, and if a call fails, the run's position set differs
-     and Compare says Not comparable per metric. Do not fish for this;
-     mention it when it happens.
-  5. Compare: deltas with verdict words, the regression on screen, and
-     one example opened.
-- Close the loop: adapter out, eval always. An adapter without a
-  dataset hash is a rumor; a delta without a matching frozen set is
-  decoration.
+  2. Config card: LoRA parameters, seed, output task (the sft-v2
+     contract), config hash, and the three Gemma roles behind the
+     disclosure.
+  3. Train adapter on the reference snapshot: adapter card marked as
+     a scripted replay, result source cached. Then select the
+     just-frozen room snapshot and train again: read the 409 out
+     loud. The scripted result is bound to the reference hash and
+     will not pose as training on the room's data. That refusal is
+     the honesty model.
+  4. Run base and adapted benchmarks; the run badges say "replayed
+     (scripted)". Optionally, with a key configured, Run base live:
+     the run list shows live provenance with a non-null checkpoint.
+     The whole run is bounded (60 s deadline, three consecutive
+     transport failures abort it, "Stop waiting" cancels from the
+     panel), so a hung provider costs a minute of stage time, not
+     the segment. If a call fails, that run's position set differs
+     and Compare says Not comparable per metric. Do not fish for
+     this; mention it when it happens.
+  5. Compare: deltas with verdict words, the regression on screen,
+     one example opened: the base reply fills the optional "why"
+     field, the adapted reply is bare JSON. Legality 7/12 to 12/12,
+     JSON validity up, explanation rate 8/12 to 0/12: the adapter
+     trained on bare completions stopped doing the optional thing
+     the base model did. Adaptation trades.
+- Close the loop: adapter out, eval always. Every link is
+  content-addressed: the adapter names its dataset hash, the delta
+  names its frozen suite. Break either link and the panel says Not
+  comparable instead of inventing a number.
 - Cut: skip the live base run and the refusal beat; keep freeze,
   train, compare.
-- Fallback: everything here is fixture-backed and keyless by design;
-  the live button only exists when credentials do.
+- Fallback: everything here is fixture-backed and keyless by design.
+  The live button exists only when credentials do, and the backend
+  refuses paid runs from any machine but the presenter's.
 
-### 7. Decomposition (deck slides 12-17, 19-24) - 6 min, hard stop 0:58
-
-Back to the deck, fast pass.
-
-- Predict: which stage of the chain costs the most in each modality.
-- Participants: none; this is naming what they saw.
-- Artifact: DatasetShapes cycling one move through six encodings; the
-  training ladder magic-move; the per-modality what-changes slides;
-  merging's slerp YAML.
-- Close the loop: the recipe never changed; the failure modes did.
-- Cut: drop merging (slide 24) first, then the ladder animation.
-- Fallback: none needed; slides are local.
-
-### 8. Notebook practice (standalone Jupyter) - 12 min, hard stop 1:10
+### 7. Notebook practice (standalone Jupyter) - 14 min, hard stop 1:07
 
 The deliberate switch: `just session-notebook` opens JupyterLab in its
 own window. The board stays up but the projector follows the notebook.
@@ -229,20 +275,34 @@ own window. The board stays up but the projector follows the notebook.
   the mini IDE snippets on the board cover the same training code
   shapes.
 
-### 9. Close (notebook, then the room) - 3 min, hard stop 1:13
+### 8. Close (notebook, then the room) - 3 min, hard stop 1:10
 
 - Restate the four outcomes as questions; let the room answer.
 - Repo link and resources from the notebook's final section (the deck
   is not reopened for this).
-- The economics point, briefly: open models, falling barriers,
-  intelligence choice.
+- The economics point, briefly: open models keep matching what closed
+  models did months ago, the barrier keeps falling, owning an adapted
+  model is a real option among the four interventions.
 
-Core total: 72 minutes at the hard stops. The remaining 18 absorb
-joins, questions, and failures; if nothing goes wrong, segments 5 and
-8 stretch to fill.
+### Optional coda: what the room produced (board) - 2 min, from flex
+
+When time allows, end on the board instead of the notebook: the
+room's own games, dataset rows, and frozen snapshot on screen. A
+result, not another explanation. Whether the session finishes here or
+in the notebook is a rehearsal decision, per PLAN_V2.
+
+Core total: 70 minutes at the hard stops. The remaining 20 absorb
+joins, questions, failures, and the coda; if nothing goes wrong,
+segments 5 and 7 stretch to fill. The deck's part 5 (technical
+reference) is modular and unscheduled: it exists for questions and
+spare time, and it is the first thing that never happens.
 
 ## If something goes wrong mid-session
 
+- Whiteboard fails outright: per PLAN_V2, stay in the deck long enough
+  to show the pinned model outputs through its components, then jump
+  directly to the notebook. Do not spend ten minutes repairing
+  collaboration in front of the room.
 - Board frozen / weird state for one attendee: they reload; identity
   and workspace persist (localStorage + backend), the workspace shape
   re-materializes, and the camera returns to it.
@@ -262,9 +322,11 @@ joins, questions, and failures; if nothing goes wrong, segments 5 and
 - Provider trouble: the model-turn fallback and retry button handle a
   flaky endpoint; a dead endpoint turns segment 5 into free play plus
   narration and removes only the optional live-benchmark beat from
-  segment 6. Nothing else in the core touches a provider.
+  segment 6. A hung live benchmark ends itself at the run deadline or
+  with the Stop waiting button. Nothing else in the core touches a
+  provider.
 - App unusable entirely: `just session-notebook` opens the standalone
-  notebook and the session continues from segment 8's material; the
+  notebook and the session continues from segment 7's material; the
   committed media under `artifacts/cached/media/` can be opened
   directly from the filesystem if a reveal is needed.
 

@@ -5,14 +5,18 @@ EuroSciPy 2026, advertised at 90 minutes. One shared domain: chess.
 Four modalities: text, image, audio, video.
 
 This is the narrative plan: what the session teaches, in what order,
-and why. The minute-by-minute run of show with every app and deck
-transition is [demo-plan.md](demo-plan.md). How the app is put together
-is [architecture.md](architecture.md).
+and why. The deck's slide-by-slide build lives in `deck/PLAN_V2.md`,
+which is the authoritative narrative decision; this file follows it.
+The minute-by-minute run of show with every app and deck transition is
+[demo-plan.md](demo-plan.md). How the app is put together is
+[architecture.md](architecture.md).
 
-The structure is outcome-first: participants see finished results
-before any mechanism is explained, then the session decomposes what
-they saw. Sections are modular on purpose; Ramon can reorder them after
-rehearsal without rebuilding slides or panels.
+The order is outcome-first and deliberately non-linear: the TUI and
+the modality outcomes appear before the chess recap. People may not
+play chess, but they understand a terminal game when they see one; the
+recap later names the objects they have already watched. Sections stay
+modular so Ramon can reorder after rehearsal without rebuilding slides
+or panels.
 
 ## Outcomes
 
@@ -24,109 +28,130 @@ By the end, a participant can demonstrate four things:
    snapshot.
 2. **Trace an adapter to its evidence.** Read the adapter card and name
    what makes it reproducible: base checkpoint, dataset content hash,
-   config hash, runner, and whether the result was cached or live.
+   config hash, runner, and whether the result was scripted, cached,
+   or live.
 3. **Judge an adaptation honestly.** Read the base-versus-adapted
    benchmark over one frozen suite, quote the metric that improved and
    the one that regressed, and say why the delta is valid at all:
    matching position sets and one prompt contract.
 4. **Carry the recipe across modalities.** For image, audio, and video,
    name the pairs, the adapter, and the evaluation evidence in each
-   cached chain, and one thing that changes per modality.
+   chain, and one thing that changes per modality.
 
 Everything else in the session serves those four.
 
 ## Why this session
 
-Fine-tuning is moulding intelligence. It gives shape to a future where
-we interact with AIs of all sorts of personalities, skills, and
-aptitudes, all while keeping a general level of intelligence far above
-the average human and fitting in the devices we already own.
-
-For that to happen we need mediums that expose the flexibility of a
-model's internals while giving its complexity more layers than a
-croissant. Depending on what someone needs, they chew as much of the
-mechanics of fine-tuning as they want. To be fair, the $20 a month we
-pay today is not bad at all. The point is not to drop those services.
-The point is that we can also have our own AI.
+Not a claim that we can mould all intelligence to our will; a claim
+Ramon can defend with the examples on screen. There are four honest
+interventions for shaping model behavior: prompt for instructions that
+change per request, retrieve facts that change or need citations, use
+tools for rules and exact calculations, and fine-tune repeated
+behavior that examples define better than prose. The chess app
+combines them on purpose: python-chess owns legality, the prompt
+supplies the position, and an adapted model can learn how to choose
+and explain. Use the hosted model when it is the better tool; own an
+adapted model when the repeated task, the data, latency, or an offline
+requirement justifies it. The session exists to make that decision
+concrete four times over.
 
 ## Timing budget
 
-Core teaching: 72 minutes. Controlled flex: 18 minutes (join dead air,
-questions, recovery, optional stretches). The core is what survives a
-bad room; the flex is what absorbs one. Segment-level hard stops and
-cut lists are in the run of show.
+Core teaching: 70 minutes. Controlled flex: 20 (join dead air,
+questions, recovery, the optional coda, and rehearsal-decided cuts).
+The advertised length stays 90. Segment-level hard stops and cut lists
+are in the run of show.
 
 | # | Segment | Asset | Core minutes |
 | --- | --- | --- | --- |
-| 1 | Motivation | deck | 4 |
-| 2 | Chess grounding | deck | 7 |
-| 3 | The map and the mantra | deck | 4 |
-| 4 | Outcome-first reveals | board | 10 |
-| 5 | The shared game | board | 14 |
-| 6 | The adaptation evidence chain | board | 12 |
-| 7 | Decomposition | deck | 6 |
-| 8 | Notebook practice | notebook | 12 |
-| 9 | Close | notebook | 3 |
+| 1 | Where this came from, ending in the TUI | deck part 1 | 9 |
+| 2 | Four adaptation problems, which one was adapted | deck part 2 | 8 |
+| 3 | Why adapt anything | deck part 3 | 5 |
+| 4 | The chess objects, after we have seen them | deck part 4 | 3 |
+| 5 | The shared game | board | 15 |
+| 6 | The adaptation evidence chain | board | 13 |
+| 7 | Notebook practice | notebook | 14 |
+| 8 | Close | notebook | 3 |
+| - | Optional coda: what the room produced | board | (2, flex) |
+
+The deck opening (segments 1-4) targets 20 to 25 minutes including the
+TUI recording and audience responses, per PLAN_V2: many slides, one
+visual beat each. The deck's part 5 (technical reference) is modular
+and is not a scheduled segment; the default path covers that material
+on the whiteboard and in the notebook, and the deck section exists for
+questions and time to spare. If time runs short it is the first thing
+that never happens.
 
 Asset order: deck first, collaborative whiteboard second, standalone
-Jupyter notebook as the closer. The notebook may point back at a deck
-slide or a whiteboard frame when it saves repetition; the session does
-not return to the deck just to restate the close.
+Jupyter notebook as the closer, with an optional two-minute whiteboard
+coda showing what the room produced -- a result, not another
+explanation. The session does not return to the deck to restate the
+close.
 
-## 1. Motivation (deck)
+## 1. Where this came from (deck part 1)
 
-Why adapt a model instead of only prompting or renting a larger hosted
-one: control over behavior, cost at volume, privacy, and models that
-fit the devices we own. The stages that got us here, compressed to one
-slide: rules, statistics, gradients, transformers, diffusion. No
-transformer history lecture, no framework survey, no LoRA math yet;
-nothing mechanical before the room has seen a result.
+The personal origin, told with Ramon's own artifacts: the childhood
+chess encounter and the book that got opened five times; the Duolingo
+chess launch discovered in Japan; Oscar; 5 games a day, then 20, then
+500 in the first month (the numbers match the record, and no Elo or
+total-game figure is invented around them); the Queen's Gambit watched
+for the first time after getting hooked; the Sydney flight with no
+Internet, where the opponent disappeared with the connection. That
+constraint is the motivation. Then the reasonable response: surely
+people have fine-tuned models on chess moves; has anyone shown the
+complete process with evidence and made it personal? The personality
+beats (the dog-thinking meme, "what could possibly go wrong") stay,
+per PLAN_V2.
 
-## 2. Chess grounding (deck)
+The payoff is the TUI recording: the actual Termux app on a phone,
+playing local Gemma through llama.cpp, with the game record, the
+replay, and commentary that is sassy as fuck (labelled as flavor, not
+Stockfish analysis). One object that already contains the whole
+workshop: local model, real rules, recorded evidence, personal
+objective -- win while taking as few opposing pieces as possible.
 
-- Why chess is a useful shared domain: legal moves are checkable, every
-  game generates data, and the environment can validate every action.
-- Ramon's route back in: Duolingo's chess pathway in April, two matches
-  a day, then thirty, fifty on the hardcore days, over a thousand
-  matches, Elo past 1000. What Elo is.
-- The minimum rules and notation a non-player needs: the board, the
-  pieces, the goal, what a move looks like in UCI and SAN. Nothing
-  more.
-- The Queen's Gambit check. Anyone who has not watched it should leave
-  and come back when they finish it. Land the joke, move on.
-- AI beat grandmasters years ago; chess is more popular than ever.
-  Automation changed who plays and why. Sets up intelligence you own.
+No chess instruction happens here. This is origin, not a rules class.
 
-## 3. The map and the mantra (deck)
+## 2. Four adaptation problems (deck part 2)
 
-A quick map of what fine-tuning can do in this one domain: move
-prediction, commentary, personalized instruction, playing style, board
-sounds, and the real-world scenario dataset Luna builds from games.
-Then the recipe, once, out loud: pairs in, adapter out, eval always.
-The whole session is that sentence three times per modality.
+Text, image, audio, video as four adaptation problems, not four
+interchangeable model processes. The text path alone may use a player
+model and a scenario writer, and Luna is always labelled as the
+scenario writer, never as a fine-tuned chess model. Three real-world
+mappings from games, with raw versus approved text and provenance in
+small disclosures.
 
-Attendees open the board and join with their name during this segment,
-so workspace creation never blocks the room later.
+Then the A/B beat, one uncluttered slide per modality: which output
+came from the adapted model? Predictions from the room, then the
+reveal table: answer, exact target behavior, one metric with sample
+size, cached or live provenance, and one limitation or regression per
+row. At least one adapted result improves its target and gets worse
+somewhere else; fine-tuning is a trade, not a ceremony where every
+score rises. Every pinned output works from local files; a provider
+request is an optional live replacement, never the only thing the
+room can see.
 
-## 4. Outcome-first reveals (board)
+## 3. Why adapt anything (deck part 3)
 
-Results before mechanisms, all four modalities inside ten minutes:
+Economics at a target quality (per task, with sources, never a general
+head-to-head equivalence claim). Providers do not have your data: the
+private, licensed, reviewed, or newly-created examples that define a
+task, and the split between what trains and what proves
+generalisation. Providers do not know your style, carried by the named
+personality beats and landed on the concrete Canva case. Then the
+decision slide: prompt, retrieve, tools, or fine-tune -- choose the
+intervention, not a tribe -- and keep the options.
 
-- Text: the base-versus-adapted comparison on the adaptation panel,
-  pre-run from reviewed fixtures. The adapted checkpoint answers every
-  held-out position with a legal JSON move; the base checkpoint
-  rambles, mixes SAN into JSON, and picks two illegal moves. One metric
-  improved, one regressed. That regression stays on screen.
-- Image: the watercolor style pair, before and after, at inspection
-  size.
-- Audio: the capture click, then the same motif calm versus sharpened,
-  with waveforms.
-- Video: the rushed-release scene, flickering base take versus steady
-  adapted take, with the frame strip.
+## 4. The chess objects, after we have seen them (deck part 4)
 
-Every artifact opens from a panel and is a real local file. The labels
-say what is illustrative and what is computed. No mechanism talk yet
-beyond the mantra.
+The delayed recap, deliberate: the audience has watched games happen
+and now gets names for what they saw. One board; turns, legal moves,
+check, checkmate, captures, promotion, castling. One position in four
+representations: FEN stores the position, UCI names a move for
+machines, SAN for people, PGN stores the history, all with the same
+actual move. Stockfish has one job: an optional oracle for move
+quality; python-chess owns legal state transitions; the model
+proposes. En passant lives in the notebook unless someone asks.
 
 ## 5. The shared game (board)
 
@@ -140,11 +165,14 @@ model_attempts, retries, and falls back with a label after the budget;
 garbage never poses as skill. The per-exchange scenario mapping turns
 the game into real-world cases with participant review. The two-model
 beat (small local Gemma, then a frontier model) makes "same recipe,
-different results" physical before any training happens.
+different results" physical before any training talk.
 
 ## 6. The adaptation evidence chain (board)
 
-The presenter runs the whole loop from the adaptation panel, no shell:
+The presenter runs the whole loop from the adaptation panel, no shell.
+The panel says up front what the room must know: this chain is a
+scripted illustration, no model was trained, and only a live base run
+calls a real model.
 
 1. Freeze the room's dataset. Row counts, excluded fallback rows,
    source games and workspaces, raw versus approved scenario counts,
@@ -152,50 +180,40 @@ The presenter runs the whole loop from the adaptation panel, no shell:
 2. Show the training config: base checkpoint, LoRA parameters, seed,
    output task, config hash, and the three Gemma roles kept distinct
    (unquantized training start, GGUF inference repo, serving alias).
-3. Train. The result is a cached replay and the panel says so. Then try
-   to train on the just-frozen room snapshot: the backend refuses,
-   because the cached result is bound to the reference snapshot by
+3. Train. The result is a scripted replay and the panel says so. Then
+   try to train on the just-frozen room snapshot: the backend refuses,
+   because the scripted result is bound to the reference snapshot by
    content hash and will not pose as training on anything else. The
    refusal is the lesson.
 4. Benchmark base and adapted on the frozen held-out suite. Twelve
    examples with durable ids, one deliberately duplicated position,
    every attempt tagged with checkpoint and replayed/live provenance.
-5. Read the comparison: legality up, JSON validity up, explanation rate
-   collapsed. The adapter got precise and went mute, because nothing in
-   the training pairs asked it to keep explaining. Adaptation trades;
-   it does not just win. A mismatched position set renders as "Not
-   comparable" with the reason, never as a number.
+5. Read the comparison: legality up, JSON validity up, and the
+   explanation rate collapsed -- the contract invites an optional
+   in-JSON reason, the base model often fills it, and the adapter
+   trained on bare completions never does. Adaptation trades. A
+   mismatched position set renders as "Not comparable" with the
+   reason, never as a number.
 
-## 7. Decomposition (deck)
+## 7. Notebook practice (standalone Jupyter)
 
-Name what the room just saw, fast: paired data and its six encodings,
-preparation and eligibility, base model choice, the adapter and its
-config, inference serving, evaluation before and after. Then one slide
-per other modality on what changes: image is dataset-composition
-sensitive, audio lives or dies on pairing and clipping, video pays for
-temporal consistency. The training ladder (UI, API, YAML, code, JAX)
-in one pass. Merging as the shortcut with sharp edges.
+A deliberate switch: open `notebooks/full-session.ipynb` in its own
+JupyterLab via `just session-notebook`. This is the pragmatic
+take-home. Participants follow the end-to-end material and can load
+the exact `chess_sft.jsonl` the room exported. Provider and
+local-model cells are optional and presenter-rehearsed; no attendee
+needs a key. The notebook refers back to the whiteboard's frozen-hash
+story instead of repeating it.
 
-## 8. Notebook practice (standalone Jupyter)
+## 8. Close, and the optional coda
 
-A deliberate switch: leave the board visible on the projector or not,
-but open `notebooks/full-session.ipynb` in its own JupyterLab via
-`just session-notebook`. This is the pragmatic take-home. Participants
-follow the end-to-end material and can load the exact
-`chess_sft.jsonl` the room exported. Provider and local-model cells are
-optional and presenter-rehearsed; no attendee needs a key. The notebook
-refers back to the whiteboard's frozen-hash story instead of repeating
-it.
-
-## 9. Close (notebook, then the room)
-
-Restate the four outcomes as questions the room can now answer. Point
-at the repo and resources from the notebook's final section. Training
-any of these models is expensive, but open models keep matching what
-closed models did months ago, and Karpathy's microchat shows the
-barrier falling. As compute gets cheaper, specialisation and
-customisation may matter more than a ten-point benchmark difference.
-Intelligence choice is the point.
+Restate the four outcomes as questions the room can now answer; point
+at the repo and resources from the notebook's final section. When time
+allows, the two-minute whiteboard coda: the room's own games, rows,
+and frozen snapshot on screen -- a result, not another explanation.
+Open models keep matching what closed models did months ago, the
+barrier keeps falling, and owning an adapted model is now a real
+option among the four interventions.
 
 ## Participation honesty
 
@@ -203,13 +221,15 @@ Assume up to 40 attendees and venue Internet that drops after idle
 minutes and demands a captive portal. The core path therefore runs on
 the presenter's machine and reviewed local fixtures: no attendee needs
 a provider account or API key, and no core segment multiplies one
-generation into 40 cloud requests. Text is fully hands-on (own board,
-own game, own rows). Image drawing is hands-on when drawings are
-persisted and inspected; provider-backed generation is presenter-led
-with the pinned local pair already visible. Audio and video are
-presenter-led by default; attendees get prediction and comparison
-tasks (which take is adapted, which metric regressed) instead of a
-pretend hands-on. The run of show marks each segment's mode.
+generation into 40 cloud requests. The backend enforces this: paid or
+live generation only runs from the presenter's own machine, whatever a
+browser asks for. Text is fully hands-on (own board, own game, own
+rows). Image drawing is hands-on when drawings are persisted and
+inspected; provider-backed generation is presenter-led with the pinned
+local pair already visible. Audio and video are presenter-led by
+default; attendees get prediction and comparison tasks (which take is
+adapted, which metric regressed) instead of a pretend hands-on. The
+run of show marks each segment's mode.
 
 ## Delivery setup
 
@@ -230,10 +250,14 @@ config panel, an artifact panel, and an eval panel. As they play, the
 dataset builds on screen as JSON. Presenter controls pull everyone to a
 section and send them back to their workspaces.
 
+If the whiteboard fails, stay in the deck long enough to show the
+pinned outputs through its components, then jump to the notebook. Do
+not spend ten minutes repairing collaboration in front of the room.
+
 ## Topic reference per modality
 
-Material available per page when questions go deep. None of it is a
-scheduled lecture.
+Material available when questions go deep, largely covered by the
+deck's modular part 5. None of it is a scheduled lecture.
 
 **Text.** Data formats (the six shapes in docs/datasets.md). SFT
 teaches what good answers look like; RL teaches what good actions do;
