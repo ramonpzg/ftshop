@@ -270,3 +270,113 @@ without doing anything observable is not error handling, it's error
 disposal. If you cannot articulate what the user sees when this branch
 runs, that is the signal to stop and add it, not to ship the catch
 and move on.
+
+## The second review: bugs that survived the first fix
+
+Ramon reviewed the branch again after the nine fixes above, and found
+seven more. Three of them are the uncomfortable kind: a fix from the
+first round that looked complete, checked the right thing, and was
+still wrong. Sit with that for a second before reading on, because it
+is the actual lesson of this section. A review that only asks "did you
+fix the bug I reported" will wave all three through. A review that
+asks "does the fix actually hold" will not.
+
+Start with the atomic-move fix, because it is the sharpest version of
+the lesson. Round one added `MovePrecondition`: before applying a
+reply, check whether the board still matches the position the model
+saw. That is correct. The bug survived anyway, because the check ran
+*before* the write lock, not inside it. Here is the question worth
+answering yourself before the explanation: if the check is correct and
+the write is correct, how can putting them in the wrong order still
+produce two duplicate moves? The answer is that "correct" and
+"correct" do not compose into "correct together" for free -- between
+your check passing and your write landing, the whole point of a race
+is that something else gets to run. SQLite's default transaction mode
+(`BEGIN DEFERRED`) does not actually take a lock until the first write
+statement executes, so a `SELECT` that runs first, even one written
+with every intention of being a precondition check, is reading
+unprotected state. Two connections can both read "the board matches,"
+both feel satisfied, and both write. `BEGIN IMMEDIATE` takes the write
+lock up front, before any of the rereads happen, so the second
+connection simply cannot get a look at the board until the first one
+finishes and commits or rolls back. The fix is not "add a check." The
+fix is "make sure nothing can happen between the check and the write."
+Those are different claims, and only the second one is actually a
+guarantee. Proving it needed two real `sqlite3.connect` handles and a
+`threading.Barrier`, not one connection calling itself twice -- a
+single connection cannot race itself, because SQLite already
+serializes writes on one connection by construction. If your
+reproduction can't be raced, it isn't testing the race.
+
+The frozen-input-set bug is a different flavor of the same disease:
+looks fixed, isn't, but this time nothing needs two threads to see it.
+Round one gave every metric a `sample_ids` field -- the exact row ids
+a number was computed from. That reads like an audit trail, and it is
+one. It is not, and never could be, proof that two models were
+measured on the same positions. Ask yourself why not, and be precise
+about it: every model produces its own reply rows, with its own ids,
+every time. A base model's attempt and an adapted model's attempt on
+the identical FEN string get two different, unrelated ids, always, by
+construction. Matching ids between two runs was never possible even in
+the best case, so "same sample_ids" could never have meant "same
+positions" -- the field was answering a question ("what did this one
+run consist of") that sounds like, but is not, the question the
+workshop actually needs answered ("did these two runs see the same
+thing"). The fix hashes what the metric was actually *about* -- the
+FEN strings, the input -- instead of what the metric happened to
+*produce* -- the row ids, the output. `compute_position_set_id` sorts
+and deduplicates the FEN list before hashing it. Why bother, given the
+list is already right there? Because the order rows arrived in and how
+many times a position got sampled are accidents of collection, not
+facts about which positions were tested, and a fingerprint that
+changed when those accidents changed would be measuring your test
+harness, not your model.
+
+The deadline bug is worth your attention even if you never touch this
+codebase again, because the mistake generalizes to almost any system
+with retries. `model_turn` computes a correct remaining budget and
+hands it to the transport as `timeout=0.2`. The transport, faced with
+a flaky connection, retries up to three times -- and gives each retry
+the same `timeout=0.2`, because that is the only number it was handed.
+Nothing in that number says "and don't come back after 0.2 seconds
+total," because a plain float can't say that. It can only say "wait
+this long," and "wait this long" is a promise that resets every time
+you say it again. A budget that gets reinterpreted as a fresh
+allowance at every retry boundary is not a budget, it just looks like
+one until something downstream retries. The fix turns the number into
+a deadline the moment it arrives -- an absolute point in time,
+`time.monotonic() + timeout` -- and every retry and every backoff sleep
+after that asks "how much of that time is actually left," not "what
+was I originally told." A deadline survives being asked about twice.
+An allowance does not.
+
+The remaining findings are quicker versions of lessons you have
+already learned this phase, which is itself worth noticing: once you
+know the shape of a bug, you start seeing its cousins everywhere. The
+turn-ownership check only ever looked one direction -- participant
+playing the model's color was rejected, the reverse was never even
+checked -- which is the same "we tested the case we thought of, not
+the case that's possible" gap as the eval-scoping bug, just on a
+different table. The frontend's stale-board bug is the "state read
+once, trusted for the rest of a function" lesson from round one,
+recurring in React instead of SQL: `refreshGameStatus` fetched fresh
+server state and then only used *some* of it, leaving the board's own
+local fen exactly as stale as before the refresh pretended to happen.
+
+The scenario-reload gap is the most interesting of the smaller three,
+because the live UI had already solved it by accident. `suggest()`
+never calls `setScenario` on failure, so a failed request just leaves
+whatever mapping was already on screen sitting there, with the new
+error rendered underneath it. Nobody designed that as a policy; it
+fell out of only writing state on the success branch. The reload path
+had no such accident to lean on -- it is a cold start, there is no
+"whatever was already on screen" to leave alone -- so the moment
+reload needed to reproduce the same behavior, the team discovered that
+behavior had never actually been written down anywhere as a rule.
+Ask yourself: what is the rule, stated plainly, that "don't overwrite
+on failure" is actually implementing? It is "show the last mapping
+that worked, and separately, whether the most recent attempt failed."
+Those are two different facts about two possibly-different rows, and
+the endpoint had been collapsing them into one row the whole time.
+Making an implicit accident into an explicit contract is often the
+real fix, not a footnote to it.

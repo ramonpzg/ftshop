@@ -292,6 +292,118 @@ the bug lived (repository, action, route, or component), plus the full
 suite, lint, and typecheck rerun clean after each one. Final counts:
 api 349, web 216, deck 10.
 
+## Round 2 corrections
+
+A second review pass found seven more defects, three of them in fixes
+from the round above. Same discipline: reproduce first, fix minimally,
+rerun the full suite plus lint and typecheck after each one, separate
+commits on this branch.
+
+1. **The move precondition was still check-then-write.** Round 1 added
+   `MovePrecondition`, but `make_move` read workspace/game state and
+   checked it *before* the first write, leaving a real gap for another
+   connection to write in between. Reproduced with two genuine
+   `sqlite3.connect` connections synchronized on a `threading.Barrier`
+   racing the same legal move against the same precondition (a
+   same-connection nested call doesn't exercise this window at all,
+   since SQLite serializes writes on one connection by construction).
+   Fixed with `conn.execute("BEGIN IMMEDIATE")` acquired *before*
+   rereading workspace/game/ply, so the write lock is held for every
+   state-dependent decision, not just the final INSERT; the two-
+   connection barrier test now asserts exactly one success and one
+   `StaleMoveError`, with exactly one legal-move row in the database.
+2. **The eval contract still had no real frozen input set, plus a
+   checkpoint bug.** `sample_ids_json` recorded output row ids, which
+   are not comparable across models -- two models never produce the
+   same ids even over identical positions, so "same sample_ids" can
+   never be a proof of comparability. Separately, `valid_json_rate`
+   never filtered by checkpoint at all, so with one model and two
+   checkpoints in play, a single unscoped row silently pooled attempts
+   from both. Fixed: `compute_position_set_id` hashes the sorted,
+   deduplicated FEN strings a metric actually ran over (order- and
+   duplicate-independent), giving two runs a way to *prove* they
+   measured the same positions instead of the reader having to trust
+   matching scope. `MetricResult` gained a `positions` field alongside
+   `sample_ids`; `eval_results` gained `position_set_id`/
+   `position_set_json`. Storage identity split in two:
+   `_scope_clause` (used by `delete_eval_result`, clears every window
+   for a scope when a metric goes unavailable) versus
+   `_scoped_identity_clause` (used by `replace_eval_result`, includes
+   `position_set_id` so two different position-set "windows" for the
+   same model/checkpoint coexist instead of overwriting each other).
+   `compute_valid_json_rate` gained the missing `checkpoint` param.
+3. **The overall model deadline wasn't actually a deadline.**
+   `model_turn` computed its remaining budget correctly, but passed it
+   to `llm_client.chat` as a per-attempt timeout that `_chat_completion`
+   then handed unchanged to up to three internal HTTP attempts plus
+   uncounted backoff sleeps between them -- a 0.2s deadline could take
+   0.668s, a 30s default could approach 90s plus backoff. Fixed by
+   having `_chat_completion` turn its `timeout` argument into one
+   absolute deadline at the start of the call, then recomputing the
+   time left before every attempt (passed as that attempt's real
+   `client.post(..., timeout=remaining)`) and before every backoff
+   sleep (`_sleep_backoff` caps the sleep to whatever remains, so a
+   sleep can no longer itself blow the budget). A fake-monotonic-clock
+   test proves the total elapsed time for a scripted failure sequence
+   stops exactly at the declared deadline instead of running the full
+   retry ladder regardless.
+4. **Turn ownership and stale recovery were still incomplete.** Two
+   separate gaps under one finding: `make_move`'s turn check (round 1)
+   only ever rejected the participant for playing the model's color --
+   nothing checked the symmetric case, so a raw `/model-move` call
+   right after `game/start` let the model immediately play White's
+   opening move. Fixed with a mirrored check in the same write-locked
+   section (`actor in ("model", "fallback")` rejected when the fen
+   shows the participant's color to move), plus an earlier bail at the
+   top of `model_turn` itself so a wrong-turn call never even spends an
+   LLM request. Separately, `WorkspacePanel`'s `refreshGameStatus` --
+   the resync path for a stale reply, a 409 clock expiry, or a turn
+   race -- called `applyGameStatus` without `{ board: true }`, so the
+   local fen never actually updated on any of those resyncs even though
+   game/record/history did; a stale board could then retrigger the
+   model on a turn the server had already moved past. One-line fix:
+   pass `{ board: true }`. Two existing model_turn tests had a latent
+   setup bug this exposed (`start_game` then `model_turn` with no
+   participant move first was itself the round-1 bug, not a valid test
+   of clock-expiry timing); both now play a move first.
+5. **`policy_move_reward` still wasn't self-contained.** Round 1 fixed
+   `board_tensor_to_move_class`'s missing fen; `policy_move_reward` had
+   the same gap -- only `policy_target` (legal-move keys) and
+   `move_reward`, no fen, and a legal-move set is not the position (the
+   same set of legal moves can arise from more than one arrangement of
+   pieces). Fixed by adding `"fen": move.fen_before` to the payload,
+   same field and source as every other shape. Updated the shape's
+   contract in `docs/datasets.md` and the deck's illustrative slide.
+6. **Terminal transport failures still lost capability provenance.**
+   Round 1 fixed this for the success path (`ChatOutcome`); a call that
+   dropped JSON mode on an early attempt and then still exhausted its
+   retries for an unrelated reason raised `LlmRequestError`, which only
+   ever carried `status_code`/`request_ids` -- the stored failed
+   attempt recorded a null transport count and null fallback flags, as
+   if no capability had ever been dropped. Fixed by extending
+   `LlmRequestError` with the same three fields `ChatOutcome` carries,
+   threading them through every raise site in `_chat_completion`,
+   `_request_error`, and `_extract_content` (the malformed-200-body
+   paths can also follow a capability fallback), and reading them off
+   the caught exception in both `model_turn.py` and `scenario.py`.
+7. **Reload still lost the previous mapping after a later failure.**
+   Round 1 made a failed scenario visible on reload (`latest_scenario`
+   returns the true newest row); it did not handle a failure landing
+   *after* a success. A live failure never erases the on-screen mapping
+   (the component only calls `setScenario` on success), but the reload
+   endpoint returned only the single latest row, so a later failure
+   made an earlier good suggestion unreachable the moment the page
+   refreshed -- the client got the failure and nothing else. Fixed by
+   returning two rows: `latest` (unchanged) and the new
+   `latest_success` (`latest_successful_scenario` in the repo, the most
+   recent non-failed row). The frontend restores `latest_success` into
+   the displayed mapping and, only when `latest` is itself a failure,
+   additionally shows the same error-with-retry state a live failure
+   renders -- reconstructing the live-failure combination instead of
+   only ever showing whichever row is newest.
+
+Final counts after round 2: api 368, web 217, deck 10.
+
 ## Intentionally deferred
 
 - The visible adaptation loop (before/after comparison UI) is phase
@@ -325,10 +437,14 @@ Phase 34 (learning experience) should build the visible adaptation
 loop directly on `model_legal_move_rate` scoped by model/checkpoint:
 run a frozen set of positions through two models or checkpoints and
 show both MetricResults side by side. See "Post-review corrections"
-below for the schema and job-handler work already done to support
-this (an earlier draft of this handover wrongly claimed no schema work
-was needed; `eval_results` gained real identity columns for exactly
-this reason).
+and "Round 2 corrections" above for the schema and job-handler work
+already done to support this (an earlier draft of this handover
+wrongly claimed no schema work was needed; `eval_results` gained real
+identity columns, and then `position_set_id`, for exactly this
+reason). `compute_position_set_id` is the piece that actually proves
+two runs measured the same positions -- worth reading before building
+a benchmark runner on top of it, so the runner produces sets that
+hash-match on purpose rather than by accident.
 
 ## Gotchas
 
@@ -343,5 +459,27 @@ this reason).
   `unavailable` turn leaves fen unchanged by design, so the retry
   button is the only thing that re-triggers it. Do not "fix" that by
   adding modelThinking to the dependency list; it retries forever.
+- `make_move`'s `BEGIN IMMEDIATE` will raise "cannot start a
+  transaction within a transaction" if a test helper leaves an
+  uncommitted implicit transaction open before calling it (e.g.
+  `insert_user` + `insert_workspace` with no `conn.commit()` between
+  them and the call). Not a production issue -- route-level connections
+  are always fresh per request -- but every `make_workspace` test
+  fixture needs that commit now.
+- Testing anything deadline-shaped against real wall-clock time is
+  slow and flaky. `test_llm_client.py`'s deadline tests redirect both
+  `time.monotonic` and `time.sleep` to a small `_FakeClock` (`sleep`
+  advances the same counter `monotonic` reads), which makes multi-
+  attempt-plus-backoff timing assertions exact and instant instead of
+  approximate and slow. Reach for that pattern before reaching for
+  `pytest.approx` and a real `time.sleep`.
+- When a fix changes behavior that an existing test's *setup* was
+  accidentally relying on (not just its assertions), the test will
+  fail somewhere confusing. The turn-ownership fix broke two
+  clock-expiry tests whose setup was `start_game` then `model_turn`
+  with no participant move in between -- which was the round-1 bug
+  being exercised as if it were valid, not a real clock-expiry
+  scenario. Read what a failing test's setup actually establishes
+  before assuming the fix is wrong.
 - pkill in this sandbox kills the calling shell's process group too;
   use targeted `kill $(pgrep -f ...)` when scripting rehearsals.
