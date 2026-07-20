@@ -69,8 +69,8 @@ function shapesOfType(store: StoreRecords, type: string): CanvasRecord[] {
 /**
  * Compatibility pre-step, separate from the versioned list because it
  * depends on the snapshot's tldraw schema rather than the workshop
- * version. The repository's authored snapshot was saved by tldraw 5.2.2;
- * this runtime is pinned at 5.1.1, whose loader refuses sequences from
+ * version. The initial authored snapshot was saved by tldraw 5.2.2; this
+ * runtime is pinned at 5.1.1, whose loader refuses sequences from
  * the future. Exactly three sequences moved between those versions, and
  * each is losslessly reversible for the content this app produces:
  *

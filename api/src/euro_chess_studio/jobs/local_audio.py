@@ -38,8 +38,8 @@ def generate_musicgen(prompt: str, duration_seconds: float = 5.0) -> tuple[bytes
     """(wav bytes, sample rate) for a short music clip."""
     global _musicgen_pipeline
     try:
-        import scipy.io.wavfile  # ty: ignore[unresolved-import]
-        from transformers import pipeline  # ty: ignore[unresolved-import]
+        import scipy.io.wavfile
+        from transformers import pipeline
     except ImportError as exc:
         raise AudioDepsMissingError(_MUSICGEN_HINT) from exc
 
@@ -66,9 +66,9 @@ def generate_stable_audio(prompt: str, duration_seconds: float = 5.0) -> tuple[b
     """(wav bytes, sample rate) for a short sound effect."""
     global _stable_audio_pipeline
     try:
-        import soundfile  # ty: ignore[unresolved-import]
-        import torch  # ty: ignore[unresolved-import]
-        from diffusers import StableAudioPipeline  # ty: ignore[unresolved-import]
+        import soundfile
+        import torch
+        from diffusers import StableAudioPipeline
     except ImportError as exc:
         raise AudioDepsMissingError(_MUSICGEN_HINT) from exc
 

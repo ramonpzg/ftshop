@@ -302,12 +302,12 @@ describe("migrateCanvasDocument", () => {
     expect(result.changed).toBe(true);
   });
 
-  test("the repository's authored 5.2.2 snapshot migrates and loads under this runtime", () => {
+  test("the repository's current authored snapshot loads and remains settled", () => {
     const raw = JSON.parse(
       readFileSync(join(import.meta.dir, "../../../data/canvas/snapshot.json"), "utf8"),
     ) as CanvasDocumentSnapshot;
     const { snapshot, changed } = migrateCanvasDocument(raw, SEQUENCES);
-    expect(changed).toBe(true);
+    expect(changed).toBe(false);
     expect(snapshot.store[DECK_SHAPE_ID]).toBeDefined();
     const result = SCHEMA.migrateStoreSnapshot({
       store: snapshot.store as never,
