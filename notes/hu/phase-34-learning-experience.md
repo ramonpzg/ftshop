@@ -127,25 +127,37 @@ positions with an asterisk.
 ## The trade-off that keeps the panel honest
 
 The comparison shows legality up, JSON validity up, and explanation
-rate falling from 0.75 to zero. That last metric exists because a
+rate falling from 0.67 to zero. That last metric exists because a
 demo where adaptation only wins is an advertisement, and this is a
-workshop. The mechanism is worth stating precisely: the training pairs
-are bare `{"move": ...}` completions, so the adapter learned to stop
-talking. Nothing in the data asked it to keep explaining, so it
-does not. The regression is not a bug in the adapter, it is the
-adapter doing exactly what the data said, which is the sharpest
-sentence about fine-tuning the session gets to say. Each modality's
-cached evidence card carries its own regression for the same reason:
-piece identity dips when style pushes hard, clipping rises when the
-music gets loud, frame detail softens when motion stabilizes.
+workshop. The mechanism is worth stating precisely. The sft-v2 prompt
+asks for `{"move": ..., "why": ...}` with the why explicitly
+optional. The base model, being a chatty generalist, fills the field
+in eight replies out of twelve. The adapter's training pairs are bare
+`{"move": ...}` completions, so it learned to stop talking. Nothing
+in the data asked it to keep explaining, so it does not. The
+regression is not a bug in the adapter, it is the adapter doing
+exactly what the data said, which is the sharpest sentence about
+fine-tuning the session gets to say. Each modality's cached evidence
+card carries its own regression for the same reason: piece identity
+dips when style pushes hard, clipping rises when the music gets loud,
+frame detail softens when motion stabilizes.
 
-Notice also what the trade-off metric is not. It is computed from the
-stored raw replies with a deterministic rule (strip the JSON span,
-count remaining letters), the same class of measurement as
-valid_json_rate. It would have been easy to invent an "explanation
-quality" number. Ask yourself why that would have poisoned the well,
-in a phase whose entire theme is that numbers must be able to say
-where they came from.
+The first version of this metric earned a review finding, and the
+finding is better teaching than the metric. Version one counted prose
+outside the JSON object as explanation. Sit with what that rewards.
+The prompt demanded pure JSON, valid_json_rate punished anything
+else, and explanation_rate paid the model for breaking exactly that
+rule. One reply could be a defect on one ruler and a virtue on the
+other. So the question you should be able to answer now: what does a
+regression have to be compatible with before "regressed" is a fact
+about the model rather than a contradiction between your rulers? The
+fix was to move the explanation inside the contract as an optional
+field, and the reward for doing it honestly is that both numbers can
+be true at once, twelve of twelve valid JSON and zero of twelve
+explanations, no asterisk required. It would still have been easy to
+invent an "explanation quality" number. Ask yourself why that would
+have poisoned the well, in a phase whose entire theme is that numbers
+must be able to say where they came from.
 
 ## Media that exists
 
@@ -173,13 +185,20 @@ front of forty people is a small death.
 
 The old plan taught mechanisms for thirty-five minutes and hoped the
 payoff arrived before the audience's attention did. The new one is
-built backwards from four outcomes a participant should be able to
-demonstrate, results first, decomposition after. The room sees the
-adapted model beat the base model on frozen positions, hears the
-motif sharpen, watches the flicker settle, and only then gets told
-what a LoRA is. Seventy-two minutes of core with hard stops, eighteen
-of declared flex, and a cut list ordered by what dies first when
-reality attends the session.
+built backwards from outcomes, and after the review it follows
+deck/PLAN_V2.md exactly: the personal origin story lands on a
+recording of the Termux TUI before anyone is taught a single chess
+rule, because people who have never pushed a pawn still understand a
+terminal game when they watch one. Then the A/B beat, which output
+came from the adapted model, with a reveal table where at least one
+row gets worse. Then why adapt at all, then the delayed chess recap
+that names objects the room has already seen, then the board, then
+the notebook. The room sees the adapted model beat the base model on
+frozen positions, hears the motif sharpen, watches the flicker
+settle, and only then gets told what a LoRA is. Seventy minutes of
+core with hard stops, twenty of declared flex, an optional
+two-minute coda showing what the room produced, and a cut list
+ordered by what dies first when reality attends the session.
 
 One structural question worth chewing: the plan marks audio and video
 as presenter-led and gives attendees prediction tasks instead of
@@ -197,6 +216,82 @@ three seconds with zero provider involvement. The session's budget is
 speech and humans; the machine is effectively free. Which is how a
 ninety-minute plan earns the right to be about teaching instead of
 about waiting.
+
+## What the review caught
+
+The first delivery of this phase collected twelve findings. Fixing
+them taught more than building it did, which is how reviews are
+supposed to work and rarely do. The instructive ones follow; treat
+each as a question before you read its answer.
+
+Start with the embarrassing one. The evidence chain was scrupulously
+honest in its columns, result_source said cached, the runner said
+replay, and it was still misleading, because a room reads framing,
+not schemas. A fixture replay with real hashes and real arithmetic
+looks exactly like a training run to anyone who does not know which
+column to distrust. What is the difference between recording the
+truth and telling it? The fix is a banner that says scripted
+illustration, no model was trained, in words, on the panel, in the
+fixtures, and in the run of show. If the audience must know one
+thing, the system says that thing out loud instead of filing it.
+
+Next, concurrency. SQLite allows one writer at a time, and the live
+benchmark used to make its provider calls inside the job's write
+transaction. Picture the room: the presenter clicks Run base live,
+the provider takes its time, and forty attendees' moves queue behind
+a lock that is waiting on someone else's network. The fix is
+boringly classical, gather then persist. Collect every reply with no
+database in hand, then write once, briefly. The test for it is the
+part worth copying: a fake chat client that performs a write through
+a second connection during every call, so if the handler ever holds
+the lock while gathering, the test deadlocks instead of passing
+politely. The same finding's cousin got fixed alongside it: a live
+run now has a whole-run deadline, aborts after three consecutive
+transport failures, and the panel grew a Stop waiting button,
+because three minutes of a frozen panel in front of a room is not a
+wait, it is a fire.
+
+Then history. Rerunning a benchmark used to replace the previous
+run's metric rows, latest wins. Ask what the word evidence means if
+a rerun can rewrite it. A ledger you can overwrite is a whiteboard
+with self-esteem. Benchmark metrics are now insert-only, keyed by
+run; reruns add rows, comparisons pick the latest per checkpoint,
+and the old runs keep standing there like witnesses.
+
+The foreign key that had to die is a nice SQLite war story. Each
+benchmark run now records the job_config_id that produced it, but
+run_job inserts the config after the handler finishes, so the
+reference points forward in insertion order. The textbook answer,
+deferred foreign keys, turned out to be non-deterministic in this
+stack, passing in isolated repros and failing inside the real
+transaction. So the column is plain TEXT, the old constraint was
+removed by table rebuild, and consistency comes from the shared
+transaction instead of a checker that could not make up its mind.
+When a guarantee is unreliable, holding onto it anyway is
+sentimentality, not rigor.
+
+The guardrail finding is the one to internalize for any shared-room
+software. The adaptation panel hid its buttons from attendees, and
+hiding is not authorization; the jobs endpoint would run a paid
+generation for anyone with curl and the LAN address. Now the backend
+classifies paid job types and refuses them for any client that is
+not on the presenter's machine. Why is loopback an acceptable proxy
+for "the presenter" here? Because the backend binds localhost behind
+the repo's own forwarding proxies, so on this topology the only
+loopback traffic is the presenter's browser. Change the topology and
+that assumption dies with it, which the handover says in bold ink.
+
+Two smaller ones, same moral. Suite validation used to check shape,
+so a suite claiming "zzzz" was a legal move validated fine; it now
+re-derives legality from the FEN with python-chess and re-renders
+the prompt from the contract, so the suite proves its claims instead
+of formatting them. And the e2e stacks used to inherit whatever
+OPENAI_API_KEY your shell carried, which once made a live button
+appear in a test that assumed keyless; credentials are now pinned
+empty in every spawned stack, and the final suite run was executed
+with a deliberately poisoned key in the shell to prove the isolation
+holds. What does your test environment inherit from you? Wrong
+question order. What do your tests assume you are not carrying?
 
 ## Where to poke first
 
