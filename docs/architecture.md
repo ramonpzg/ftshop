@@ -227,6 +227,22 @@ the game/record/history -- so a resync that skips the board can no
 longer leave the client's fen stale enough to fire the model on the
 wrong turn.
 
+Both `/moves` and `/model-move` map `GameClockExpiredError` and
+`NotYourTurnError` to the same 409, since both are "this request
+cannot land against the current state" and a client only needs to
+react, not branch on an HTTP status that is identical either way. The
+two causes are not identical *reactions*, though: a clock expiry ends
+the game, so the client should show the timeout-loss message; a
+turn-ownership conflict (a late duplicate request racing a turn
+change) does not end anything, the game is still running, just not
+that request's turn anymore. `handleMove` and `triggerModelReply` both
+inspect the 409's detail text for the `NotYourTurnError` phrasing
+(`"model's turn"` on the participant path, `"participant's turn"` on
+the model path) before deciding which reaction applies, rather than
+routing every 409 to the clock-expiry handler regardless of cause --
+the latter would show a false timeout loss for a turn-ownership race
+the game clock had nothing to do with.
+
 ### The Chat Completions boundary
 
 Every text-model call (opponent moves, scenario assessments, future

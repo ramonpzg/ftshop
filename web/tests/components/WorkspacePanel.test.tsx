@@ -84,6 +84,7 @@ function routedFetch(
     scenarioLatestSuccess?: Record<string, unknown> | null;
     modelTurn?: "model_move" | "fallback_move" | "unavailable" | "stale";
     notYourTurnOnMove?: boolean;
+    notYourTurnOnModelMove?: boolean;
     reviewFails?: boolean;
   } = {},
 ) {
@@ -153,6 +154,14 @@ function routedFetch(
       return new Response(JSON.stringify(scenario));
     }
     if (url.endsWith("/model-move")) {
+      if (opts.notYourTurnOnModelMove) {
+        return new Response(
+          JSON.stringify({
+            detail: "it is the participant's turn; the model cannot move for them",
+          }),
+          { status: 409 },
+        );
+      }
       const outcome = opts.modelTurn ?? "model_move";
       if (outcome === "unavailable") {
         return new Response(
@@ -901,6 +910,37 @@ describe("WorkspacePanel", () => {
 
     await waitFor(() => screen.getByTestId("game-notice"));
     expect(screen.getByTestId("game-notice").textContent).not.toContain("Time ran out");
+
+    await waitFor(() => {
+      const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));
+      expect(gameCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  test("a not-your-turn rejection on model-move does not claim a timeout and resyncs state", async () => {
+    // Reproduces the reported bug: the route returns 409 for both a
+    // clock expiry and a turn-ownership conflict, and triggerModelReply
+    // used to treat every 409 as the clock running out. A late
+    // duplicate model-move request losing a turn-ownership race would
+    // then display a false "you lost on time" even though the game is
+    // still running.
+    const fetchMock = routedFetch({ notYourTurnOnModelMove: true });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => screen.getByTestId("game-notice"));
+    expect(screen.getByTestId("game-notice").textContent).not.toContain("Time ran out");
+    expect(screen.getByTestId("game-notice").textContent).toContain("turn changed");
 
     await waitFor(() => {
       const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));

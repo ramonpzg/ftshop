@@ -344,7 +344,18 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       applyModelTurn(await modelMove(workspaceId));
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        await handleClockExpired();
+        const detail = apiErrorDetail(error);
+        if (detail?.includes("participant's turn")) {
+          // A duplicate or late model-move request lost a turn-
+          // ownership race, not the clock: the game is still running,
+          // it is just not this reply's turn anymore. Treating this
+          // like handleClockExpired() would show a false loss for a
+          // request that never should have landed in the first place.
+          setGameNotice("That request landed after the turn changed. Board resynced.");
+          await refreshGameStatus();
+        } else {
+          await handleClockExpired();
+        }
         return;
       }
       // Show the server's actual reason: a 401 from a mispaired key and
