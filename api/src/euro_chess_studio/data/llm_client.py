@@ -202,10 +202,25 @@ def _chat_completion(
     transient_retries = 0
     permission_retries = 0
     url = f"{settings.base_url}/chat/completions"
+    # `timeout` is the caller's whole budget for this call, not a
+    # per-HTTP-attempt allowance: every one of the up to
+    # MAX_TRANSIENT_RETRIES + 1 attempts, and every backoff sleep
+    # between them, draws down this one absolute deadline instead of
+    # each restarting a fresh clock. That is what keeps a short
+    # caller-supplied timeout short even when the transport itself
+    # has to retry.
+    deadline = time.monotonic() + min(timeout, MAX_TIMEOUT_SECONDS)
 
-    with httpx.Client(timeout=min(timeout, MAX_TIMEOUT_SECONDS)) as client:
+    with httpx.Client() as client:
         while True:
             attempt += 1
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LlmRequestError(
+                    f"deadline exceeded before attempt {attempt} to {url} "
+                    f"({settings.profile}); request_ids={_format_ids(request_ids)}",
+                    request_ids=tuple(request_ids),
+                )
             try:
                 response = client.post(
                     url,
@@ -214,9 +229,11 @@ def _chat_completion(
                         "Content-Type": "application/json",
                     },
                     json=body,
+                    timeout=remaining,
                 )
             except httpx.HTTPError as exc:
-                if transient_retries >= MAX_TRANSIENT_RETRIES:
+                remaining = deadline - time.monotonic()
+                if transient_retries >= MAX_TRANSIENT_RETRIES or remaining <= 0:
                     raise LlmRequestError(
                         f"could not reach {url} ({settings.profile}); attempt={attempt}; "
                         f"request_ids={_format_ids(request_ids)}; "
@@ -224,7 +241,7 @@ def _chat_completion(
                         request_ids=tuple(request_ids),
                     ) from exc
                 transient_retries += 1
-                _sleep_backoff(transient_retries)
+                _sleep_backoff(transient_retries, deadline)
                 continue
 
             request_id = response.headers.get("x-request-id")
@@ -270,21 +287,26 @@ def _chat_completion(
                 raise _request_error(response, settings, attempt, request_ids)
 
             if response.status_code == 401:
+                remaining = deadline - time.monotonic()
                 if (
                     _is_generic_permission_401(response)
                     and permission_retries < MAX_PERMISSION_RETRIES
                     and _transient_401_evidence(settings)
+                    and remaining > 0
                 ):
                     permission_retries += 1
-                    _sleep_backoff(permission_retries)
+                    _sleep_backoff(permission_retries, deadline)
                     continue
                 raise _request_error(response, settings, attempt, request_ids)
 
             if response.status_code == 429 or response.status_code >= 500:
-                if transient_retries >= MAX_TRANSIENT_RETRIES:
+                remaining = deadline - time.monotonic()
+                if transient_retries >= MAX_TRANSIENT_RETRIES or remaining <= 0:
                     raise _request_error(response, settings, attempt, request_ids)
                 transient_retries += 1
-                _sleep_backoff(transient_retries, retry_after=response.headers.get("retry-after"))
+                _sleep_backoff(
+                    transient_retries, deadline, retry_after=response.headers.get("retry-after")
+                )
                 continue
 
             # Any other status is deterministic; retrying cannot fix it.
@@ -386,11 +408,20 @@ def _response_error_message(response: httpx.Response) -> str:
     return response.text.strip()
 
 
-def _sleep_backoff(retry_number: int, retry_after: str | None = None) -> None:
+def _sleep_backoff(retry_number: int, deadline: float, retry_after: str | None = None) -> None:
+    """Sleeps for the backoff duration, capped to whatever remains of
+    the call's absolute deadline. Without the cap, a retry's own wait
+    could by itself carry a call past the budget the caller asked
+    for -- the same overrun this deadline exists to prevent."""
+    duration = _backoff_duration(retry_number, retry_after)
+    remaining = deadline - time.monotonic()
+    time.sleep(max(0.0, min(duration, remaining)))
+
+
+def _backoff_duration(retry_number: int, retry_after: str | None) -> float:
     if retry_after is not None:
         try:
-            time.sleep(min(float(retry_after), RETRY_AFTER_CAP_SECONDS))
-            return
+            return min(float(retry_after), RETRY_AFTER_CAP_SECONDS)
         except ValueError:
             pass
-    time.sleep((2 ** (retry_number - 1)) + random.uniform(0, 0.25))
+    return (2 ** (retry_number - 1)) + random.uniform(0, 0.25)

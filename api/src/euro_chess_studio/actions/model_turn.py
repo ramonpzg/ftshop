@@ -36,7 +36,14 @@ it silently" treatment:
   model-turn attempts could in principle take several minutes -- longer
   than the shortest allowed game. The deadline caps total wall-clock
   time regardless of how retries stack, and the last attempt's own
-  timeout is shortened to whatever time remains.
+  timeout is shortened to whatever time remains -- but that only holds
+  if llm_client honours it as a real budget rather than a per-attempt
+  number to reuse. llm_client._chat_completion turns the timeout it is
+  given into its own absolute deadline and re-checks the time left
+  before every one of its internal HTTP attempts and backoff sleeps, so
+  a short remaining allowance here stays short all the way down to the
+  socket, instead of being handed to up to three retries as if each
+  got a fresh clock.
 - If the game's clock expires between receiving a legitimate reply and
   applying it (make_move's own clock check raises GameClockExpiredError
   first), that attempt is recorded before the exception propagates,

@@ -247,7 +247,15 @@ worst-case latency multiply unpredictably, since each attempt could
 itself retry the HTTP call up to three times at up to
 `MODEL_MOVE_TIMEOUT_SECONDS` (60s) each. The deadline is checked before
 starting each attempt, and the last attempt's own timeout is capped to
-whatever time remains, so total wall-clock time for a turn stays
+whatever time remains. That cap has to hold inside `llm_client` too,
+not just at the call site: `_chat_completion` turns the timeout it
+receives into one absolute deadline, and every one of its own internal
+HTTP attempts and backoff sleeps re-checks the time left against that
+same deadline rather than restarting a fresh clock each time. Passing
+a per-attempt timeout down and trusting the transport to reuse it
+verbatim undercounts three attempts' worth of retries and their
+backoff as if they were one; the deadline has to be recalculated
+before every request and every sleep for total wall-clock time to stay
 predictable regardless of how transport retries stack. If the reply
 does arrive but the clock has since expired, `make_move`'s clock check
 raises before the move is applied; `model_turn` records that attempt

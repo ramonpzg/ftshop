@@ -40,6 +40,41 @@ def ok_response(content: str = "ok") -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
 
+class _FakeClock:
+    """A monotonic clock the test controls, so deadline arithmetic can
+    be verified precisely without waiting on real wall time. `sleep`
+    advances the clock instead of blocking, matching what a real sleep
+    would do to the budget."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def install_fake_clock(monkeypatch: pytest.MonkeyPatch) -> _FakeClock:
+    clock = _FakeClock()
+    monkeypatch.setattr(llm_client.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(llm_client.time, "sleep", clock.sleep)
+    return clock
+
+
+def install_mock_client(monkeypatch: pytest.MonkeyPatch, handler) -> None:
+    """Like install_transport, but leaves time.sleep alone so a
+    fake-clock test can control it instead."""
+    real_client = httpx.Client
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr(
+        llm_client.httpx,
+        "Client",
+        lambda **kwargs: real_client(transport=transport, **kwargs),
+    )
+
+
 def test_default_model_is_current():
     assert llm_client.get_llm_model() == "gpt-5.6-luna"
 
@@ -219,6 +254,69 @@ def test_transport_timeout_retries_then_raises(monkeypatch: pytest.MonkeyPatch):
     with pytest.raises(llm_client.LlmRequestError, match="could not reach"):
         llm_client.chat([{"role": "user", "content": "move"}])
     assert calls == 3
+
+
+def test_deadline_bounds_total_time_regardless_of_transport_retries(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Reproduces the reported bug: `timeout` used to be handed
+    unchanged to every one of up to three HTTP attempts, so a short
+    overall deadline could take several times as long once transport
+    retries and backoff stacked up. Every attempt here "costs" 0.1s of
+    simulated time before failing; a 0.2s deadline must stop asking
+    once that 0.2s is spent, not run the full retry ladder anyway."""
+    clock = install_fake_clock(monkeypatch)
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        clock.now += 0.1
+        raise httpx.ConnectTimeout("connection timed out")
+
+    install_mock_client(monkeypatch, handler)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with pytest.raises(llm_client.LlmRequestError):
+        llm_client.chat([{"role": "user", "content": "move"}], timeout=0.2)
+
+    # Only the first attempt actually reached the transport: its 0.1s
+    # cost plus one backoff sleep -- capped to the 0.1s left of the
+    # deadline -- spends the whole 0.2s budget, so a second attempt
+    # never starts. The old behaviour ran the full retry ladder (three
+    # attempts, uncapped backoff) regardless of how little was left.
+    assert calls == 1
+    assert clock.now == pytest.approx(0.2)
+
+
+def test_remaining_deadline_shrinks_and_is_passed_to_each_transport_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The transport must see the true remaining budget on each retry,
+    not the original per-call timeout replayed unchanged -- otherwise
+    a later attempt could itself block for the full original timeout
+    even though the overall deadline is nearly spent."""
+    clock = install_fake_clock(monkeypatch)
+    seen_timeouts: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions["timeout"]["connect"])
+        clock.now += 1.0
+        if len(seen_timeouts) == 1:
+            return httpx.Response(500, text="boom")
+        return ok_response()
+
+    install_mock_client(monkeypatch, handler)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    llm_client.chat([{"role": "user", "content": "move"}], timeout=10.0)
+
+    assert seen_timeouts[0] == pytest.approx(10.0)
+    # After the first attempt's 1.0s cost and its backoff sleep, the
+    # second attempt gets strictly less than the original 10.0s: proof
+    # the shrinking deadline, not the original timeout, reaches the
+    # transport on every attempt.
+    assert seen_timeouts[1] < seen_timeouts[0]
 
 
 def test_explicit_invalid_key_401_does_not_retry(monkeypatch: pytest.MonkeyPatch):
