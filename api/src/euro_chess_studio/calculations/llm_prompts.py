@@ -4,6 +4,12 @@ without a network."""
 
 import json
 import re
+from dataclasses import dataclass
+
+# Stored with every attempt so an eval can tell which prompt produced a
+# reply. Bump when the corresponding prompt text changes meaningfully.
+MOVE_PROMPT_VERSION = "move-v1"
+ASSESS_PROMPT_VERSION = "assess-v1"
 
 MOVE_SYSTEM_PROMPT = (
     "You are a chess engine assistant playing a casual but competent game. "
@@ -53,9 +59,12 @@ def build_assess_messages(san_history: list[str], fen: str) -> list[dict]:
     ]
 
 
-def _extract_json(text: str) -> dict | None:
+def extract_json_object(text: str) -> dict | None:
     """Parses a JSON object out of a model reply, tolerating code fences
-    and surrounding prose."""
+    and surrounding prose. Deterministic: fenced block first, then the
+    widest brace span. Also the definition of "valid JSON" that the
+    valid_json_rate metric measures, so the metric and the consumer
+    judge replies identically."""
     candidate = text.strip()
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
     if fence:
@@ -71,22 +80,35 @@ def _extract_json(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+@dataclass(frozen=True)
+class MoveReplyAnalysis:
+    """How far a raw move reply got: was a JSON object with a "move"
+    field found, what did that field say, and was it syntactically valid
+    UCI. Legality against a position is the caller's job."""
+
+    parse_ok: bool
+    move_text: str | None
+    uci: str | None
+
+
+def analyze_move_reply(text: str) -> MoveReplyAnalysis:
+    parsed = extract_json_object(text)
+    if parsed is None or not isinstance(parsed.get("move"), str):
+        return MoveReplyAnalysis(parse_ok=False, move_text=None, uci=None)
+    move = parsed["move"].strip().lower()
+    if re.fullmatch(r"[a-h][1-8][a-h][1-8][qrbn]?", move):
+        return MoveReplyAnalysis(parse_ok=True, move_text=move, uci=move)
+    return MoveReplyAnalysis(parse_ok=True, move_text=move, uci=None)
+
+
 def parse_move_reply(text: str) -> str | None:
-    """The model's chosen UCI move, or None when the reply is unusable.
-    Legality is the caller's job; format is ours."""
-    parsed = _extract_json(text)
-    if parsed is None:
-        return None
-    move = parsed.get("move")
-    if not isinstance(move, str):
-        return None
-    move = move.strip().lower()
-    return move if re.fullmatch(r"[a-h][1-8][a-h][1-8][qrbn]?", move) else None
+    """The model's chosen UCI move, or None when the reply is unusable."""
+    return analyze_move_reply(text).uci
 
 
 def parse_assess_reply(text: str) -> dict | None:
     """The assessment, real-world mapping, and video prompt, or None."""
-    parsed = _extract_json(text)
+    parsed = extract_json_object(text)
     if parsed is None:
         return None
     assessment = parsed.get("assessment")

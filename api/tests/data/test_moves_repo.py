@@ -29,7 +29,16 @@ def make_workspace(tmp_path: Path):
     return conn, workspace
 
 
-def record_move(conn, workspace_id: str, *, uci: str, san: str | None, legal: bool, reward: int):
+def record_move(
+    conn,
+    workspace_id: str,
+    *,
+    uci: str,
+    san: str | None,
+    legal: bool,
+    reward: int,
+    actor: str = "participant",
+):
     return insert_move(
         conn,
         workspace_id=workspace_id,
@@ -41,6 +50,7 @@ def record_move(conn, workspace_id: str, *, uci: str, san: str | None, legal: bo
         is_check=False,
         is_checkmate=False,
         reward=reward,
+        actor=actor,
     )
 
 

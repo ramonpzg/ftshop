@@ -56,7 +56,10 @@ def expire_if_over(conn: sqlite3.Connection, game: sqlite3.Row | None) -> sqlite
     if game is None or game["result"] is not None:
         return None if game is None else game
     if is_expired(game["started_at"], game["time_limit_seconds"], datetime.now(UTC)):
+        # The timeout loss is a fact about the wall clock; it commits on
+        # its own even when the surrounding action later fails.
         end_game(conn, game["id"], "loss_timeout")
+        conn.commit()
         return None
     return game
 
@@ -121,6 +124,7 @@ def start_game(
         opponent_model=opponent_model,
     )
     update_board_fen(conn, workspace_id, chess.STARTING_FEN)
+    conn.commit()
     return _status(conn, workspace_id, game)
 
 
@@ -136,7 +140,8 @@ def start_over(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
     if expire_if_over(conn, active) is not None:
         end_game(conn, active["id"], "loss_resign")
 
-    # The fresh game keeps both the clock and the opponent the player chose.
+    # The fresh game keeps both the clock and the opponent the player
+    # chose. The resignation loss and the fresh board commit together.
     game = insert_game(
         conn,
         workspace_id=workspace_id,
@@ -144,6 +149,7 @@ def start_over(conn: sqlite3.Connection, workspace_id: str) -> GameStatus:
         opponent_model=active["opponent_model"],
     )
     update_board_fen(conn, workspace_id, chess.STARTING_FEN)
+    conn.commit()
     return _status(conn, workspace_id, game)
 
 

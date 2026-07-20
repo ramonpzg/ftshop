@@ -12,6 +12,8 @@ EXPECTED_TABLES = {
     "artifacts",
     "eval_results",
     "presenter_state",
+    "model_attempts",
+    "scenario_assessments",
 }
 
 

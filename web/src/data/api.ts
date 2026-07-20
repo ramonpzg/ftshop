@@ -11,16 +11,43 @@ export class ApiError extends Error {
   }
 }
 
+/** FastAPI's error body is `{"detail": ...}`. `detail` is usually a
+ * plain string, but a few 409s (turn-ownership vs. clock-expiry
+ * conflicts) send `{code, message}` instead, so a client can branch on
+ * `code` rather than pattern-matching English prose. */
+type ErrorDetail = string | { code?: string; message?: string };
+
+function parsedErrorDetail(error: unknown): ErrorDetail | null {
+  if (!(error instanceof ApiError)) return null;
+  try {
+    return JSON.parse(error.message).detail ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** The human sentence inside a FastAPI error body, for showing to the
  * user instead of a silent failure. */
 export function apiErrorDetail(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
-  try {
-    const detail = JSON.parse(error.message).detail;
-    return typeof detail === "string" ? detail : error.message;
-  } catch {
-    return error.message;
+  const detail = parsedErrorDetail(error);
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail.message === "string") return detail.message;
+  return error.message;
+}
+
+/** The stable machine code on a structured error body (see
+ * ErrorDetail), or null when this error doesn't carry one -- either
+ * because it never had structured detail, or detail is a plain
+ * string. Callers branch on this instead of substring-matching
+ * `apiErrorDetail`'s prose, which a copy edit could change without
+ * anyone noticing the branch it used to control. */
+export function apiErrorCode(error: unknown): string | null {
+  const detail = parsedErrorDetail(error);
+  if (detail && typeof detail === "object" && typeof detail.code === "string") {
+    return detail.code;
   }
+  return null;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -109,6 +136,11 @@ export interface Move {
   is_check: boolean;
   is_checkmate: boolean;
   reward: number;
+  /** Who attempted it: participant, model, fallback, or unknown for
+   * rows from before provenance existed. */
+  actor: string;
+  /** The model that produced it, when an actor is model or fallback. */
+  model: string | null;
   created_at: string;
 }
 
@@ -182,8 +214,31 @@ export function fetchLlmStatus(): Promise<LlmStatus> {
   return request<LlmStatus>("/llm/status");
 }
 
-export function modelMove(workspaceId: string): Promise<MoveResponse> {
-  return request<MoveResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
+export interface ModelTurnAttempt {
+  attempt_number: number;
+  actor: string;
+  status: string;
+  parsed_move: string | null;
+  is_legal: boolean | null;
+  model: string | null;
+  error_detail: string | null;
+}
+
+export interface ModelTurnResponse {
+  /** "model_move": the model's reply was applied. "fallback_move": it
+   * kept failing and the deterministic fallback moved. "unavailable":
+   * transport never delivered a reply and nothing moved. "stale": the
+   * position changed while a reply was in flight and nothing moved. */
+  outcome: "model_move" | "fallback_move" | "unavailable" | "stale";
+  move: Move | null;
+  dataset_rows: DatasetRow[];
+  game_result: string | null;
+  attempts: ModelTurnAttempt[];
+  detail: string | null;
+}
+
+export function modelMove(workspaceId: string): Promise<ModelTurnResponse> {
+  return request<ModelTurnResponse>(`/workspaces/${workspaceId}/model-move`, { method: "POST" });
 }
 
 export interface Game {
@@ -250,15 +305,72 @@ export function flagTimeout(workspaceId: string): Promise<GameStatus> {
   return request<GameStatus>(`/workspaces/${workspaceId}/game/timeout`, { method: "POST" });
 }
 
-export interface Assessment {
-  assessment: string;
-  real_world: string;
-  video_prompt: string;
-  model: string;
+export interface Scenario {
+  id: string;
+  workspace_id: string;
+  game_id: string | null;
+  ply: number;
+  /** suggested, accepted, edited, or failed. assessPosition and
+   * reviewScenario only ever resolve to a non-failed record (a failure
+   * throws instead); fetchScenario can return a failed one, since
+   * reload must be able to show the same recoverable failure state a
+   * live attempt shows. */
+  status: string;
+  /** Effective text: participant-approved when reviewed, the raw
+   * suggestion otherwise. Null when status is "failed". */
+  assessment: string | null;
+  real_world: string | null;
+  video_prompt: string | null;
+  suggested_assessment: string | null;
+  suggested_real_world: string | null;
+  suggested_video_prompt: string | null;
+  model: string | null;
+  provider_alias: string | null;
+  prompt_version: string | null;
+  /** Set when status is "failed": why the last attempt didn't produce
+   * a usable scenario. */
+  error_detail: string | null;
+  created_at: string;
 }
 
-export function assessPosition(workspaceId: string): Promise<Assessment> {
-  return request<Assessment>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
+/** Asks for a fresh suggestion; the backend persists it with its raw
+ * reply and provenance before answering. */
+export function assessPosition(workspaceId: string): Promise<Scenario> {
+  return request<Scenario>(`/workspaces/${workspaceId}/assess`, { method: "POST" });
+}
+
+export interface ScenarioReload {
+  /** The true most recent scenario, whatever its status -- possibly a
+   * failure. Never hidden: a failure is a fact about the last attempt. */
+  latest: Scenario | null;
+  /** The most recent scenario that actually produced a usable mapping.
+   * The same row as `latest` when the last attempt succeeded, an older
+   * row when it failed, or null when nothing has ever succeeded. This
+   * is what a live failure leaves on screen while showing the new
+   * error alongside it; reload needs both rows to restore that same
+   * combination instead of only ever surfacing whichever is newest. */
+  latest_success: Scenario | null;
+}
+
+/** The reload read: the latest scenario state plus the last one that
+ * actually succeeded, so a failure never silently hides an earlier
+ * mapping that a live failure would have kept visible. */
+export function fetchScenario(workspaceId: string): Promise<ScenarioReload> {
+  return request<ScenarioReload>(`/workspaces/${workspaceId}/scenario`);
+}
+
+export interface ScenarioReview {
+  accept: boolean;
+  assessment?: string;
+  real_world?: string;
+  video_prompt?: string;
+}
+
+export function reviewScenario(scenarioId: string, review: ScenarioReview): Promise<Scenario> {
+  return request<Scenario>(`/scenarios/${scenarioId}/review`, {
+    method: "POST",
+    body: JSON.stringify(review),
+  });
 }
 
 export function fetchWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
@@ -443,6 +555,35 @@ export interface EvalResult {
   value: number;
   workspace_id: string | null;
   source: string;
+  /** Computed rows carry sample counts and the metric definition;
+   * cached rows carry the fixture's note. */
+  numerator: number | null;
+  denominator: number | null;
+  unit: string | null;
+  direction: string | null;
+  definition: string | null;
+  version: string | null;
+  scope_json: string | null;
+  note: string | null;
+  /** Which model/checkpoint version this result scopes to, when
+   * scoped: base and adapted results carry different values here and
+   * coexist rather than overwrite each other. */
+  model: string | null;
+  checkpoint: string | null;
+  /** Groups every metric produced by one eval job execution. */
+  run_id: string | null;
+  /** An audit trail back to the exact move/attempt rows counted. Not a
+   * stable cross-model identity by itself -- two models produce two
+   * different sets of row ids even over the identical position. */
+  sample_ids: string[];
+  /** The actual frozen input set: a deterministic hash of the exact
+   * fens the sample was measured over. Two results with matching ids
+   * were measured on the identical positions and are honestly
+   * comparable; different ids mean they were not, no matter how
+   * similar model/checkpoint look. */
+  position_set_id: string | null;
+  /** The fens themselves, in sample order. */
+  positions: string[];
   created_at: string;
 }
 

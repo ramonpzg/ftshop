@@ -81,7 +81,7 @@ mapped to real-world scenarios is enough.
 Topics, in rough order:
 
 - Data formats. PGN prefix to next move, FEN to move, FEN plus legal
-  moves to move, board tensor to move class, policy and value labels,
+  moves to move, board tensor to move class, policy and move-reward labels,
   RL trajectories.
 - SFT teaches the model what good answers look like. RL teaches the
   model what good actions do. Chess is a good RL environment because the

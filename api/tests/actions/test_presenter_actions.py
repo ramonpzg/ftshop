@@ -15,9 +15,12 @@ from euro_chess_studio.actions.presenter import (
 from euro_chess_studio.actions.workspaces import create_or_get_workspace, join_workshop
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
+from euro_chess_studio.data.eval_results_repo import list_eval_results
 from euro_chess_studio.data.moves_repo import list_moves
 from euro_chess_studio.data.pages_repo import upsert_page
 from euro_chess_studio.data.workspaces_repo import get_workspace
+from euro_chess_studio.jobs.base import JobConfig
+from euro_chess_studio.jobs.local_runner import LocalRunner
 
 
 def make_conn(tmp_path: Path):
@@ -72,6 +75,40 @@ def test_reset_page_clears_moves_and_resets_board(tmp_path: Path):
     assert list_moves(conn, workspace["id"]) == []
     reloaded = get_workspace(conn, workspace["id"])
     assert reloaded["board_fen"] == chess.STARTING_FEN
+
+
+def test_reset_page_clears_stale_computed_eval_results(tmp_path: Path):
+    """Reproduces the reported bug: a computed 1/1 result must not keep
+    showing after the data behind it is wiped and a re-run finds
+    nothing. Before the fix, an empty eval left the prior number on
+    the panel because the job simply skipped persisting anything for
+    an unavailable metric, and reset_page never touched eval_results
+    at all."""
+    conn = make_conn(tmp_path)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    make_move(conn, workspace["id"], "e2e4")
+
+    runner = LocalRunner()
+    runner.run(
+        conn, JobConfig(job_type="text.prompt_eval", params={}, workspace_id=workspace["id"])
+    )
+    before = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
+    assert any(row["metric"] == "legal_move_rate" and row["value"] == 1.0 for row in before)
+
+    reset_page(conn, "chess-machine")
+
+    # The reset alone must already clear it, before any re-run happens.
+    after_reset = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
+    assert after_reset == []
+
+    # And running the eval again over the now-empty workspace must not
+    # resurrect the old number either.
+    runner.run(
+        conn, JobConfig(job_type="text.prompt_eval", params={}, workspace_id=workspace["id"])
+    )
+    after_rerun = list_eval_results(conn, modality="text", workspace_id=workspace["id"])
+    assert after_rerun == []
 
 
 def test_reset_page_rejects_unknown_page(tmp_path: Path):

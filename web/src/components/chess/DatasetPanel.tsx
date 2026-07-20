@@ -11,7 +11,9 @@ const SHAPE_LABELS: Record<string, string> = {
   fen_to_move: "FEN -> move",
   fen_legal_moves_to_move: "FEN + legal moves -> move",
   board_tensor_to_move_class: "Board tensor -> move class",
-  policy_value_to_move: "Policy + value labels",
+  policy_move_reward: "Policy + move reward",
+  // Rows written before the rename keep their stored shape string.
+  policy_value_to_move: "Policy + move reward (old rows)",
   rl_trajectory: "RL trajectory",
 };
 

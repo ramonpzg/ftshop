@@ -42,3 +42,65 @@ def test_run_job_rejects_unknown_job_type(tmp_path: Path):
     conn = make_conn(tmp_path)
     with pytest.raises(UnknownJobTypeError):
         run_job(conn, "not.a.job", {}, None)
+
+
+def test_run_job_commits_config_and_artifact_together_or_neither(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the reported bug: a failure while persisting the
+    artifact must not leave a committed job_config with no matching
+    artifact. Verified from a second connection, since the same
+    connection would see its own uncommitted writes either way."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn = make_conn(tmp_path)
+    conn.commit()
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("simulated artifact failure")
+
+    monkeypatch.setattr(jobs_action, "insert_artifact", explode)
+    with pytest.raises(RuntimeError, match="simulated"):
+        run_job(conn, "audio.make_spectrogram", {"duration_seconds": 0.4}, None)
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        assert other.execute("SELECT COUNT(*) FROM job_configs").fetchone()[0] == 0
+        assert other.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0] == 0
+    finally:
+        other.close()
+
+
+def test_run_job_rolls_back_eval_results_when_the_artifact_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """text.prompt_eval writes eval_results as a side effect of the
+    handler; those writes must roll back with the rest of the job if
+    persisting the artifact afterward fails, not survive as orphaned
+    numbers with no artifact to show for them."""
+    from euro_chess_studio.actions import jobs as jobs_action
+    from euro_chess_studio.actions.moves import make_move
+    from euro_chess_studio.actions.workspaces import create_or_get_workspace, join_workshop
+    from euro_chess_studio.calculations.pages import PAGES
+    from euro_chess_studio.data.pages_repo import upsert_page
+
+    conn = make_conn(tmp_path)
+    for page in PAGES:
+        upsert_page(conn, page)
+    user = join_workshop(conn, "Ada")
+    workspace = create_or_get_workspace(conn, user["id"], "chess-machine")
+    make_move(conn, workspace["id"], "e2e4")
+    conn.commit()
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("simulated artifact failure")
+
+    monkeypatch.setattr(jobs_action, "insert_artifact", explode)
+    with pytest.raises(RuntimeError, match="simulated"):
+        run_job(conn, "text.prompt_eval", {}, workspace["id"])
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        assert other.execute("SELECT COUNT(*) FROM eval_results").fetchone()[0] == 0
+    finally:
+        other.close()

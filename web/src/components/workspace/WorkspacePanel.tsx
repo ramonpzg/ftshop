@@ -4,7 +4,6 @@ import {
   ChartBar,
   ChatText,
   Code,
-  Copy,
   Database,
   Horse,
   Package,
@@ -20,10 +19,9 @@ import { EvalPanel } from "../../components/eval/EvalPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
 import {
   ApiError,
+  apiErrorCode,
   apiErrorDetail,
   type Artifact,
-  type Assessment,
-  assessPosition,
   type DatasetExport,
   type DatasetRow,
   type EvalResult,
@@ -41,6 +39,7 @@ import {
   type LlmStatus,
   makeMove,
   modelMove,
+  type ModelTurnResponse,
   type MoveResponse,
   runJob,
   selectSnippet,
@@ -59,6 +58,7 @@ import {
 } from "../../lib/gameClock";
 import { usePresenterState } from "../../lib/presenterContext";
 import type { WorkspaceShape } from "../tldraw/shapes/workspaceShapeTypes";
+import { ScenarioSection } from "./ScenarioSection";
 import "./WorkspacePanel.css";
 
 interface WorkspacePanelProps {
@@ -146,8 +146,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [banter, setBanter] = useState<string | null>(null);
   const banterIndex = useRef(0);
   const [modelThinking, setModelThinking] = useState(false);
-  const [analysis, setAnalysis] = useState<Assessment | null>(null);
-  const [analysisState, setAnalysisState] = useState<"idle" | "loading" | "error">("idle");
+  // Incremented after each applied model turn so the scenario section
+  // asks for a fresh read.
+  const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
+  // Set when the model's turn ended without a move (provider
+  // unreachable). The retry button is the manual recovery.
+  const [modelUnavailable, setModelUnavailable] = useState(false);
   const [lastExport, setLastExport] = useState<DatasetExport | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is a manual refetch trigger, not read in the body
@@ -259,11 +263,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }, [game?.id, fen, isOwnWorkspace, isEditing]);
 
-  function applyMoveResponse(response: MoveResponse, mover: "you" | "model") {
+  function applyMoveResponse(response: MoveResponse, mover: "you" | "model" | "fallback") {
     const move = response.move;
     const label = move.san ?? move.uci;
     setLastMove({
-      label: mover === "model" ? `Model: ${label}` : label,
+      label:
+        mover === "model" ? `Model: ${label}` : mover === "fallback" ? `Fallback: ${label}` : label,
       legal: move.is_legal,
       reward: move.reward,
     });
@@ -285,57 +290,91 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     return move.is_legal;
   }
 
-  async function refreshGameStatus() {
-    const status = await fetchGameStatus(workspaceId).catch(() => null);
-    if (status) applyGameStatus(status);
+  /** One completed model turn from the state machine. */
+  function applyModelTurn(response: ModelTurnResponse) {
+    if (response.outcome === "unavailable" || response.outcome === "stale") {
+      setModelUnavailable(true);
+      setGameNotice(response.detail ?? "Model unavailable. No move was played.");
+      if (response.outcome === "stale") {
+        // The board actually changed while the reply was in flight;
+        // resync local state instead of trusting the stale fen.
+        void refreshGameStatus();
+      }
+      return;
+    }
+    if (response.move === null) {
+      setModelUnavailable(true);
+      setGameNotice(response.detail ?? "Model unavailable. No move was played.");
+      return;
+    }
+    setModelUnavailable(false);
+    applyMoveResponse(
+      {
+        move: response.move,
+        dataset_rows: response.dataset_rows,
+        game_result: response.game_result,
+      },
+      response.outcome === "fallback_move" ? "fallback" : "model",
+    );
+    if (response.outcome === "fallback_move" && response.detail) {
+      setGameNotice(response.detail);
+    }
+    setScenarioRefreshKey((key) => key + 1);
   }
 
-  /** A 409 on a move means the server's clock ran out first. */
+  async function refreshGameStatus() {
+    const status = await fetchGameStatus(workspaceId).catch(() => null);
+    // Every caller uses this to resync after the server's state and the
+    // browser's local fen may have diverged (a clock expiry, a stale
+    // reply, a turn race). Without { board: true } the local fen never
+    // actually updates, so the turn-change effect above keeps reading
+    // the old board and can retrigger the model on the wrong turn.
+    if (status) applyGameStatus(status, { board: true });
+  }
+
+  /** The server confirmed the clock ran out. Callers reach this only
+   * after ruling out a turn-ownership conflict, which also 409s but is
+   * not a loss. */
   async function handleClockExpired() {
     setGameNotice(describeGameEnd("loss_timeout"));
     dropBanter("loss");
     await refreshGameStatus();
   }
 
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-
-  async function refreshAnalysis() {
-    setAnalysisState("loading");
-    try {
-      setAnalysis(await assessPosition(workspaceId));
-      setAnalysisState("idle");
-      setAnalysisError(null);
-    } catch (error) {
-      setAnalysisState("error");
-      setAnalysisError(apiErrorDetail(error));
-    }
-  }
-
   async function triggerModelReply() {
     setModelThinking(true);
     try {
-      const response = await modelMove(workspaceId);
-      applyMoveResponse(response, "model");
+      applyModelTurn(await modelMove(workspaceId));
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        await handleClockExpired();
+        if (apiErrorCode(error) === "not_your_turn") {
+          // A duplicate or late model-move request lost a turn-
+          // ownership race, not the clock: the game is still running,
+          // it is just not this reply's turn anymore. Treating this
+          // like handleClockExpired() would show a false loss for a
+          // request that never should have landed in the first place.
+          setGameNotice("That request landed after the turn changed. Board resynced.");
+          await refreshGameStatus();
+        } else {
+          await handleClockExpired();
+        }
         return;
       }
       // Show the server's actual reason: a 401 from a mispaired key and
       // base URL looks identical to "no reply" unless it is spelled out.
       const detail = apiErrorDetail(error);
       setGameNotice(detail ? `Model error: ${detail.slice(0, 160)}` : "Model: no usable reply.");
+      setModelUnavailable(true);
     } finally {
       setModelThinking(false);
     }
-    void refreshAnalysis();
   }
 
   async function handleStartGame() {
     setGameNotice(null);
     setBanter(null);
     setLastMove(null);
-    setAnalysis(null);
+    setModelUnavailable(false);
     const status = await startGame(workspaceId, timeLimit, opponentModel ?? undefined).catch(
       (error) => {
         const detail = apiErrorDetail(error);
@@ -349,7 +388,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   async function handleStartOver() {
     setConfirmingStartOver(false);
     setLastMove(null);
-    setAnalysis(null);
+    setModelUnavailable(false);
     const status = await startOver(workspaceId).catch(() => null);
     if (status) {
       applyGameStatus(status, { board: true });
@@ -381,7 +420,15 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       applyMoveResponse(await makeMove(workspaceId, uci), "you");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        await handleClockExpired();
+        if (apiErrorCode(error) === "not_your_turn") {
+          // The board disables itself once a turn changes, so this is a
+          // race (a click landing right as the model replied) rather
+          // than the normal path; resync instead of claiming a loss.
+          setGameNotice("That move landed after the turn changed. Board resynced.");
+          await refreshGameStatus();
+        } else {
+          await handleClockExpired();
+        }
       } else {
         // Network down or backend gone: say so instead of eating the
         // click. The board did not change, the clock keeps running.
@@ -413,7 +460,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  const boardInteractive = isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking;
+  // In an active game the model plays black; the board must not invite
+  // clicks on black's turn (the server rejects it anyway, but the
+  // click would otherwise sit there looking like it should work).
+  // Free play has no such contract and stays fully interactive.
+  const participantTurn = !game || fen.split(" ")[1] === "w";
+  const boardInteractive =
+    isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking && participantTurn;
   const llmReady = llm?.configured === true;
   const llmHint = llmReady
     ? `A timed match against ${llm?.model} from the starting position. It answers every move.`
@@ -522,6 +575,16 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       : "Model is thinking"}
                   </span>
                 )}
+                {modelUnavailable && !modelThinking && (
+                  <button
+                    type="button"
+                    onClick={() => void triggerModelReply()}
+                    title="The model's turn ended without a move. Ask again."
+                    data-testid="retry-model-move"
+                  >
+                    Retry model move
+                  </button>
+                )}
               </div>
             )}
             {record && record.wins + record.losses + record.draws > 0 && (
@@ -599,7 +662,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
           <Section
             id="dataset"
             title="Dataset"
-            tip="Every move becomes training rows: PGN prefix, FEN to move, legal-moves context, board tensor, policy and value, RL trajectory."
+            tip="Every move becomes training rows: PGN prefix, FEN to move, legal-moves context, board tensor, policy and move reward, RL trajectory."
             icon={<Database size={12} weight="bold" />}
             isEditing={isEditing}
           >
@@ -612,48 +675,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
             icon={<ChatText size={12} weight="bold" />}
             isEditing={isEditing}
           >
-            <div className="workspace-analysis" data-testid="analysis-panel">
-              {analysis ? (
-                <>
-                  <p className="workspace-analysis-text">{analysis.assessment}</p>
-                  {analysis.real_world && (
-                    <p className="workspace-analysis-real-world">{analysis.real_world}</p>
-                  )}
-                  <div className="workspace-analysis-video-prompt">
-                    <p>{analysis.video_prompt}</p>
-                    <button
-                      type="button"
-                      onClick={() => void navigator.clipboard.writeText(analysis.video_prompt)}
-                      title="Copy video prompt"
-                      aria-label="Copy video prompt"
-                    >
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                  <span className="workspace-analysis-model">{analysis.model}</span>
-                </>
-              ) : (
-                <p className="workspace-analysis-empty">
-                  {llmReady
-                    ? "Play a move, get a read on the position and its real-world twin."
-                    : "Set OPENAI_API_KEY on the backend to enable analysis."}
-                </p>
-              )}
-              {analysisState === "loading" && (
-                <p className="workspace-analysis-empty">Assessing position</p>
-              )}
-              {analysisState === "error" && (
-                <p className="workspace-analysis-empty">
-                  Assessment failed{analysisError ? `: ${analysisError.slice(0, 160)}` : ""}. Next
-                  move retries.
-                </p>
-              )}
-              {isOwnWorkspace && isEditing && llmReady && !game && (
-                <button type="button" className="workspace-assess-button" onClick={refreshAnalysis}>
-                  Assess position
-                </button>
-              )}
-            </div>
+            <ScenarioSection
+              workspaceId={workspaceId}
+              llmReady={llmReady}
+              canAct={isOwnWorkspace && isEditing && !locked}
+              refreshKey={scenarioRefreshKey}
+            />
           </Section>
           <Section
             id="artifact"

@@ -83,14 +83,18 @@ workspace here automatically.
 - Have attendees double-click into their own workspace and play a
   couple of moves. Point at the dataset panel updating live. This is
   the PGN-prefix, FEN-to-move, FEN+legal-moves, board-tensor, and
-  policy/value rows building from *their* game, not a canned example.
+  policy/move-reward rows building from *their* game, not a canned example.
 - Click **Start game**: a timed match from the starting position (five
   minutes by default, up to thirty in the picker). The configured model
   answers every move, its moves feed the same dataset rows, and the
   Analysis section refreshes after each exchange with a position read
-  plus the real-world scenario mapping. If the model picks an illegal
-  move, celebrate: the environment caught it, reward -1, that is the
-  RL slide happening live.
+  plus the real-world scenario mapping, persisted with its model and
+  prompt version so a reload restores it and Accept/Edit records the
+  review. If the model picks an illegal move, celebrate: the
+  environment caught it, the failed attempt lands in model_attempts
+  for the eval, the turn retries, and after the retry budget the board
+  plays a labelled fallback move instead of stalling. That is the RL
+  slide happening live.
 - The two-game beat: with OPPONENT_MODELS set (see local-dev.md), the
   model picker sits next to the clock. Play one five-minute game
   against the configured small model, then the configured frontier
@@ -119,8 +123,10 @@ workspace here automatically.
   move status shows reward -1. That is what "the environment can
   validate every move" means for RL.
 - Run both text jobs from the config panel (prompt eval, reward eval).
-  Point out the eval panel now shows live numbers (legal move rate,
-  valid JSON rate) next to the cached illustrative ones (centipawn
+  Point out the eval panel now shows live numbers (the participant's
+  legal move rate, the model's legal move rate over its raw replies,
+  valid JSON rate on raw model replies) next to the cached
+  illustrative ones (centipawn
   loss, mate-in-one accuracy, explanation correctness), and explain
   why those specific three are cached: they need Stockfish or a judge
   model, which is out of scope for a workshop backend.

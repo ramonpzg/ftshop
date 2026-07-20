@@ -106,24 +106,72 @@ def test_a_move_on_an_expired_clock_returns_409_and_the_loss_sticks(
 
     response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
     assert response.status_code == 409
+    # A stable code, not just a status shared with turn-conflict 409s:
+    # the client has to be able to tell this apart from NotYourTurnError
+    # without depending on the wording of "message".
+    assert response.json()["detail"]["code"] == "clock_expired"
 
     status = client.get(f"/workspaces/{workspace_id}/game").json()
     assert status["record"]["losses"] == 1
 
 
-def test_a_checkmating_move_reports_the_game_result(client: TestClient):
+def test_a_checkmating_move_reports_the_game_result(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    from euro_chess_studio.actions import model_turn as model_turn_module
+    from euro_chess_studio.data.llm_client import ChatOutcome
+
+    def fake_outcome(content: str) -> ChatOutcome:
+        return ChatOutcome(
+            content=content,
+            model="gpt-5.6-luna",
+            provider_alias="opponent",
+            attempts=1,
+            request_ids=(),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    # Black's moves must come from the model, not the participant's own
+    # endpoint: in an active game the server now enforces whose turn it
+    # is (see actions/moves.py NotYourTurnError).
+    black_replies = iter(['{"move": "f7f6"}', '{"move": "g7g5"}'])
+    monkeypatch.setattr(
+        model_turn_module.llm_client,
+        "chat",
+        lambda *a, **k: fake_outcome(next(black_replies)),
+    )
+
     workspace_id = make_workspace(client)
     client.post(f"/workspaces/{workspace_id}/game/start", json={})
-    for uci in ["e2e4", "f7f6", "d2d4", "g7g5"]:
-        client.post(f"/workspaces/{workspace_id}/moves", json={"uci": uci})
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    client.post(f"/workspaces/{workspace_id}/model-move")
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "d2d4"})
+    client.post(f"/workspaces/{workspace_id}/model-move")
     response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "d1h5"})
     body = response.json()
-    # Both sides came through the same endpoint here, so the mover is
-    # "player" and the mate counts as a win.
+    # The model played black; checkmate by the participant (white) is a win.
     assert body["game_result"] == "win"
     status = client.get(f"/workspaces/{workspace_id}/game").json()
     assert status["record"]["wins"] == 1
     assert status["game"] is None
+
+
+def test_model_move_on_the_participants_turn_returns_409(client: TestClient):
+    """Reproduces the reported bug end to end through the route: without
+    a server-side check, /model-move could immediately play White's
+    opening move the moment a timed game started."""
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+
+    response = client.post(f"/workspaces/{workspace_id}/model-move")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "not_your_turn"
+    state = client.get(f"/workspaces/{workspace_id}/state").json()
+    assert state["moves"] == []
 
 
 def test_game_status_on_unknown_workspace_is_404(client: TestClient):
@@ -194,9 +242,15 @@ def test_full_export_carries_every_shape_with_provenance(
         "fen_to_move",
         "fen_legal_moves_to_move",
         "board_tensor_to_move_class",
-        "policy_value_to_move",
+        "policy_move_reward",
         "rl_trajectory",
     }
+    # Every row is traceable back to the move that produced it, and
+    # flagged for whether it is a legitimate training target.
+    assert all(line["actor"] == "participant" for line in lines)
+    assert all(line["training_eligible"] is True for line in lines)
+    assert all(line["move_id"] for line in lines)
+    assert all(line["model"] is None for line in lines)  # a participant move has no model
     assert all(line["workspace_id"] == workspace_id for line in lines)
 
 
@@ -232,3 +286,81 @@ def test_start_game_rejects_a_model_not_on_offer(client: TestClient):
         json={"opponent_model": "made-up/nonsense"},
     )
     assert response.status_code == 422
+
+
+def test_a_failed_assessment_survives_reload_as_an_explicit_failed_state(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the reported bug: a failed scenario used to be
+    excluded from the reload read, so reloading the page after a failed
+    assessment silently showed the pristine empty state instead of the
+    same recoverable failure a live attempt shows."""
+    from euro_chess_studio.actions import scenario as scenario_module
+    from euro_chess_studio.data.llm_client import LlmRequestError
+
+    def fail_video_prompt_chat(*args, **kwargs):
+        raise LlmRequestError("502 from video_prompt", request_ids=())
+
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", fail_video_prompt_chat)
+
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assert assess_response.status_code == 502
+
+    reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
+    assert reload_response.status_code == 200
+    body = reload_response.json()
+    assert body["latest"]["status"] == "failed"
+    assert "502" in body["latest"]["error_detail"]
+
+
+def test_reload_restores_the_last_success_alongside_a_later_failure(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the follow-up gap: the endpoint used to return only
+    the single latest row. During a live failure the previous mapping
+    stays visible next to the new error (the component simply never
+    overwrites its state on a failed request), but reload received
+    only the failure and had no way to restore that mapping."""
+    from euro_chess_studio.actions import scenario as scenario_module
+    from euro_chess_studio.data.llm_client import ChatOutcome, LlmRequestError
+
+    good_reply = (
+        '{"assessment": "Level.", "real_world": "A new hire watches the routine '
+        'before touching anything.", "video_prompt": "A documentary shot follows '
+        'an analyst through a quiet control room."}'
+    )
+
+    def succeed(*args, **kwargs):
+        return ChatOutcome(
+            content=good_reply,
+            model="gpt-5.6-luna",
+            provider_alias="video_prompt",
+            attempts=1,
+            request_ids=(),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", succeed)
+    good = client.post(f"/workspaces/{workspace_id}/assess").json()
+
+    def fail_video_prompt_chat(*args, **kwargs):
+        raise LlmRequestError("502 from video_prompt", request_ids=())
+
+    monkeypatch.setattr(scenario_module.llm_client, "video_prompt_chat", fail_video_prompt_chat)
+    assess_response = client.post(f"/workspaces/{workspace_id}/assess")
+    assert assess_response.status_code == 502
+
+    reload_response = client.get(f"/workspaces/{workspace_id}/scenario")
+    assert reload_response.status_code == 200
+    body = reload_response.json()
+    assert body["latest"]["status"] == "failed"
+    assert "502" in body["latest"]["error_detail"]
+    assert body["latest_success"]["id"] == good["id"]
+    assert body["latest_success"]["assessment"] == good["assessment"]

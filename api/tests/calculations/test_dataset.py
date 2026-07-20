@@ -30,7 +30,7 @@ def test_build_dataset_rows_returns_all_six_shapes():
         "fen_to_move",
         "fen_legal_moves_to_move",
         "board_tensor_to_move_class",
-        "policy_value_to_move",
+        "policy_move_reward",
         "rl_trajectory",
     }
 
@@ -63,8 +63,83 @@ def test_rl_trajectory_row_has_state_action_reward_next_state_done():
     assert payload["done"] is False
 
 
-def test_policy_value_row_puts_all_weight_on_the_played_move():
-    payload = make_e4_row_set()["policy_value_to_move"]
+def test_policy_move_reward_row_puts_all_weight_on_the_played_move():
+    payload = make_e4_row_set()["policy_move_reward"]
     assert payload["policy_target"]["e2e4"] == 1.0
     assert payload["policy_target"]["a2a3"] == 0.0
     assert sum(payload["policy_target"].values()) == 1.0
+
+
+def test_policy_move_reward_row_carries_the_position_not_just_legal_move_keys():
+    """A legal move set is not the board position a policy model needs:
+    more than one arrangement of pieces can share the same legal moves.
+    The row must carry the fen it was computed from, not just the
+    policy_target's keys."""
+    payload = make_e4_row_set()["policy_move_reward"]
+    assert payload["fen"] == chess.STARTING_FEN
+
+
+def test_policy_move_reward_is_the_shaped_reward_not_a_position_value():
+    payload = make_e4_row_set()["policy_move_reward"]
+    assert payload["move_reward"] == 1
+    assert "value_target" not in payload
+    assert "not a position value" in payload["note"]
+
+
+def test_board_tensor_row_stores_the_real_class_index():
+    from euro_chess_studio.calculations.move_vocab import move_class_index, move_from_class
+
+    payload = make_e4_row_set()["board_tensor_to_move_class"]
+    assert payload["target_move_class"] == move_class_index("e2e4")
+    assert move_from_class(payload["target_move_class"]) == payload["target_uci"] == "e2e4"
+    assert payload["vocabulary_size"] == 20480
+    assert payload["move_vocabulary"]
+
+
+def test_board_tensor_row_is_self_contained_via_its_fen():
+    """The row's own "note" field claims the tensor is cheap to
+    regenerate from the fen; the fen must actually be in the row for
+    that to be true rather than aspirational."""
+    payload = make_e4_row_set()["board_tensor_to_move_class"]
+    assert payload["fen"] == chess.STARTING_FEN
+    assert "fen" in payload["note"].lower()
+
+
+def rows_for(fen: str, uci: str) -> dict:
+    legal_before = get_legal_moves(fen)
+    move = apply_move(fen, uci)
+    return {row["shape"]: row["payload"] for row in build_dataset_rows([], legal_before, move)}
+
+
+def test_promotion_move_encodes_its_promotion_class():
+    from euro_chess_studio.calculations.move_vocab import move_class_index
+
+    # White pawn on a7, promotion to queen.
+    payloads = rows_for("8/P7/8/8/8/6k1/8/6K1 w - - 0 1", "a7a8q")
+    tensor = payloads["board_tensor_to_move_class"]
+    assert tensor["target_uci"] == "a7a8q"
+    assert tensor["target_move_class"] == move_class_index("a7a8q")
+    assert payloads["policy_move_reward"]["move_reward"] == 1
+
+
+def test_check_and_checkmate_rewards_are_explicit_move_rewards():
+    # Scholar's mate final position: Qxf7 is checkmate.
+    mate_fen = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4"
+    mate = rows_for(mate_fen, "f3f7")
+    assert mate["policy_move_reward"]["move_reward"] == 10
+    assert mate["rl_trajectory"]["reward"] == 10
+    assert mate["rl_trajectory"]["done"] is True
+
+    check_fen = "rnbqkbnr/ppppp1pp/5p2/8/8/4P3/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+    check = rows_for(check_fen, "d1h5")
+    assert check["policy_move_reward"]["move_reward"] == 2
+    assert check["rl_trajectory"]["done"] is False
+
+
+def test_unfinished_game_rows_are_complete_without_an_outcome():
+    """Nothing in any row waits on the final result: an unfinished game
+    produces the same complete fields as a finished one."""
+    payloads = make_e4_row_set()
+    assert payloads["rl_trajectory"]["done"] is False
+    for shape, payload in payloads.items():
+        assert None not in payload.values(), shape

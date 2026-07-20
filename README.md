@@ -21,11 +21,16 @@ The app is in pre-workshop hardening. It has a FastAPI backend, durable SQLite
 workshop state, a backend-persisted canvas snapshot, cached offline artifacts,
 live model and media-generation paths, presenter controls, and room exports.
 
-Current `main` is not yet the release build. In particular, canvas persistence
-still writes a whole shared snapshot, presenter navigation does not transmit an
-exact camera target, and the deck/backend development origins need tightening.
-The ordered implementation briefs start with those room-correctness problems:
-[notes/comms/README.md](notes/comms/README.md).
+Current `main` is not yet the release build. Canvas persistence, presenter
+navigation, and the deck's network path were phase 32's room-correctness
+problems; all three are fixed as of that phase: the canvas is a real
+multiplayer room built on tldraw's own sync engine (conflicts resolve per
+record, not by one shared snapshot overwriting another), presenter navigation
+transmits an exact camera target (bounds, with a frame id riding along), and
+the deck reaches the backend through a documented LAN-safe proxy with CORS
+limited to the four listed dev origins. See
+[notes/comms/README.md](notes/comms/README.md) for the current phase order and
+what each remaining phase owns.
 
 ## Quick start
 
@@ -80,12 +85,12 @@ are:
 ```text
 just install          Install web, API, deck, and Jupyter dependencies
 just download-models  Download and verify all local models
-just start            Run API :8000 and web :5173
+just start            Run API :8000, the canvas sync room :8010, and web :5173
 just start-gemma      Run Gemma 4 through llama.cpp on :8080
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just test             Run backend and frontend tests
-just test-e2e         Run Playwright smoke tests; see the limitation below
+just test-e2e         Run Playwright smoke tests
 just lint             Run Ruff and Biome
 just typecheck        Run ty and TypeScript checks
 just format           Format API and web code
@@ -107,9 +112,9 @@ scope, and written like a concise development log. Push the phase branch for
 review. A finished phase has no relevant untracked or uncommitted files and
 includes its `notes/ai/` handover and `notes/hu/` learning guide.
 
-The current Playwright configuration has a machine-specific Chromium path.
-Phase 36 owns the portable browser setup. Until then, `just test-e2e` only runs
-where `/opt/pw-browsers/chromium` exists.
+Playwright uses its own default browser discovery for `just test-e2e`. Set
+`CHESS_STUDIO_CHROMIUM` to a specific executable path if you need to override
+it; phase 36 owns the rest of the release command surface.
 
 ## Documentation
 

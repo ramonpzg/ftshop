@@ -55,15 +55,16 @@ const shapes = [
   },
   {
     name: "Board tensor -> move class",
-    payload: `{"tensor": [8x8x12 planes],
- "move_class": 796}`,
-    point: "No language at all. This is AlphaZero's diet.",
+    payload: `{"tensor_shape": [8, 8, 12],
+ "move_class": 3980, "uci": "e2e4"}`,
+    point: "No language at all. 3980 = e2(12)*320 + e4(28)*5; the class inverts back to the move.",
   },
   {
-    name: "Policy + value labels",
-    payload: `{"fen": "...", "policy": {"e2e4": 0.6, ...},
- "value": 0.02}`,
-    point: "Two heads: what to play, who is winning.",
+    name: "Policy + move reward",
+    payload: `{"fen": "...",
+ "policy_target": {"e2e4": 1.0, ...},
+ "move_reward": 1}`,
+    point: "One-hot on the move played. The reward scores the move, not the position; who is winning would need the game outcome or an engine.",
   },
   {
     name: "RL trajectory",

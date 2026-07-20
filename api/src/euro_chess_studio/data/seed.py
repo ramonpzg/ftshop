@@ -18,6 +18,8 @@ CACHED_EVAL_MODALITIES = ["text", "image", "audio", "video"]
 
 
 def seed_cached_evals(conn: sqlite3.Connection) -> int:
+    """Clears and re-inserts the cached fixture rows, then commits: this
+    is a seeding command, so it owns its own transaction."""
     delete_cached_eval_results(conn)
     count = 0
     for modality in CACHED_EVAL_MODALITIES:
@@ -31,8 +33,13 @@ def seed_cached_evals(conn: sqlite3.Connection) -> int:
                 value=entry["value"],
                 workspace_id=None,
                 source="cached",
+                # The fixture's own explanation of why the number is
+                # illustrative. It survives storage, the API, and the
+                # panel; a cached value never poses as a live one.
+                note=entry.get("note"),
             )
             count += 1
+    conn.commit()
     return count
 
 
@@ -43,6 +50,7 @@ def main() -> None:
         for page in PAGES:
             upsert_page(conn, page)
         eval_count = seed_cached_evals(conn)
+        conn.commit()
         print(f"seeded {len(PAGES)} pages and {eval_count} cached eval results")
     finally:
         conn.close()

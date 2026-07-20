@@ -24,7 +24,6 @@ def insert_game(
         """,
         (game_id, workspace_id, time_limit_seconds, opponent_model, started_at or now, now),
     )
-    conn.commit()
     row = get_game(conn, game_id)
     assert row is not None
     return row
@@ -47,7 +46,6 @@ def end_game(conn: sqlite3.Connection, game_id: str, result: str) -> sqlite3.Row
     conn.execute(
         "UPDATE games SET result = ?, ended_at = ? WHERE id = ?", (result, ended_at, game_id)
     )
-    conn.commit()
     row = get_game(conn, game_id)
     assert row is not None
     return row
@@ -94,4 +92,3 @@ def list_active_games(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def delete_games_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM games WHERE workspace_id = ?", (workspace_id,))
-    conn.commit()

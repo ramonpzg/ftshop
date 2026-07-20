@@ -16,6 +16,7 @@
 
 .eval-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   background: #f8f9fa;
@@ -47,4 +48,22 @@
 
 .eval-source-computed {
   background: #212529;
+}
+
+.eval-count {
+  font-size: 10px;
+  color: var(--text-muted, #777);
+  font-variant-numeric: tabular-nums;
+}
+
+.eval-scope {
+  font-size: 10px;
+  color: var(--text-muted, #777);
+}
+
+.eval-note {
+  flex-basis: 100%;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-muted, #777);
 }

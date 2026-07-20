@@ -12,6 +12,13 @@ in parallel instead of in line.
 Point the backend at it:
 
     OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:9999 just start-backend
+
+--move-mode exercises the model-turn state machine's failure paths:
+
+    legal    a move from the prompt's legal list (default)
+    illegal  a well-formed UCI move that is never in the legal list
+    invalid  prose with no JSON at all
+    empty    an empty reply
 """
 
 import argparse
@@ -21,6 +28,22 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DELAY_SECONDS = 0.0
+MOVE_MODE = "legal"
+
+
+def move_reply(user_text: str) -> str:
+    if MOVE_MODE == "invalid":
+        return "I would castle early and keep the tension."
+    if MOVE_MODE == "empty":
+        return ""
+    match = re.search(r"Legal moves \(UCI\): ([a-h1-8qrbn, ]+)", user_text)
+    legal = [m.strip() for m in match.group(1).split(",")] if match else ["e7e5"]
+    if MOVE_MODE == "illegal":
+        # Well-formed UCI, guaranteed absent from the legal list.
+        candidates = ["a1h8", "h1a8", "b1g8"]
+        move = next(c for c in candidates if c not in legal)
+        return json.dumps({"move": move})
+    return json.dumps({"move": legal[0]})
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -33,9 +56,7 @@ class Handler(BaseHTTPRequestHandler):
         if DELAY_SECONDS > 0:
             time.sleep(DELAY_SECONDS)
         if "Pick one move" in user_text:
-            match = re.search(r"Legal moves \(UCI\): ([a-h1-8qrbn, ]+)", user_text)
-            move = match.group(1).split(",")[0].strip() if match else "e7e5"
-            content = json.dumps({"move": move})
+            content = move_reply(user_text)
         else:
             content = json.dumps(
                 {
@@ -70,13 +91,23 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    global DELAY_SECONDS
+    global DELAY_SECONDS, MOVE_MODE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=9999)
     parser.add_argument("--delay", type=float, default=1.2, help="seconds per reply")
+    parser.add_argument(
+        "--move-mode",
+        choices=["legal", "illegal", "invalid", "empty"],
+        default="legal",
+        help="what the opponent prompt gets back",
+    )
     args = parser.parse_args()
     DELAY_SECONDS = args.delay
-    print(f"mock llm on http://127.0.0.1:{args.port}, {args.delay}s per reply")
+    MOVE_MODE = args.move_mode
+    print(
+        f"mock llm on http://127.0.0.1:{args.port}, "
+        f"{args.delay}s per reply, move mode {args.move_mode}"
+    )
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
 

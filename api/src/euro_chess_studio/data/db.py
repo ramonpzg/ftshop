@@ -56,7 +56,74 @@ CREATE TABLE IF NOT EXISTS moves (
     is_check INTEGER NOT NULL,
     is_checkmate INTEGER NOT NULL,
     reward INTEGER NOT NULL,
+    -- Who attempted the move: participant, model, fallback, presenter.
+    -- Databases migrated from before provenance existed carry 'unknown';
+    -- those rows are excluded from per-actor metrics rather than guessed.
+    actor TEXT NOT NULL,
+    -- The model that produced the move, when actor is model or fallback.
+    model TEXT,
     created_at TEXT NOT NULL
+);
+
+-- One row per raw model reply, immutable, including replies that never
+-- became a move. The moves table records what happened to the board;
+-- this table records what the model actually said and how it was judged.
+CREATE TABLE IF NOT EXISTS model_attempts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
+    task TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    model TEXT,
+    provider_alias TEXT,
+    prompt_version TEXT,
+    checkpoint TEXT,
+    ply INTEGER,
+    fen TEXT,
+    attempt_number INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    raw_response TEXT,
+    request_ids_json TEXT NOT NULL DEFAULT '[]',
+    json_requested INTEGER NOT NULL DEFAULT 0,
+    parse_ok INTEGER NOT NULL DEFAULT 0,
+    parsed_move TEXT,
+    is_legal INTEGER,
+    applied_move_id TEXT REFERENCES moves(id),
+    error_detail TEXT,
+    -- Transport-layer provenance the Chat Completions client already
+    -- computes (ChatOutcome): how many HTTP attempts this one reply
+    -- took, and whether a capability was dropped after the provider
+    -- rejected it. Distinct from attempt_number, which counts the
+    -- model turn's own retries, not the transport's.
+    transport_attempts INTEGER,
+    json_mode_dropped INTEGER,
+    reasoning_effort_dropped INTEGER,
+    created_at TEXT NOT NULL
+);
+
+-- The persisted real-world scenario mapping. The raw suggestion is
+-- immutable once written; participant review lands in the final_*
+-- columns so an edit never overwrites what the model actually proposed.
+CREATE TABLE IF NOT EXISTS scenario_assessments (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    game_id TEXT REFERENCES games(id),
+    attempt_id TEXT REFERENCES model_attempts(id),
+    ply INTEGER NOT NULL,
+    fen TEXT NOT NULL,
+    status TEXT NOT NULL,
+    suggested_assessment TEXT,
+    suggested_real_world TEXT,
+    suggested_video_prompt TEXT,
+    final_assessment TEXT,
+    final_real_world TEXT,
+    final_video_prompt TEXT,
+    model TEXT,
+    provider_alias TEXT,
+    prompt_version TEXT,
+    error_detail TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS dataset_rows (
@@ -93,6 +160,42 @@ CREATE TABLE IF NOT EXISTS eval_results (
     value REAL NOT NULL,
     workspace_id TEXT REFERENCES workspaces(id),
     source TEXT NOT NULL,
+    -- Provenance: what the value measures and over what. Computed rows
+    -- fill numerator/denominator/scope; cached rows carry the fixture's
+    -- note explaining why the number is illustrative.
+    numerator INTEGER,
+    denominator INTEGER,
+    unit TEXT,
+    direction TEXT,
+    definition TEXT,
+    version TEXT,
+    scope_json TEXT,
+    note TEXT,
+    -- model and checkpoint are pulled out of scope_json into real
+    -- identity columns: a base and an adapted model's results for the
+    -- same metric/workspace must coexist rather than overwrite each
+    -- other, and that requires filtering and uniqueness SQL can use
+    -- directly, not a JSON blob.
+    model TEXT,
+    checkpoint TEXT,
+    -- Which job execution produced this row (shared by every metric
+    -- from one run_job call) and exactly which move/attempt ids fed
+    -- the numerator and denominator: an audit trail back to the
+    -- underlying rows, auditable after the fact instead of re-derived
+    -- from whatever the tables happen to contain later.
+    run_id TEXT,
+    sample_ids_json TEXT,
+    -- The actual frozen input set: the exact fens the sample rows were
+    -- about (position_set_json), and a deterministic hash of that set
+    -- (position_set_id) so two rows -- a base and an adapted model, or
+    -- two runs of the same model -- can prove they measured the same
+    -- positions instead of assuming it from matching scope alone.
+    -- Included in a computed row's replace identity, so a genuinely
+    -- different position set (a different evaluation window) coexists
+    -- instead of silently overwriting an earlier one for the same
+    -- model/checkpoint.
+    position_set_id TEXT,
+    position_set_json TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -137,6 +240,39 @@ def init_db(conn: sqlite3.Connection) -> None:
     move_columns = {row[1] for row in conn.execute("PRAGMA table_info(moves)")}
     if "game_id" not in move_columns:
         conn.execute("ALTER TABLE moves ADD COLUMN game_id TEXT REFERENCES games(id)")
+    if "actor" not in move_columns:
+        # Pre-provenance rows genuinely do not record who moved. 'unknown'
+        # keeps them out of per-actor metrics instead of guessing.
+        conn.execute("ALTER TABLE moves ADD COLUMN actor TEXT NOT NULL DEFAULT 'unknown'")
+    if "model" not in move_columns:
+        conn.execute("ALTER TABLE moves ADD COLUMN model TEXT")
+    eval_columns = {row[1] for row in conn.execute("PRAGMA table_info(eval_results)")}
+    for column, column_type in [
+        ("numerator", "INTEGER"),
+        ("denominator", "INTEGER"),
+        ("unit", "TEXT"),
+        ("direction", "TEXT"),
+        ("definition", "TEXT"),
+        ("version", "TEXT"),
+        ("scope_json", "TEXT"),
+        ("note", "TEXT"),
+        ("model", "TEXT"),
+        ("checkpoint", "TEXT"),
+        ("run_id", "TEXT"),
+        ("sample_ids_json", "TEXT"),
+        ("position_set_id", "TEXT"),
+        ("position_set_json", "TEXT"),
+    ]:
+        if column not in eval_columns:
+            conn.execute(f"ALTER TABLE eval_results ADD COLUMN {column} {column_type}")
+    attempt_columns = {row[1] for row in conn.execute("PRAGMA table_info(model_attempts)")}
+    for column, column_type in [
+        ("transport_attempts", "INTEGER"),
+        ("json_mode_dropped", "INTEGER"),
+        ("reasoning_effort_dropped", "INTEGER"),
+    ]:
+        if column not in attempt_columns:
+            conn.execute(f"ALTER TABLE model_attempts ADD COLUMN {column} {column_type}")
     game_columns = {row[1] for row in conn.execute("PRAGMA table_info(games)")}
     if "opponent_model" not in game_columns:
         conn.execute("ALTER TABLE games ADD COLUMN opponent_model TEXT")

@@ -25,23 +25,26 @@ def insert_move(
     is_check: bool,
     is_checkmate: bool,
     reward: int,
+    actor: str,
+    model: str | None = None,
     game_id: str | None = None,
 ) -> sqlite3.Row:
     # ply is allocated inside the INSERT (count of legal moves so far)
     # so two in-flight requests can never claim the same ply. It is
     # scoped to the game (IS handles the NULL of free play) so a fresh
     # match starts its PGN at move one instead of inheriting history.
+    # The caller owns the transaction; no commit here.
     move_id = generate_id("move")
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
         """
         INSERT INTO moves
             (id, workspace_id, game_id, ply, uci, san, fen_before, fen_after,
-             is_legal, is_check, is_checkmate, reward, created_at)
+             is_legal, is_check, is_checkmate, reward, actor, model, created_at)
         VALUES (?, ?, ?,
                 (SELECT COUNT(*) FROM moves
                  WHERE workspace_id = ? AND is_legal = 1 AND game_id IS ?),
-                ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             move_id,
@@ -57,10 +60,11 @@ def insert_move(
             int(is_check),
             int(is_checkmate),
             reward,
+            actor,
+            model,
             created_at,
         ),
     )
-    conn.commit()
     row = get_move(conn, move_id)
     assert row is not None
     return row
@@ -92,6 +96,14 @@ def list_legal_sans(
     return [row["san"] for row in rows]
 
 
+def list_moves_by_actor(
+    conn: sqlite3.Connection, workspace_id: str, actor: str
+) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM moves WHERE workspace_id = ? AND actor = ? ORDER BY ply, created_at",
+        (workspace_id, actor),
+    ).fetchall()
+
+
 def delete_moves_for_workspace(conn: sqlite3.Connection, workspace_id: str) -> None:
     conn.execute("DELETE FROM moves WHERE workspace_id = ?", (workspace_id,))
-    conn.commit()

@@ -32,6 +32,7 @@ def make_workspace(tmp_path: Path):
     workspace = insert_workspace(
         conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
+    conn.commit()
     return conn, workspace
 
 
@@ -147,11 +148,11 @@ def test_checkmate_by_the_player_wins_the_game(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     # Reversed fool's mate: white (the player) mates on move three.
-    make_move(conn, workspace["id"], "e2e4", mover="player")
-    make_move(conn, workspace["id"], "f7f6", mover="model")
-    make_move(conn, workspace["id"], "d2d4", mover="player")
-    make_move(conn, workspace["id"], "g7g5", mover="model")
-    result = make_move(conn, workspace["id"], "d1h5", mover="player")
+    make_move(conn, workspace["id"], "e2e4", actor="participant")
+    make_move(conn, workspace["id"], "f7f6", actor="model")
+    make_move(conn, workspace["id"], "d2d4", actor="participant")
+    make_move(conn, workspace["id"], "g7g5", actor="model")
+    result = make_move(conn, workspace["id"], "d1h5", actor="participant")
 
     assert result.move["is_checkmate"] == 1
     assert result.game_result == "win"
@@ -163,10 +164,10 @@ def test_checkmate_by_the_model_loses_the_game(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     # Fool's mate: black (the model) mates on move two.
-    make_move(conn, workspace["id"], "f2f3", mover="player")
-    make_move(conn, workspace["id"], "e7e5", mover="model")
-    make_move(conn, workspace["id"], "g2g4", mover="player")
-    result = make_move(conn, workspace["id"], "d8h4", mover="model")
+    make_move(conn, workspace["id"], "f2f3", actor="participant")
+    make_move(conn, workspace["id"], "e7e5", actor="model")
+    make_move(conn, workspace["id"], "g2g4", actor="participant")
+    result = make_move(conn, workspace["id"], "d8h4", actor="model")
 
     assert result.game_result == "loss"
     assert game_status(conn, workspace["id"]).record["losses"] == 1
@@ -180,7 +181,7 @@ def test_pgn_prefix_restarts_with_each_game(tmp_path: Path):
 
     start_game(conn, workspace["id"], 300)
     make_move(conn, workspace["id"], "e2e4")
-    result = make_move(conn, workspace["id"], "e7e5")
+    result = make_move(conn, workspace["id"], "e7e5", actor="model", model="gpt-5.6-luna")
 
     by_shape = {row["shape"]: row for row in result.dataset_rows}
     payload = json.loads(by_shape["pgn_prefix_to_move"]["payload_json"])
@@ -261,7 +262,7 @@ def test_history_lists_finished_games_newest_first_with_move_counts(tmp_path: Pa
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     make_move(conn, workspace["id"], "e2e4")
-    make_move(conn, workspace["id"], "e7e5")
+    make_move(conn, workspace["id"], "e7e5", actor="model", model="gpt-5.6-luna")
     start_over(conn, workspace["id"])
     make_move(conn, workspace["id"], "d2d4")
     status = start_over(conn, workspace["id"])

@@ -45,6 +45,19 @@ def test_move_on_unknown_workspace_returns_404(client: TestClient):
     assert response.status_code == 404
 
 
+def test_moving_the_models_color_in_an_active_game_is_rejected(client: TestClient):
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+
+    response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e7e5"})
+
+    assert response.status_code == 409
+    body = response.json()["detail"]
+    assert body["code"] == "not_your_turn"
+    assert "model's turn" in body["message"]
+
+
 def test_workspace_state_reflects_moves_and_dataset(client: TestClient):
     workspace_id = make_workspace(client)
     client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})

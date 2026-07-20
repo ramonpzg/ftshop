@@ -155,16 +155,193 @@ so tldraw's own canvas layer handles selection and dragging normally.
 - `chess/board.py`, the only place that touches `python-chess`
   directly. Legal-move checking and move application.
 - `calculations/`, pure functions: the reward function, dataset row
-  construction, eval metric math (legal move rate, valid JSON rate),
-  the audio spectrogram toy calculation, video frame sampling.
-- `data/`, one `sqlite3`-backed repository module per table. No
-  business logic; only reads and writes.
+  construction, the move vocabulary, eval metric math, model
+  capability decisions (`model_catalog.py`), prompt construction and
+  reply parsing, the audio spectrogram toy calculation, video frame
+  sampling.
+- `data/`, one `sqlite3`-backed repository module per table, plus the
+  Chat Completions transport (`llm_client.py`). No business logic;
+  only reads and writes. Repositories on the game path do not commit:
+  the action that composes them owns the transaction.
 - `actions/`, orchestration: `join_workshop`, `create_or_get_workspace`,
-  `make_move`, `run_job`, the four presenter actions. These compose
-  calculations and data-access calls and are what the routes call.
+  `make_move`, `model_turn`, `suggest_scenario`, `run_job`, the four
+  presenter actions. These compose calculations and data-access calls,
+  decide what commits together, and are what the routes call.
 - `jobs/`, the job runner abstraction (see below).
 - `routes/`, one FastAPI router per resource, thin: parse the
   request, call an action, serialize the result.
+
+### Transactions
+
+`make_move` persists the move record, the board update, the dataset
+rows, and any game outcome as one transaction; a failure rolls all of
+it back, so a half-persisted move cannot exist. The model turn extends
+this: the applied move and its attempt record commit together, while
+failed attempts commit individually as they happen because a failed
+reply is evidence that must survive the turn failing. The lazy timeout
+check commits on its own; a flag fall is a fact about the wall clock,
+not part of whichever action noticed it. That check runs *inside*
+`make_move`'s write lock (after `BEGIN IMMEDIATE`, on a fresh read of
+the game), not before it: a move that beat the clock can still lose
+the race for the lock to another writer, and the wait for that lock is
+exactly the kind of delay a clock check taken beforehand would miss
+entirely. Checking again once the lock is actually held is what makes
+"the clock was fine when this call started" and "the clock is still
+fine right before this call writes" the same claim, rather than two
+claims separated by an unaccounted-for wait. `run_job` persists the job
+config, the artifact, and any eval_results a handler wrote as one
+transaction too; every repository on this path (`job_configs_repo`,
+`artifacts_repo`, `eval_results_repo`) takes writes without committing,
+so a failure between them (a provider error while building the
+artifact, say) rolls back a job_config that would otherwise have no
+matching artifact, and eval numbers computed by a run whose artifact
+never landed.
+
+### Turn ownership
+
+In a timed match the participant always plays white and the configured
+model answers as black; there is no color picker. `make_move` enforces
+this server-side in both directions, not just by disabling the board:
+inside its write lock it checks the active game's fen against `actor`
+and raises `NotYourTurnError` (mapped to 409) whenever they disagree --
+a participant move while the fen shows black to move, or a model/
+fallback move while it shows white. Without the participant-side half,
+a raw call to the public move route (no `actor` parameter exists
+there; it always defaults to `participant`) could play both colors,
+standing in for the model, bypassing its recorded attempts and its
+unavailable/retry recovery state, and polluting the participant's own
+legal-move-rate and the exported dataset with moves the model was
+supposed to make. Without the symmetric model-side half, a raw call to
+`/model-move` (or a UI bug that triggered it early) could play the
+participant's own opening move. `model_turn` also checks this itself
+before making any LLM call, so a wrong-turn request fails immediately
+instead of spending a request on a reply that would only be rejected
+once it tried to land; `make_move`'s own check inside the write lock
+is what actually holds under a concurrent race, same guarantee as the
+precondition check above. Free play (no active game) has no such
+contract and is unrestricted. The frontend mirrors this: the board is
+only interactive on the participant's own turn in an active game, and
+every resync path (a stale reply, a clock expiry, a 409 from a turn
+race) re-applies the server's `board_fen` to local state -- not just
+the game/record/history -- so a resync that skips the board can no
+longer leave the client's fen stale enough to fire the model on the
+wrong turn.
+
+Both `/moves` and `/model-move` map `GameClockExpiredError` and
+`NotYourTurnError` to the same 409, since both are "this request
+cannot land against the current state" and a client only needs to
+react, not branch on an HTTP status that is identical either way. The
+two causes are not identical *reactions*, though: a clock expiry ends
+the game, so the client should show the timeout-loss message; a
+turn-ownership conflict (a late duplicate request racing a turn
+change) does not end anything, the game is still running, just not
+that request's turn anymore. Distinguishing them by pattern-matching
+the exception's English message would work until a copy edit changed
+the wording -- and a test whose mock repeats the old wording would
+keep passing right through that regression, proving nothing. Instead
+`turn_conflict_detail` (`actions/errors.py`) builds the 409 body as
+`{code, message}`: `code` is `"clock_expired"` or `"not_your_turn"`,
+a stable contract independent of `message`'s prose, which stays free
+to change. `apiErrorCode` (`data/api.ts`) reads it back out; both
+`handleMove` and `triggerModelReply` branch on `apiErrorCode(error) ===
+"not_your_turn"` before deciding which reaction applies, instead of
+routing every 409 to the clock-expiry handler regardless of cause --
+the latter would show a false timeout loss for a turn-ownership race
+the game clock had nothing to do with. Every other error the app
+raises still sends a plain string `detail`; `apiErrorDetail` handles
+both shapes so existing callers that only want the human message
+don't need to know which kind of body they got.
+
+### The Chat Completions boundary
+
+Every text-model call (opponent moves, scenario assessments, future
+text jobs) goes through `data/llm_client.py`, which only ever calls
+`/chat/completions`. Two typed settings profiles exist: `opponent`
+(`OPENAI_*`) and `video_prompt` (`VIDEO_PROMPT_*` with documented
+fallbacks), so local Gemma can play the board while hosted Luna writes
+scenes in the same process without sharing endpoints, models, or
+capabilities. Capability decisions (does this model accept
+`reasoning_effort`, JSON mode) live in the typed catalog in
+`calculations/model_catalog.py`, not in string checks at call sites.
+The transport returns a `ChatOutcome` carrying content plus the
+provenance callers persist: model, provider alias, attempt count,
+request ids, and whether a capability fallback fired. A call that
+fails instead of succeeding carries the same provenance on the raised
+`LlmRequestError` (`transport_attempts`, `json_mode_dropped`,
+`reasoning_effort_dropped`), not just status and request ids: a
+capability can be dropped on an early attempt and the call can still
+go on to exhaust its retries for an unrelated reason, and that dropped-
+capability evidence must not disappear just because the call ended in
+an exception rather than a return value.
+
+### Model attempts and the model turn
+
+The `moves` table records what happened to the board, with an `actor`
+column (participant, model, fallback; `unknown` for rows migrated from
+before provenance existed). The `model_attempts` table records what
+the model actually said: one immutable row per raw reply, with model,
+provider alias, prompt version, ply, fen, parse and legality judgment,
+request ids, and the applied move if one resulted. `actions/
+model_turn.py` is an explicit state machine over those attempts:
+transport failure, empty, unparsable, invalid syntax, illegal, stale
+(the position changed while a reply was in flight), clock-expired (the
+reply arrived after the game's clock ran out), or applied. After the
+configured limit, a model that answered garbage is answered with a
+deterministic fallback (first legal move in UCI order, actor
+`fallback`), and a provider that never answered yields an explicit
+`unavailable` outcome with a client-side retry. The board can never be
+silently stuck on the model's turn.
+
+The whole turn is bounded by one `MODEL_TURN_DEADLINE_SECONDS` overall
+deadline (default 30s, comfortably under the 60s minimum game time
+limit), not just by `MODEL_TURN_MAX_ATTEMPTS`: attempt count alone let
+worst-case latency multiply unpredictably, since each attempt could
+itself retry the HTTP call up to three times at up to
+`MODEL_MOVE_TIMEOUT_SECONDS` (60s) each. The deadline is checked before
+starting each attempt, and the last attempt's own timeout is capped to
+whatever time remains. That cap has to hold inside `llm_client` too,
+not just at the call site: `_chat_completion` turns the timeout it
+receives into one absolute deadline, and every one of its own internal
+HTTP attempts and backoff sleeps re-checks the time left against that
+same deadline rather than restarting a fresh clock each time. Passing
+a per-attempt timeout down and trusting the transport to reuse it
+verbatim undercounts three attempts' worth of retries and their
+backoff as if they were one; the deadline has to be recalculated
+before every request and every sleep for total wall-clock time to stay
+predictable regardless of how transport retries stack. If the reply
+does arrive but the clock has since expired, `make_move`'s clock check
+raises before the move is applied; `model_turn` records that attempt
+(status `clock_expired`) before the exception propagates, so a
+legitimate -- possibly correct -- reply is never lost with zero
+evidence just because the clock happened to run out in between.
+
+### Scenario mappings
+
+`scenario_assessments` persists the three-field real-world mapping
+(assessment, real_world, video_prompt) per game and ply. The raw model
+suggestion is written once and never updated; participant review
+(accept or edit) fills separate final columns. Failed calls insert an
+explicit failed row without touching prior records. Recovery is asking
+again.
+
+A live failure in the UI does not erase the mapping on screen: the
+component simply never overwrites its state on a failed request, so
+the previous suggestion stays visible with the new error shown
+alongside it. Reload has to reconstruct that same combination, not
+just the newest row's status. `GET /workspaces/{id}/scenario` returns
+both `latest` (the true most recent row, whatever its status --
+`latest_scenario` in `scenario_repo.py`) and `latest_success` (the most
+recent row that actually produced a usable mapping, skipping over any
+more recent failure -- `latest_successful_scenario`). The frontend
+restores `latest_success` into the displayed mapping and, only if
+`latest` is itself a failure, additionally renders the same explicit
+error-with-retry state a live failure shows. Returning only the single
+latest row (an earlier version of this contract) meant a failure after
+a success made that success unreachable on reload: the UI received
+nothing to restore and had no way to tell the difference between "the
+mapping is gone" and "the mapping is fine, the last request just
+failed." Exports (`chess_scenarios.jsonl`) carry both raw and approved
+values with model, provider alias, and prompt version.
 
 ## Job runner
 
@@ -186,14 +363,104 @@ job type X"; they never know or care which runner answered.
 ## Why some eval numbers are cached and some are computed
 
 `GET /evals` returns rows with a `source` of either `computed` or
-`cached`. `computed` rows come from real data (a workspace's actual
-moves, run through `text.prompt_eval`). `cached` rows are seeded from
-`artifacts/cached/{modality}/evals.json` on every backend startup.
-These are the metrics that need infrastructure v0 doesn't have
-(Stockfish for centipawn loss, a trained model to judge image style
-consistency, and so on). Every cached fixture carries a `note`
-explaining why it's illustrative. The eval panel renders whatever the
-API returns; no component hardcodes a metric value.
+`cached`, and every row carries its provenance: numerator,
+denominator, unit, direction, a definition sentence, a definition
+version, the scope filters that produced the sample, and (for computed
+rows) `model`, `checkpoint`, `run_id`, and `sample_ids` -- the frozen
+input set as the exact move/attempt ids counted, not just descriptive
+filters.
+
+`computed` rows are real measurements with honest denominators:
+
+- `legal_move_rate` counts one actor's recorded move attempts
+  (participant by default). Model output and participant fumbling
+  never share a denominator; rows migrated from before actor
+  provenance existed are labelled `unknown` and excluded rather than
+  guessed.
+- `model_legal_move_rate` counts received model replies (from
+  `model_attempts`) that contained a legal move. Transport failures
+  stay out of the denominator because the model never answered; every
+  retry counts; fallback moves are excluded by actor.
+- `valid_json_rate` parses the stored raw replies of JSON-requesting
+  tasks with the same extractor the app uses to consume replies. It
+  measures model output, not the application's own serialization.
+  Filterable by both `model` and `checkpoint` -- with one model and two
+  checkpoints in play, an unfiltered call would otherwise pool both
+  checkpoints' attempts into one misleading number.
+
+An empty sample is an explicit unavailable result: the eval job
+reports it in its payload and *removes* every stored result for that
+scope (every window; see below) rather than persisting nothing and
+leaving old numbers on display. `text.prompt_eval` also accepts
+optional `model` and `checkpoint` job params, threaded into every
+model-facing metric.
+
+### The frozen input set
+
+`sample_ids` (on `MetricResult` and the stored row) is an audit trail
+back to the exact `moves`/`model_attempts` rows a number came from --
+useful for debugging, but not itself a cross-model identity, since two
+different models produce two different sets of row ids even over the
+identical chess position. The actual frozen input set is `positions`:
+the fen of every sampled row, in order. `compute_position_set_id` turns
+that list into one deterministic hash, stored as `position_set_id`
+alongside the full list as `position_set_json`. The hash is order-
+independent (the same positions in a different order match) but
+deliberately not duplicate-independent: every repeated attempt is a
+real, separately-counted row in a metric's denominator, so a position
+sampled once and the same position sampled a hundred times are
+different measurements and hash differently, even though both cover
+"the same" underlying position. Deduplicating first, an earlier version
+of this hash, let samples with wildly different denominators and
+repeat structure claim to be the identical evaluation. Two eval results
+with matching `position_set_id` were measured over the identical
+positions in the identical proportions and are honestly comparable; a
+mismatch means they were not, regardless of how similar their scope
+otherwise looks. This does not make the app capable of forcing two
+different models to play through identical positions -- there is no
+benchmark-runner here, only organic gameplay -- but it does make
+comparability provable after the fact instead of
+assumed from matching `model`/`checkpoint` alone.
+
+`eval_results`' storage identity is `(modality, metric, workspace,
+source, model, checkpoint, position_set_id)`: a base and an adapted
+model's results coexist as two rows instead of one overwriting the
+other, and so do two runs of the *same* model/checkpoint over two
+different position sets (two evaluation windows), which previously
+clobbered each other because identity stopped at model/checkpoint. A
+metric becoming unavailable clears every window for its
+`(modality, metric, workspace, source, model, checkpoint)` scope, since
+an empty sample carries no position set to target a single window with
+and, in practice, means the underlying data disappeared entirely (a
+page reset). A page reset also clears computed results for the
+workspaces it wipes directly. Every metric from one `run_job` call
+shares a `run_id`. That is the phase-34 before/after contract: an
+honestly comparable frozen input set, both model versions identified,
+stored side by side, distinguishable by window.
+
+Every window coexisting in the table is correct for history and
+comparability, but it means a workspace re-evaluated three times over
+a growing move history has three real rows for the same metric with
+denominators 1, 2, and 3. The live `EvalPanel` is not a history
+browser, so it does not render all of them: `calculations/
+evalResults.ts`'s `latestEvalResultsByScope` (frontend, pure) keeps
+only the newest row per `(modality, metric, source, workspace, model,
+checkpoint)` before rendering, dropping nothing from the database, only
+from what gets displayed at once. Rows that still coexist after that
+reduction (a base checkpoint next to an adapted one, say) render with a
+small model/checkpoint label so they read as distinct measurements
+rather than duplicates; the full provenance (model, checkpoint, run
+timestamp) is in each row's title tooltip.
+
+`cached` rows are seeded from `artifacts/cached/{modality}/evals.json`
+on every backend startup. These are the metrics that need
+infrastructure v0 doesn't have (Stockfish for centipawn loss, a
+trained model to judge image style consistency, and so on). Every
+cached fixture carries a `note` explaining why it's illustrative, and
+that note survives seeding, storage, the API, and rendering: the panel
+shows it under the value, so a cached number can never pose as live.
+The eval panel renders whatever the API returns; no component
+hardcodes a metric value.
 
 ## Presenter navigation
 

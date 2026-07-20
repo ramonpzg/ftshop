@@ -413,9 +413,10 @@ five minutes, quitting costs a loss.
 
 <div v-click class="mt-4">
 
-An illegal reply is recorded with reward **-1** and the board does
-not move. The environment catches the model. That is the RL lesson,
-live.
+An illegal reply is recorded as a **failed attempt** and never moves
+the board. The environment catches the model, retries, and then plays
+a labelled fallback so the game continues. Every failure lands in the
+eval. That is the RL lesson, live.
 
 </div>
 
@@ -430,7 +431,9 @@ recipe, visibly different results.
 <!--
 DEMO PREP: OPPONENT_MODELS env set, picker shows both models.
 If the model plays an illegal move during the demo: celebrate.
-That is the slide happening in front of them.
+The notice names the fallback move and the failed attempts show up
+in the model legal-move rate. That is the slide happening in front
+of them.
 -->
 
 ---
