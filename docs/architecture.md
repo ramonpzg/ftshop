@@ -195,13 +195,15 @@ transaction too; every repository on this path (`job_configs_repo`,
 so a failure between them (a provider error while building the
 artifact, say) rolls back a job_config that would otherwise have no
 matching artifact, and eval numbers computed by a run whose artifact
-never landed. Order matters inside that transaction: the handler runs
-*first* and the config row is inserted after it returns, with an id
-generated up front so handlers can reference it. A handler that talks
-to the network (the live benchmark) therefore gathers every reply
-before any write begins, and SQLite's single write lock is never held
-across a network wait -- attendees keep making moves while the
-presenter's benchmark waits on a provider.
+never landed. Order matters inside that transaction: identity first
+(a job naming a workspace is validated with a plain read before the
+runner is invoked, so a bad id fails in microseconds instead of after
+provider work), then the handler, then the config row, with the
+config id generated up front so handlers can reference it. A handler
+that talks to the network (the live benchmark) therefore gathers
+every reply before any write begins, and SQLite's single write lock
+is never held across a network wait -- attendees keep making moves
+while the presenter's benchmark waits on a provider.
 
 ### Turn ownership
 
@@ -366,16 +368,23 @@ Three runner implementations behind one interface (`jobs/base.py`):
 Callers, the `run_job` action and the frontend, only ever say "run
 job type X"; they never know or care which runner answered.
 
-The jobs route adds one policy on top: paid generation (image, video,
-fal-backed audio, live benchmarks; the classification is the pure
-`requests_paid_generation` calculation) is refused with a 403 unless
-the request comes from the presenter's own machine. The backend binds
-localhost and the dev proxies forward the client address, so loopback
-is a trustworthy stand-in for "the presenter's browser" in this
-deployment, and the full-room guardrail (one presenter spends the
-budget, forty attendees cannot) is enforcement, not UI courtesy. Free
-jobs (replayed fixtures, local evals, local audio synthesis) stay open
-to the room.
+The jobs route adds one policy on top: generation (image, video, all
+audio including local synthesis, live benchmarks; the classification
+is the pure `requests_presenter_generation` calculation) is refused
+with a 403 unless the request comes from the presenter's own machine.
+Local audio is included deliberately: it spends no provider money but
+loads multi-GB models onto the CPU/GPU serving the whole room. The
+same check (`routes/client_host.py`) guards the scenario-assessment
+route and non-default opponent picks on game start; together with
+scenario generation being manual (never auto-fired per model turn),
+this is the room model policy: attendees play the default local
+opponent, and everything that spends provider budget or presenter
+compute is one presenter's deliberate act. The backend binds
+localhost; the dev proxies overwrite any client-supplied
+X-Forwarded-For with the peer address they actually accepted and the
+backend trusts only the LAST hop, because a proxy that merely appends
+lets a client spoof "127.0.0.1, lan-ip" past a first-hop check. Free
+jobs (replayed fixtures, local evals) stay open to the room.
 
 ## Why some eval numbers are cached and some are computed
 
@@ -500,12 +509,17 @@ comparison, all owned by the backend:
   in-JSON explanation), a content hash covering all of it, and
   the suite's own `position_set_id`. The seeded suite repeats one
   position on purpose: multiplicity is data. Validation is semantic,
-  not just structural: every FEN must be a legal python-chess
-  position, the stored legal-move list must equal the list derived
-  from that FEN, and the stored prompt must render exactly from the
-  contract's template, so a suite cannot smuggle in an impossible
-  position, a wrong move list, or an off-contract prompt and still
-  freeze.
+  not just structural: every FEN must be a *playable* python-chess
+  position (`board.is_valid()`, not merely parseable -- chess.Board
+  happily parses a kingless FEN and generates moves for it), the
+  stored legal-move list must equal the list derived from that FEN,
+  and the stored prompt must render exactly from the contract's
+  template, so a suite cannot smuggle in an impossible position, a
+  wrong move list, or an off-contract prompt and still freeze. State
+  assembly orders suites current-contract-first and flags the rest
+  (`current_contract`): an upgraded database keeps its old sft-v1
+  suite forever, and the panel's primary suite -- the one whose
+  comparison renders -- is always one this build actually verifies.
 - `adapters`: durable adapter provenance. Checkpoint label, base model
   (always the unquantized training start, never the GGUF inference
   repo; the serving alias is a third thing and the config keeps all
@@ -552,8 +566,9 @@ denominator, which honestly shrinks that run's position set.
 Metrics reuse the phase-33 calculations over those attempts --
 `compute_model_legal_move_rate` with a task parameter,
 `compute_valid_json_rate`, and the phase-34 `compute_explanation_rate`
-(the trade-off metric: the contract's optional `why` field is one the
-base model often fills and a bare-completion adapter never does) --
+(the trade-off metric: the contract's optional `why` field, filled in
+the scripted base replies and absent from the scripted adapted ones,
+illustrating the trade bare-completion training would buy) --
 but their persistence differs from organic evals: benchmark metric
 rows are insert-only per run (`record_benchmark_metric`), keyed by
 their `run_id`, and are never replaced. Rerunning a benchmark adds a
@@ -566,11 +581,24 @@ separate run.
 The comparison (`calculations/comparison.py`, assembled by
 `GET /adaptation/state`) produces a signed delta with an
 improved/regressed/unchanged verdict only when the runs share a suite
-content hash and prompt contract and both metric rows carry the same
-non-null `position_set_id` and definition version. Anything else is an
+content hash, prompt contract, and model lineage -- the base run must
+record the same model the adapted run serves, because a live run of
+whatever the room has configured (Luna standing in for Gemma) is its
+own evidence, not the "before" of a fine-tuning pair -- and both
+metric rows carry the same non-null `position_set_id` and definition
+version. Selection honors lineage too: the latest lineage-matching
+base run is preferred, so a newer cross-model live run never
+displaces an honest pair, and when only a cross-model base exists the
+panel renders the refusal rather than nothing. Anything else is an
 explicit "not comparable" with the reason and both values still
 visible. The frontend's adaptation panel (a presenter-owned canvas
-shape on the text page) renders all of this and adds nothing to it.
+shape on the text page) renders all of this and adds nothing to it;
+it polls the state on a short single-flight cadence, because tldraw
+sync carries none of it and "the room's shared evidence" is only
+shared if attendees actually receive updates. The panel also treats
+"Stop waiting" honestly: aborting the browser request cancels nothing
+server-side, so live controls stay locked until the run lands through
+the poll or the server's own deadline ceiling passes.
 
 The non-text modalities show the same conceptual chain as reviewed
 `{modality}.adaptation_evidence` replay fixtures: pairs, an

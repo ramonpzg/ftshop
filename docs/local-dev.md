@@ -342,11 +342,16 @@ double-click would.
   in every normal client and unidentified sessions are read-only at
   the socket, but a hand-rolled WebSocket client could bypass the
   per-shape rules. That is an accepted boundary for a room of workshop
-  attendees, not a security model. The one server-enforced line: paid
-  generation (image, video, fal audio, live benchmarks) is refused
-  with a 403 for any client that is not on the presenter's machine,
-  so presenter rights on the canvas never include spending the
-  provider budget from an attendee laptop.
+  attendees, not a security model. The one server-enforced line: the
+  room model policy. All generation (image, video, audio including
+  local synthesis, live benchmarks), position assessments, and
+  non-default opponent picks are refused with a 403 for any client
+  that is not on the presenter's machine, so presenter rights on the
+  canvas never include spending the provider budget or the
+  presenter's GPU from an attendee laptop. The check trusts only the
+  last X-Forwarded-For hop, and the dev proxies overwrite the header
+  with the peer address, so a client-supplied "127.0.0.1" prefix does
+  not spoof it.
 - One room. The sync server hosts a single workshop document; there is
   no room routing and no need for it.
 - The sync server's in-memory clock resets on restart; clients

@@ -11,11 +11,19 @@ questions, recovery, the optional coda).
 Room assumptions: up to 40 attendees, venue wi-fi that drops after idle
 minutes and may demand a captive-portal login. Everything the session
 depends on runs on the presenter's machine from reviewed local
-fixtures. No attendee needs a provider account or API key. No segment
-turns one generation into 40 cloud requests; provider-backed work is
-presenter-controlled, and the backend enforces it: paid jobs (image,
-video, fal audio, live benchmarks) are refused with a 403 for any
-browser that is not on the presenter's machine, whatever the UI hides.
+fixtures. No attendee needs a provider account or API key.
+
+The room model policy, enforced by the backend with 403s rather than
+by hiding buttons: attendees play the room's default opponent
+(configure a local Gemma endpoint as the default for the full room);
+non-default opponent picks, position assessments (each one a
+scenario-model call), and every generation job (image, video, audio
+including local synthesis, live benchmarks) run only from the
+presenter's machine. Scenario generation is also manual now, never
+fired automatically per model turn, so one exchange costs the room
+zero scenario calls instead of forty. The trustworthy client address
+is the last X-Forwarded-For hop; the proxies overwrite anything a
+client supplies.
 
 ## Before the room fills up
 
@@ -61,13 +69,20 @@ Prep checklist, in order, on the actual laptop:
    does; per PLAN_V2, a missing asset stays a labelled placeholder,
    never an invented substitute.
 5. If OPPONENT_MODELS/keys are set, start one throwaway game to see
-   the model answer; if not, the fallback plan below covers it. If
-   the live-benchmark beat is planned, rehearse "Run base live" the
-   week before, not while the room fills: the whole run has a
-   deadline (60 s default, `BENCHMARK_RUN_DEADLINE_SECONDS` to
-   change it) and a "Stop waiting" cancel, so the worst case on
-   stage is bounded, but the first try should not be in front of
-   people.
+   the model answer; if not, the fallback plan below covers it. For
+   the full room, make the default opponent the local Gemma endpoint:
+   the default is what every attendee plays, and the frontier entries
+   in the picker are presenter-only by policy. If the live-benchmark
+   beat is planned, rehearse "Run base live" the week before, not
+   while the room fills: the whole run has a deadline (60 s default,
+   `BENCHMARK_RUN_DEADLINE_SECONDS` to change it) and a "Stop
+   waiting" that stops the browser's wait (the server run continues
+   to its deadline; live controls stay locked until it lands), so the
+   worst case on stage is bounded, but the first try should not be in
+   front of people. A live run only compares when the endpoint serves
+   the adapter's own base model (the serving alias); a frontier model
+   answering produces its own run and an honest "different models"
+   refusal in Compare.
 6. `just session-notebook` once, then close it: JupyterLab starts cold
    in seconds when segment 7 arrives.
 
@@ -189,12 +204,15 @@ Switch to the board. Send users to their workspace. Unlock editing.
   the two text jobs (prompt eval, reward eval) and read the live
   numbers next to the cached ones (the eval rows open into
   definitions and provenance).
-- The two-game beat when OPPONENT_MODELS is set: one game against the
-  small model, one against the frontier model. Same recipe, same
-  board, different results, felt.
-- Scenario beat: Assess position on a mid-game moment; accept or edit
-  the mapping. Keep Ramon's aside: rage-quitting against the bot is a
-  labeled data point now.
+- The two-game beat when OPPONENT_MODELS is set: the room plays the
+  small local model; the presenter plays the frontier model once on
+  the projector (non-default opponents are presenter-only by policy).
+  Same recipe, same board, different results, seen side by side.
+- Scenario beat, presenter-run: Assess position on a mid-game moment
+  from the presenter's own workspace; the room reviews, accepts, or
+  edits mappings that land in their own. One scenario call per beat,
+  not one per exchange per attendee. Keep Ramon's aside: rage-quitting
+  against the bot is a labeled data point now.
 - Close the loop: pairs in. Everything they just made is the left side
   of the recipe.
 - Cut: one game instead of two; skip the scenario beat (segment 6's
@@ -229,20 +247,26 @@ The chain earns trust by narrating exactly what it is.
      will not pose as training on the room's data. That refusal is
      the honesty model.
   4. Run base and adapted benchmarks; the run badges say "replayed
-     (scripted)". Optionally, with a key configured, Run base live:
-     the run list shows live provenance with a non-null checkpoint.
-     The whole run is bounded (60 s deadline, three consecutive
-     transport failures abort it, "Stop waiting" cancels from the
-     panel), so a hung provider costs a minute of stage time, not
-     the segment. If a call fails, that run's position set differs
-     and Compare says Not comparable per metric. Do not fish for
-     this; mention it when it happens.
+     (scripted)". Optionally, with a local endpoint serving the base
+     model, Run base live: the run list shows live provenance with a
+     non-null checkpoint. The whole run is bounded (60 s deadline,
+     three consecutive transport failures abort it, "Stop waiting"
+     stops the browser's wait while the server run finishes to its
+     deadline and live controls stay locked until it lands), so a
+     hung provider costs a minute of stage time, not the segment. If
+     a call fails, that run's position set differs and Compare says
+     Not comparable per metric; if the endpoint serves some other
+     model, Compare refuses with "different models" instead of
+     pretending a Luna run is the Gemma before. Do not fish for
+     either; read them out when they happen.
   5. Compare: deltas with verdict words, the regression on screen,
-     one example opened: the base reply fills the optional "why"
-     field, the adapted reply is bare JSON. Legality 7/12 to 12/12,
-     JSON validity up, explanation rate 8/12 to 0/12: the adapter
-     trained on bare completions stopped doing the optional thing
-     the base model did. Adaptation trades.
+     one example opened: the scripted base reply fills the optional
+     "why" field, the scripted adapted reply is bare JSON. Legality
+     7/12 to 12/12, JSON validity up, explanation rate 8/12 to 0/12.
+     The replies are authored, so say what the chain actually shows:
+     this is how the trade a bare-completion training set makes would
+     be measured, optional chatter collapsing while format and
+     legality rise. The measurement is real; the model run is not.
 - Close the loop: adapter out, eval always. Every link is
   content-addressed: the adapter names its dataset hash, the delta
   names its frozen suite. Break either link and the panel says Not
@@ -322,9 +346,9 @@ spare time, and it is the first thing that never happens.
 - Provider trouble: the model-turn fallback and retry button handle a
   flaky endpoint; a dead endpoint turns segment 5 into free play plus
   narration and removes only the optional live-benchmark beat from
-  segment 6. A hung live benchmark ends itself at the run deadline or
-  with the Stop waiting button. Nothing else in the core touches a
-  provider.
+  segment 6. A hung live benchmark ends itself at the run deadline;
+  Stop waiting frees the browser sooner while the server run finishes
+  on its own. Nothing else in the core touches a provider.
 - App unusable entirely: `just session-notebook` opens the standalone
   notebook and the session continues from segment 7's material; the
   committed media under `artifacts/cached/media/` can be opened

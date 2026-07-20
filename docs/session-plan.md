@@ -162,10 +162,12 @@ board tensor, policy and reward, RL trajectory. An illegal attempt
 scores reward -1 and moves nothing, which is the RL environment lesson
 happening live. A model reply that fails legality lands in
 model_attempts, retries, and falls back with a label after the budget;
-garbage never poses as skill. The per-exchange scenario mapping turns
-the game into real-world cases with participant review. The two-model
-beat (small local Gemma, then a frontier model) makes "same recipe,
-different results" physical before any training talk.
+garbage never poses as skill. The scenario mapping is presenter-run
+and manual (one scenario-model call per beat, not one per exchange
+per attendee); participants review, accept, or edit the mappings.
+The two-model beat (the room on the small local Gemma, the presenter
+playing the frontier model once on the projector) makes "same recipe,
+different results" visible before any training talk.
 
 ## 6. The adaptation evidence chain (board)
 
@@ -190,10 +192,14 @@ calls a real model.
    every attempt tagged with checkpoint and replayed/live provenance.
 5. Read the comparison: legality up, JSON validity up, and the
    explanation rate collapsed -- the contract invites an optional
-   in-JSON reason, the base model often fills it, and the adapter
-   trained on bare completions never does. Adaptation trades. A
-   mismatched position set renders as "Not comparable" with the
-   reason, never as a number.
+   in-JSON reason, the scripted base replies often fill it, the
+   scripted adapted replies never do. Said honestly on stage: this is
+   how the trade a bare-completion training set makes would be
+   measured, not the record of a run that happened. A mismatched
+   position set renders as "Not comparable" with the reason, and a
+   base run from a different model (a frontier endpoint standing in
+   for the local Gemma) refuses the same way. Never a number that
+   poses as evidence.
 
 ## 7. Notebook practice (standalone Jupyter)
 
@@ -221,10 +227,13 @@ Assume up to 40 attendees and venue Internet that drops after idle
 minutes and demands a captive portal. The core path therefore runs on
 the presenter's machine and reviewed local fixtures: no attendee needs
 a provider account or API key, and no core segment multiplies one
-generation into 40 cloud requests. The backend enforces this: paid or
-live generation only runs from the presenter's own machine, whatever a
-browser asks for. Text is fully hands-on (own board, own game, own
-rows). Image drawing is hands-on when drawings are persisted and
+generation into 40 cloud requests. The backend enforces the room
+model policy rather than trusting the UI: attendees play the default
+opponent (a local Gemma for the full room); non-default opponents,
+position assessments, and every generation job including local audio
+synthesis run only from the presenter's machine, and scenario reads
+are manual, never automatic per exchange. Text is fully hands-on (own
+board, own game, own rows). Image drawing is hands-on when drawings are persisted and
 inspected; provider-backed generation is presenter-led with the pinned
 local pair already visible. Audio and video are presenter-led by
 default; attendees get prediction and comparison tasks (which take is
