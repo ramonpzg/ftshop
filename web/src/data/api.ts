@@ -596,3 +596,198 @@ export function fetchEvals(
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<EvalResult[]>(`/evals${suffix}`);
 }
+
+/** A frozen training dataset: the exact SFT rows, hashed, with the
+ * eligibility and approval counts that explain what was kept out. */
+export interface DatasetSnapshot {
+  id: string;
+  label: string;
+  modality: string;
+  /** 'seeded' for the reviewed reference fixture, 'frozen' for a
+   * snapshot taken from the room's own play. */
+  origin: string;
+  schema_version: string;
+  row_count: number;
+  excluded_ineligible_count: number;
+  source_game_count: number;
+  source_workspace_count: number;
+  scenario_raw_count: number;
+  scenario_approved_count: number;
+  content_hash: string;
+  note: string | null;
+  created_at: string;
+  /** First rows of the frozen content; state responses only. */
+  row_preview?: Array<{ prompt: string; completion: string }>;
+}
+
+export interface TrainingConfigInfo {
+  config_id: string;
+  label: string;
+  modality: string;
+  base_model: string;
+  method: string;
+  lora_r: number;
+  lora_alpha: number;
+  lora_dropout: number;
+  learning_rate: number;
+  epochs: number;
+  batch_size: number;
+  seed: number;
+  output_task: string;
+  target_checkpoint: string;
+  serving_alias: string;
+  inference_repo: string;
+  config_hash: string;
+  limitations: string;
+}
+
+export interface AdapterInfo {
+  id: string;
+  label: string;
+  modality: string;
+  checkpoint: string;
+  base_model: string;
+  method: string;
+  seed: number;
+  output_task: string;
+  config_id: string;
+  config_hash: string;
+  config: Record<string, unknown>;
+  dataset_snapshot_id: string;
+  dataset_content_hash: string;
+  runner: string;
+  result_source: string;
+  limitations: string;
+  created_at: string;
+}
+
+export interface SuiteExample {
+  example_id: string;
+  fen: string;
+  legal_moves: string[];
+  prompt: string;
+}
+
+export interface EvalSuite {
+  id: string;
+  label: string;
+  modality: string;
+  origin: string;
+  prompt_version: string;
+  schema_version: string;
+  example_count: number;
+  content_hash: string;
+  position_set_id: string;
+  note: string | null;
+  created_at: string;
+  examples: SuiteExample[];
+}
+
+export interface BenchmarkMetricRow {
+  id: string;
+  modality: string;
+  metric: string;
+  value: number;
+  workspace_id: string | null;
+  source: string;
+  numerator: number | null;
+  denominator: number | null;
+  unit: string | null;
+  direction: string | null;
+  definition: string | null;
+  version: string | null;
+  note: string | null;
+  model: string | null;
+  checkpoint: string | null;
+  run_id: string | null;
+  sample_ids: string[];
+  position_set_id: string | null;
+  created_at: string;
+}
+
+export interface BenchmarkRun {
+  id: string;
+  suite_id: string;
+  suite_content_hash: string;
+  prompt_version: string;
+  checkpoint: string;
+  model: string;
+  provider_alias: string | null;
+  /** 'live' or 'replayed'; the run never poses as the other. */
+  source: string;
+  example_count: number;
+  reply_count: number;
+  transport_failed_count: number;
+  position_set_id: string | null;
+  note: string | null;
+  created_at: string;
+  metrics: BenchmarkMetricRow[];
+}
+
+export interface MetricComparison {
+  metric: string;
+  comparable: boolean;
+  reason: string | null;
+  base_value: number | null;
+  adapted_value: number | null;
+  delta: number | null;
+  verdict: "improved" | "regressed" | "unchanged" | null;
+  unit: string | null;
+  direction: string | null;
+  base_numerator: number | null;
+  base_denominator: number | null;
+  adapted_numerator: number | null;
+  adapted_denominator: number | null;
+  definition: string | null;
+  version: string | null;
+  position_set_id: string | null;
+}
+
+export interface ExampleReplyView {
+  status: string;
+  raw_response: string | null;
+  parsed_move: string | null;
+  is_legal: boolean | null;
+  reply_source: string;
+}
+
+export interface ExampleComparison {
+  example_id: string;
+  fen: string;
+  prompt: string;
+  base: ExampleReplyView | null;
+  adapted: ExampleReplyView | null;
+}
+
+export interface AdaptationComparison {
+  suite_id: string;
+  suite_label: string;
+  base_run: Omit<BenchmarkRun, "metrics">;
+  adapted_run: Omit<BenchmarkRun, "metrics">;
+  comparable: boolean;
+  reasons: string[];
+  metrics: MetricComparison[];
+  examples: ExampleComparison[];
+}
+
+export interface AdaptationState {
+  snapshots: DatasetSnapshot[];
+  configs: TrainingConfigInfo[];
+  adapters: AdapterInfo[];
+  suites: EvalSuite[];
+  runs: BenchmarkRun[];
+  comparison: AdaptationComparison | null;
+  live_benchmark: { available: boolean; model: string | null };
+}
+
+export function fetchAdaptationState(): Promise<AdaptationState> {
+  return request<AdaptationState>("/adaptation/state");
+}
+
+export function freezeDatasetSnapshot(label?: string): Promise<DatasetSnapshot> {
+  return request<DatasetSnapshot>("/adaptation/snapshots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(label ? { label } : {}),
+  });
+}

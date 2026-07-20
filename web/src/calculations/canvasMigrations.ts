@@ -14,6 +14,7 @@
 
 import { PAGES } from "../lib/pages";
 import {
+  ADAPTATION_SHAPE_ID,
   DECK_SHAPE_ID,
   DOCUMENT_RECORD_ID,
   modalityPanelShapeId,
@@ -24,6 +25,7 @@ import {
 } from "./canvasIds";
 import { PRESENTER_OWNER } from "./canvasOwnership";
 import {
+  buildAdaptationPanelRecord,
   buildDeckPanelRecord,
   buildDocumentRecord,
   buildFrameRecord,
@@ -45,7 +47,7 @@ export interface CanvasDocumentSnapshot {
   };
 }
 
-export const CANVAS_DOCUMENT_VERSION = 4;
+export const CANVAS_DOCUMENT_VERSION = 5;
 
 const VERSION_META_KEY = "workshopCanvasVersion";
 
@@ -286,6 +288,31 @@ const CANVAS_MIGRATIONS: CanvasMigration[] = [
             : PRESENTER_OWNER;
         record.meta = { ...meta, owner };
       }
+    },
+  },
+  {
+    version: 5,
+    name: "ensure-adaptation-panel",
+    migrate(store) {
+      if (store[ADAPTATION_SHAPE_ID]) return;
+      const textPage = PAGES.find((page) => page.modality === "text");
+      if (!textPage) return;
+      const pageId = pageIdForSlug(textPage.slug);
+      if (!store[pageId]) return;
+      const record = buildAdaptationPanelRecord(
+        // Left of the workspace grid (which starts at x=0, y=1500 and
+        // grows down and right), clear of the seeded notes above.
+        {
+          id: ADAPTATION_SHAPE_ID,
+          parentId: pageId,
+          index: seedIndex(92),
+          x: -1520,
+          y: 1500,
+        },
+        textPage.slug,
+      );
+      record.meta = { owner: PRESENTER_OWNER };
+      store[ADAPTATION_SHAPE_ID] = record;
     },
   },
 ];

@@ -10,6 +10,7 @@ import {
   type CanvasDocumentSnapshot,
   CanvasMigrationError,
 } from "../src/calculations/canvasMigrations";
+import { adaptationPanelShapeProps } from "../src/components/tldraw/shapes/adaptationPanelShapeTypes";
 import { deckShapeProps } from "../src/components/tldraw/shapes/deckShapeTypes";
 import { modalityPanelShapeProps } from "../src/components/tldraw/shapes/modalityPanelShapeTypes";
 import { notebookShapeProps } from "../src/components/tldraw/shapes/notebookShapeTypes";
@@ -23,6 +24,7 @@ export function createRoomSchema() {
       "modality-panel": { props: modalityPanelShapeProps },
       "notebook-panel": { props: notebookShapeProps },
       "deck-panel": { props: deckShapeProps },
+      "adaptation-panel": { props: adaptationPanelShapeProps },
     },
   });
 }

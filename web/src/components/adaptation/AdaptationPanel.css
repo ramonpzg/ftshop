@@ -1,0 +1,237 @@
+.adaptation-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: #212529;
+  overflow: hidden;
+}
+
+.adaptation-panel-empty {
+  padding: 12px;
+  color: #868e96;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+}
+
+.adaptation-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f1f3f5;
+  border-bottom: 1px solid #dee2e6;
+  font-weight: 600;
+}
+
+.adaptation-panel-hint {
+  font-weight: 400;
+  color: #868e96;
+}
+
+.adaptation-notice {
+  margin: 8px 12px 0;
+  padding: 6px 8px;
+  background: #fff9db;
+  border: 1px solid #f0e3a1;
+  border-radius: 4px;
+  color: #5f3f00;
+}
+
+.adaptation-steps {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adaptation-step h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: none;
+}
+
+.adaptation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.adaptation-controls select,
+.adaptation-controls button {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid #adb5bd;
+  border-radius: 4px;
+  background: #f8f9fa;
+  cursor: pointer;
+}
+
+.adaptation-controls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.adaptation-source-note {
+  color: #868e96;
+  max-width: 380px;
+}
+
+.adaptation-card {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #fcfcfd;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.adaptation-card > div {
+  display: flex;
+  gap: 8px;
+}
+
+.adaptation-card dt {
+  flex: 0 0 110px;
+  color: #868e96;
+}
+
+.adaptation-card dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.adaptation-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border: 1px solid #adb5bd;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #495057;
+  background: #f1f3f5;
+}
+
+.adaptation-disclosure {
+  margin-top: 4px;
+}
+
+.adaptation-disclosure summary {
+  cursor: pointer;
+  color: #495057;
+}
+
+.adaptation-disclosure pre {
+  max-height: 180px;
+  overflow: auto;
+  background: #f8f9fa;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.adaptation-disclosure ul {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.adaptation-runs {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adaptation-runs li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+.adaptation-run-checkpoint {
+  font-weight: 600;
+}
+
+.adaptation-comparison-runs {
+  margin: 0 0 6px;
+}
+
+.adaptation-metrics {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adaptation-metrics th,
+.adaptation-metrics td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: top;
+}
+
+.adaptation-metrics th {
+  color: #868e96;
+  font-weight: 600;
+}
+
+/* Verdicts are always written out; the weight only reinforces them. */
+.adaptation-metrics tr[data-verdict="improved"] td:last-child,
+.adaptation-metrics tr[data-verdict="regressed"] td:last-child {
+  font-weight: 600;
+}
+
+.adaptation-count,
+.adaptation-direction {
+  color: #868e96;
+}
+
+.adaptation-examples {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adaptation-examples li {
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.adaptation-example-id {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.adaptation-example-prompt {
+  white-space: pre-wrap;
+  background: #f8f9fa;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.adaptation-empty-line {
+  color: #868e96;
+  margin: 0;
+}

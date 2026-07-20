@@ -141,4 +141,51 @@ describe("EvalPanel", () => {
     const scopes = [...document.querySelectorAll(".eval-scope")].map((el) => el.textContent);
     expect(scopes.sort()).toEqual(["gemma-4-2b-local adapter", "gemma-4-2b-local base"]);
   });
+
+  test("puts the definition, direction, and provenance behind a disclosure", () => {
+    render(
+      <EvalPanel
+        results={[
+          makeResult({
+            id: "row",
+            metric: "model_legal_move_rate",
+            definition: "legal replies / replies received",
+            version: "1",
+            unit: "ratio",
+            direction: "higher_is_better",
+            numerator: 7,
+            denominator: 12,
+            position_set_id: "ff526a6802915a76",
+          }),
+        ]}
+      />,
+    );
+    const details = screen.getByTestId("eval-details-model_legal_move_rate");
+    expect(details).toBeTruthy();
+    expect(details.textContent).toContain("legal replies / replies received");
+    expect(details.textContent).toContain("(v1)");
+    // Direction is words, never color alone.
+    expect(details.textContent).toContain("higher is better");
+    expect(details.textContent).toContain("12 rows counted");
+    expect(details.textContent).toContain("ff526a6802915a76");
+    expect(details.textContent).toContain("computed from stored rows");
+  });
+
+  test("says plainly that a cached value is not a live computation", () => {
+    render(
+      <EvalPanel
+        results={[
+          makeResult({
+            id: "cached",
+            metric: "centipawn_loss",
+            source: "cached",
+            note: "Needs Stockfish; illustrative.",
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("eval-note-centipawn_loss").textContent).toContain("Stockfish");
+    const details = screen.getByTestId("eval-details-centipawn_loss");
+    expect(details.textContent).toContain("cached fixture, not a live computation");
+  });
 });

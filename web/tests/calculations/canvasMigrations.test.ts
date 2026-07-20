@@ -151,6 +151,7 @@ describe("migrateCanvasDocument", () => {
       "ensure-modality-panels",
       "ensure-deck-panel",
       "stamp-ownership",
+      "ensure-adaptation-panel",
     ]);
 
     // The two missing pages appear, seeded; the three existing ones stay.

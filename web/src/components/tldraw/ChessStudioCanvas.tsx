@@ -11,6 +11,7 @@ import { useCurrentUser } from "../../lib/currentUserContext";
 import { usePresenterState } from "../../lib/presenterContext";
 import type { RoomStatus } from "../../lib/roomStatus";
 import { PageTabs } from "./PageTabs";
+import { AdaptationPanelShapeUtil } from "./shapes/AdaptationPanelShapeUtil";
 import { DeckShapeUtil } from "./shapes/DeckShapeUtil";
 import { ModalityPanelShapeUtil } from "./shapes/ModalityPanelShapeUtil";
 import { NotebookShapeUtil } from "./shapes/NotebookShapeUtil";
@@ -21,6 +22,7 @@ const customShapeUtils = [
   ModalityPanelShapeUtil,
   NotebookShapeUtil,
   DeckShapeUtil,
+  AdaptationPanelShapeUtil,
 ];
 
 // Fonts, icons, and translations bundled through Vite instead of fetched

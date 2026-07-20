@@ -21,6 +21,8 @@ export function modalityPanelShapeId(slug: string): string {
 
 export const DECK_SHAPE_ID = "shape:deck-panel";
 
+export const ADAPTATION_SHAPE_ID = "shape:adaptation-panel";
+
 export const DOCUMENT_RECORD_ID = "document:document";
 
 /**
