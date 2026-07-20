@@ -404,6 +404,76 @@ commits on this branch.
 
 Final counts after round 2: api 368, web 217, deck 10.
 
+## Round 3 corrections
+
+A third review pass, run after independently re-verifying all of round 2 (368
+api, 217 web, 10 deck, lint, both type checkers, Playwright 9/9 all passed
+clean on their own before this round's six findings were raised). Same
+discipline as the rounds above: reproduce, fix minimally, rerun the full
+suite plus lint and typecheck after each one, separate commits.
+
+1. **The eval panel showed every historical run, not just the current
+   one.** `eval_results` correctly keeps every position-set window a
+   re-run produces (round 2's fix), but the panel rendered every row
+   with no model/checkpoint/time label -- three runs over a growing
+   move history became six indistinguishable rows with denominators 1,
+   2, and 3. Fixed with a pure frontend reduction, not a backend data
+   change: `calculations/evalResults.ts`'s `latestEvalResultsByScope`
+   keeps only the newest row per (modality, metric, source, workspace,
+   model, checkpoint) before `EvalPanel` renders; rows that still
+   coexist after that (a base checkpoint next to an adapted one) get a
+   small model/checkpoint label plus a provenance tooltip so they read
+   as distinct measurements, not duplicates.
+2. **A move could cross the game deadline while blocked on the write
+   lock.** `make_move` checked clock expiry before `BEGIN IMMEDIATE`.
+   The reviewer held the writer lock (a second real connection) until a
+   backdated ~0.2s-remaining game genuinely expired, and the blocked
+   move was accepted afterward with the game still active -- the same
+   check-before-lock shape as the round-2 precondition bug, just for
+   the clock instead of the board state. Fixed by moving the check
+   inside the write lock, on a fresh `get_active_game` read taken after
+   `BEGIN IMMEDIATE` returns. The original worry about nesting
+   `expire_if_over`'s own commit inside this transaction turned out not
+   to apply: on the expired branch this call's very next action is to
+   raise, so there is nothing later in the transaction for an early
+   commit to leave half-done.
+3. **A model turn-ownership 409 displayed a false timeout loss.**
+   `/model-move` maps both `GameClockExpiredError` and
+   `NotYourTurnError` to 409; `triggerModelReply()` treated every 409
+   as a clock expiry. A late duplicate model-move request losing a
+   turn-ownership race (the turn changed while it was in flight) would
+   show "Time ran out. That is a loss." even though the game was still
+   running. `handleMove` already distinguished this on the
+   participant's move path (checking the 409 detail for "model's
+   turn"); `triggerModelReply` got the mirrored check for "participant's
+   turn" instead of routing every 409 to `handleClockExpired()`.
+4. **`position_set_id` deduped positions, hiding repeat-sample
+   denominators.** The hash removed duplicate FENs before hashing, so a
+   sample with three distinct positions once each and a sample with one
+   position sampled a hundred times could get the identical id, despite
+   representing wildly different measurements. Fixed by hashing the
+   sorted list with duplicates intact -- still order-independent,
+   deliberately no longer duplicate-independent, since every repeated
+   attempt is a real row in the denominator.
+5. **The deadline-exceeded bail-out overcounted transport attempts.**
+   `_chat_completion` incremented `attempt` at the top of the retry
+   loop before checking whether the deadline had already expired, so a
+   bail-out (no request made) still counted as an attempt. One real
+   HTTP call followed by a deadline bail-out was reported as two
+   transport attempts. Fixed by moving the increment to just before the
+   real `client.post`, after the deadline check.
+6. **The README was behind phase 32.** It still described canvas
+   persistence as a whole-shared-snapshot overwrite, presenter
+   navigation with no exact camera target, and a hardcoded
+   `/opt/pw-browsers/chromium` Chromium path -- all three fixed in
+   phase 32 (real multiplayer sync with per-record conflict resolution,
+   camera-bounds-first presenter targeting, Playwright's own default
+   browser discovery with an optional env override).
+   `docs/local-dev.md` already had this right; only `README.md` had
+   drifted.
+
+Final counts after round 3: api 370, web 226, deck 10.
+
 ## Intentionally deferred
 
 - The visible adaptation loop (before/after comparison UI) is phase
@@ -421,8 +491,9 @@ Final counts after round 2: api 368, web 217, deck 10.
 - `text_reward_eval` still sums rewards over all actors' moves. It is
   a sum, not a rate, so nothing is mislabelled, but a per-actor split
   would be more useful teaching material.
-- The eval panel shows scope only via tooltip/counts; a fuller
-  provenance popover could render scope_json.
+- The eval panel now shows model/checkpoint as a small label plus a
+  provenance tooltip (definition, model, checkpoint, run timestamp);
+  a fuller popover rendering the raw `scope_json` is still not built.
 - `model_attempts.checkpoint` is always NULL until phase 34 writes it.
 - The legacy `policy_value_to_move` label mapping in DatasetPanel can
   go once rehearsal databases are reset for the workshop.
@@ -483,3 +554,17 @@ hash-match on purpose rather than by accident.
   before assuming the fix is wrong.
 - pkill in this sandbox kills the calling shell's process group too;
   use targeted `kill $(pgrep -f ...)` when scripting rehearsals.
+- To test that a blocked writer sees genuinely fresh state once its
+  `BEGIN IMMEDIATE` finally returns (the clock-expiry-during-lock-wait
+  fix), synchronize with a `threading.Event` the holder sets right
+  after it acquires the lock, not a `threading.Barrier` both sides
+  wait on. A barrier only guarantees both threads *start* around the
+  same time; it does not guarantee which one wins the race for the
+  lock, and this test needs the holder to provably have the lock
+  before the move attempt even begins.
+- A retry-loop attempt counter must only increment right before the
+  request it is counting for actually fires. Incrementing earlier (at
+  the top of the loop, before a deadline or other precondition check
+  that might bail out first) counts attempts that never reached the
+  network -- exactly the shape of the round-3 overcounting bug in
+  `_chat_completion`.
