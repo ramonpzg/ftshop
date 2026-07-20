@@ -70,7 +70,7 @@ function toggle() {
  * terminal and the bezel keeps its geometry stable. */
 .phone {
   aspect-ratio: 9 / 19.5;
-  height: 380px;
+  height: 340px;
   background: #211f1b;
   border: 1px solid #211f1b;
   border-radius: 14px;
