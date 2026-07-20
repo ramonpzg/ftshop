@@ -193,9 +193,12 @@ def test_parse_failure_records_raw_and_does_not_erase_prior_records(tmp_path, mo
     assert latest["id"] != good["id"]
     assert latest["status"] == "failed"
     assert latest["error_detail"] == "reply had no usable assessment"
-    assert conn.execute(
-        "SELECT * FROM scenario_assessments WHERE id = ?", (good["id"],)
-    ).fetchone()["suggested_assessment"] == good["suggested_assessment"]
+    assert (
+        conn.execute("SELECT * FROM scenario_assessments WHERE id = ?", (good["id"],)).fetchone()[
+            "suggested_assessment"
+        ]
+        == good["suggested_assessment"]
+    )
 
 
 def test_transport_failure_has_a_recoverable_persisted_state(tmp_path, monkeypatch):

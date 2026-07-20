@@ -69,54 +69,83 @@ def make_move(
     and so on), and applying it anyway would misattribute a decision
     made against stale information as a legitimate reply to the
     current position.
+
+    The check and the write are one atomic unit, not check-then-write:
+    two connections racing this function for the same workspace must
+    not both pass the precondition/turn-ownership checks against the
+    same starting position and then both write. See the BEGIN IMMEDIATE
+    below.
     """
     workspace = get_workspace(conn, workspace_id)
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
 
     # The server clock is the referee. A move that arrives after the
-    # flag fell is not a move; the game is already a timeout loss.
+    # flag fell is not a move; the game is already a timeout loss. This
+    # runs before the write lock below because expire_if_over commits
+    # its own timeout loss immediately and independently of whatever
+    # this call goes on to do; it must not be nested inside the
+    # transaction that follows.
     game = get_active_game(conn, workspace_id)
     if game is not None and expire_if_over(conn, game) is None:
         raise GameClockExpiredError("time ran out; that game is a loss")
-    game_id = game["id"] if game is not None else None
 
-    # The public move route has no other way to know whose turn it is;
-    # without this check a raw API call could play both colors, silently
-    # standing in for the model, bypassing its recorded attempts and its
-    # unavailable/retry recovery state, and polluting the participant's
-    # own legal-move-rate and the exported dataset with moves the model
-    # was supposed to make. Free play (no active game) has no such
-    # contract to violate and is unrestricted.
-    if actor == "participant" and game_id is not None:
-        active_color = workspace["board_fen"].split(" ")[1]
-        if active_color != PARTICIPANT_COLOR:
-            raise NotYourTurnError(
-                "it is the model's turn; call /model-move instead of playing for it"
-            )
-
-    if precondition is not None:
-        current_ply = len(list_legal_sans(conn, workspace_id, game_id))
-        if (
-            workspace["board_fen"] != precondition.fen
-            or game_id != precondition.game_id
-            or current_ply != precondition.ply
-        ):
-            raise StaleMoveError(
-                "board changed since this move was decided: expected "
-                f"fen={precondition.fen!r} game={precondition.game_id!r} "
-                f"ply={precondition.ply}; found fen={workspace['board_fen']!r} "
-                f"game={game_id!r} ply={current_ply}"
-            )
-
-    fen_before = workspace["board_fen"]
-    legal_moves_before = get_legal_moves(fen_before)
-    result = apply_move(fen_before, uci)
-    reward = compute_reward(
-        legal=result.legal, is_check=result.is_check, is_checkmate=result.is_checkmate
-    )
-
+    # From here on, everything is one write-locked transaction: BEGIN
+    # IMMEDIATE acquires SQLite's write lock up front, rather than
+    # SQLite's default deferred behaviour (no lock until the first
+    # write statement executes). Without this, the turn-ownership and
+    # precondition checks below read state, another connection's
+    # make_move could interleave a whole move in the gap, and this call
+    # would then write against a position that already changed --
+    # exactly the race that let two overlapping model replies both
+    # record a legal e7e5 at consecutive plies. Everything the checks
+    # read is re-read fresh here, after the lock is held, because the
+    # workspace/game read above happened before we held it and can
+    # already be stale.
+    conn.execute("BEGIN IMMEDIATE")
     try:
+        workspace = get_workspace(conn, workspace_id)
+        if workspace is None:
+            raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
+        game = get_active_game(conn, workspace_id)
+        game_id = game["id"] if game is not None else None
+
+        # The public move route has no other way to know whose turn it
+        # is; without this check a raw API call could play both colors,
+        # silently standing in for the model, bypassing its recorded
+        # attempts and its unavailable/retry recovery state, and
+        # polluting the participant's own legal-move-rate and the
+        # exported dataset with moves the model was supposed to make.
+        # Free play (no active game) has no such contract to violate
+        # and is unrestricted.
+        if actor == "participant" and game_id is not None:
+            active_color = workspace["board_fen"].split(" ")[1]
+            if active_color != PARTICIPANT_COLOR:
+                raise NotYourTurnError(
+                    "it is the model's turn; call /model-move instead of playing for it"
+                )
+
+        if precondition is not None:
+            current_ply = len(list_legal_sans(conn, workspace_id, game_id))
+            if (
+                workspace["board_fen"] != precondition.fen
+                or game_id != precondition.game_id
+                or current_ply != precondition.ply
+            ):
+                raise StaleMoveError(
+                    "board changed since this move was decided: expected "
+                    f"fen={precondition.fen!r} game={precondition.game_id!r} "
+                    f"ply={precondition.ply}; found fen={workspace['board_fen']!r} "
+                    f"game={game_id!r} ply={current_ply}"
+                )
+
+        fen_before = workspace["board_fen"]
+        legal_moves_before = get_legal_moves(fen_before)
+        result = apply_move(fen_before, uci)
+        reward = compute_reward(
+            legal=result.legal, is_check=result.is_check, is_checkmate=result.is_checkmate
+        )
+
         move_row = insert_move(
             conn,
             workspace_id=workspace_id,

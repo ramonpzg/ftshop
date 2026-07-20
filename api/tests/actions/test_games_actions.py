@@ -32,6 +32,7 @@ def make_workspace(tmp_path: Path):
     workspace = insert_workspace(
         conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
+    conn.commit()
     return conn, workspace
 
 

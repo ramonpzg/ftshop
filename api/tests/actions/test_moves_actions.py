@@ -1,4 +1,5 @@
 import json
+import threading
 from pathlib import Path
 
 import chess
@@ -6,7 +7,12 @@ import pytest
 
 from euro_chess_studio.actions.errors import NotYourTurnError, StaleMoveError
 from euro_chess_studio.actions.games import start_game
-from euro_chess_studio.actions.moves import MovePrecondition, WorkspaceNotFoundError, make_move
+from euro_chess_studio.actions.moves import (
+    MakeMoveResult,
+    MovePrecondition,
+    WorkspaceNotFoundError,
+    make_move,
+)
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
@@ -24,6 +30,7 @@ def make_workspace(tmp_path: Path):
     workspace = insert_workspace(
         conn, "workspace_1", user["id"], page["id"], "shape:1", chess.STARTING_FEN
     )
+    conn.commit()
     return conn, workspace
 
 
@@ -183,3 +190,64 @@ def test_model_and_fallback_moves_are_unaffected_by_the_turn_check(tmp_path: Pat
     make_move(conn, workspace["id"], "g1f3")
     fallback_result = make_move(conn, workspace["id"], "b8c6", actor="fallback")
     assert fallback_result.move["is_legal"] == 1
+
+
+def test_precondition_check_and_write_are_atomic_across_two_real_connections(tmp_path: Path):
+    """A genuine two-connection race, not a nested call on one
+    connection: two separate sqlite3 connections, synchronized with a
+    barrier so both start make_move at the same instant, both decide
+    the same move against the same precondition. Before BEGIN IMMEDIATE,
+    each connection's read of the board happened before either had
+    written anything, so both independently found the move legal
+    against their own stale snapshot and both wrote -- reproduced
+    exactly as reported: two overlapping model replies both recording
+    a legal e7e5. Racing after the check (as an earlier test did, via a
+    nested call inside a stubbed chat()) cannot exercise this window;
+    only two real connections racing into the check itself can."""
+    conn, workspace = make_workspace(tmp_path)
+    make_move(conn, workspace["id"], "e2e4")
+    conn.commit()
+
+    precondition = MovePrecondition(
+        fen="rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        game_id=None,
+        ply=1,
+    )
+    barrier = threading.Barrier(2)
+    results: list[object] = [None, None]
+
+    def attempt(index: int) -> None:
+        thread_conn = get_connection(tmp_path / "test.db")
+        try:
+            barrier.wait(timeout=5)
+            results[index] = make_move(
+                thread_conn,
+                workspace["id"],
+                "e7e5",
+                actor="model",
+                model="gpt-5.6-luna",
+                precondition=precondition,
+            )
+        except Exception as exc:  # noqa: BLE001 -- captured for the assertions below
+            results[index] = exc
+        finally:
+            thread_conn.close()
+
+    threads = [threading.Thread(target=attempt, args=(i,)) for i in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    successes = [r for r in results if isinstance(r, MakeMoveResult)]
+    stale_failures = [r for r in results if isinstance(r, StaleMoveError)]
+    assert len(successes) == 1, results
+    assert len(stale_failures) == 1, results
+
+    other = get_connection(tmp_path / "test.db")
+    try:
+        # Exactly one legal move at this ply, not two duplicates.
+        rows = other.execute("SELECT uci FROM moves WHERE ply = 1 AND is_legal = 1").fetchall()
+        assert [r["uci"] for r in rows] == ["e7e5"]
+    finally:
+        other.close()
