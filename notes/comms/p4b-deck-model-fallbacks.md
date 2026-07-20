@@ -8,8 +8,10 @@ and before phase 36 release readiness.
 You are implementing a supplemental deck-resilience phase for
 `euro-scipy-chess-studio`. Build a small set of Slidev components that can
 show real text, image, audio, and video model outputs when the collaborative
-whiteboard is unavailable. Each comparison can switch explicitly between a
-local model path and an API model path.
+whiteboard is unavailable. Each comparison can switch explicitly between
+named execution profiles. A profile binds one endpoint, credential source,
+model, and capability set; selecting it changes the whole routing decision,
+not just the model string.
 
 This is not another application inside the deck. It is a presenter-controlled
 fallback and comparison surface. Keep the implementation narrow, reuse the
@@ -44,8 +46,8 @@ registry where possible. Provider differences belong in data or runner
 boundaries. Actions orchestrate. Calculations construct requests, normalize
 results, and compare outputs. Vue components render and dispatch commands.
 
-Define one small backend contract shared by the deck components. It should
-make these facts explicit:
+Define one small backend contract shared by the deck components and the
+whiteboard's existing model picker. It should make these facts explicit:
 
 - modality: text, image, audio, or video;
 - execution source: local or API;
@@ -59,18 +61,53 @@ make these facts explicit:
 Do not flatten incompatible media into one string response. Share lifecycle
 and provenance fields while keeping typed modality payloads.
 
-### 2. Build one compact comparison surface per modality
+### 2. Route through named provider profiles
+
+Replace the current single-endpoint-plus-model-list assumption with a typed,
+server-side profile registry. The initial text profiles are:
+
+- `luna`: label `Luna (OpenAI API)`, OpenAI Chat Completions endpoint, model
+  `gpt-5.6-luna`;
+- `gemma-local`: label `Gemma 4 E2B (local)`, llama.cpp Chat Completions
+  endpoint at `http://127.0.0.1:8020/v1`, model alias
+  `gemma-4-2b-local`.
+
+Environment configuration may override the endpoint, model, and credential
+source for a profile without changing browser code. Do not send endpoint URLs,
+credential environment-variable names, or secrets to either frontend. Expose
+only a safe projection: stable profile ID, label, execution source, concrete
+model ID, availability, and relevant capabilities.
+
+The presenter-facing control is one compact dropdown. Its value is the stable
+profile ID. Selecting an option atomically chooses that profile's endpoint,
+credential, model, and capabilities. Do not use separate provider and model
+controls, accept arbitrary endpoint URLs from the browser, or infer an endpoint
+from a model-name prefix. Changing the dropdown must not start generation.
+
+Use the same safe profile list and profile IDs in the whiteboard's timed-game
+picker and the deck comparison components. Persist the selected profile ID
+with a game, attempt, job, or artifact wherever it affects execution, alongside
+the concrete resolved model already recorded for provenance. Existing rows
+without a profile migrate to an explicit `unknown` value rather than a guess.
+
+Starting local Gemma and selecting it are separate operations. The workshop
+runbook starts `just start-gemma` before the session and leaves it warm, while
+the dropdown determines whether a request goes to it. Do not require a backend
+restart to move between Luna and Gemma. Update `just start-gemma` to use port
+8020 and text-only serving; keep it separate from `just start`.
+
+### 3. Build one compact comparison surface per modality
 
 Use one component family with concept-specific renderers rather than four
-unrelated mini-apps. A two-option Local/API segmented control is required. It
-must be keyboard accessible, have a stable width, and never change modes on
-its own. Switching mode changes the selected saved result immediately and
-does not start a paid or expensive generation.
+unrelated mini-apps. The named-profile dropdown is required. It must be
+keyboard accessible, have a stable width, and never change selection on its
+own. Switching profile changes the selected saved result immediately and does
+not start a paid or expensive generation.
 
 Each surface shows:
 
 - the exact common input;
-- Local or API selection;
+- named profile selection and its Local or API source;
 - concrete model name;
 - cached or live provenance;
 - the output in its native form;
@@ -112,7 +149,7 @@ Use the model IDs and runtime choices accepted by the preceding phases. Do
 not guess a new current model name in copy or fixtures. Configuration must
 remain environment-driven.
 
-### 3. Make the fallback independent of a live demo
+### 4. Make the fallback independent of a live demo
 
 Every modality needs one reviewed Local result and one reviewed API result
 available before the session. Store a small manifest with exact input,
@@ -138,7 +175,7 @@ The deck must still present useful results in these cases:
 4. API key missing or provider unavailable;
 5. a live request fails after a cached result has rendered.
 
-### 4. Keep presenter control and deck pacing
+### 5. Keep presenter control and deck pacing
 
 Place each component only on the accepted outcome or modality slide where it
 replaces a placeholder or makes the existing comparison concrete. Preserve
@@ -160,17 +197,19 @@ is.
 Add focused tests at calculation, backend, and deck-component boundaries.
 At minimum prove:
 
-1. Local/API switching changes only the selected result and never starts a
-   job.
-2. Both text modes receive the same position, legal-move list, and JSON
+1. Profile switching changes the endpoint and model together, changes only the
+   selected result, and never starts a job.
+2. The whiteboard and deck receive the same safe profile IDs and labels; neither
+   frontend receives endpoints or credential details.
+3. Both text profiles receive the same position, legal-move list, and JSON
    contract, and legality is calculated rather than trusted from the model.
-3. No browser bundle or request exposes provider credentials.
-4. `Run live` is rejected while `DECK_LIVE_MODE` is off and runs exactly one
+4. No browser bundle or request exposes provider credentials.
+5. `Run live` is rejected while `DECK_LIVE_MODE` is off and runs exactly one
    job when enabled.
-5. Cached image, audio, and video remain usable with the backend down.
-6. Failed live work leaves the cached result visible with accurate provenance.
-7. Audio and video never autoplay.
-8. Long model IDs, raw text replies, errors, and metadata fit at 1920x1080,
+6. Cached image, audio, and video remain usable with the backend down.
+7. Failed live work leaves the cached result visible with accurate provenance.
+8. Audio and video never autoplay.
+9. Long model IDs, raw text replies, errors, and metadata fit at 1920x1080,
    1440x900, and 1280x720 without overlap.
 
 Exercise at least one real local Gemma call through `just start-gemma` and one

@@ -61,6 +61,9 @@ All five phases must follow `AGENTS.md`, `CLAUDE.md`, and
 - The FastAPI backend owns durable workshop state.
 - Text-model I/O uses one tested Chat Completions client boundary. Model and
   provider capability differences do not leak into React components.
+- Model selection uses named backend profiles. A profile binds endpoint,
+  credential source, concrete model, and capabilities; browser controls submit
+  only the stable profile ID and never receive provider URLs or secrets.
 - Tests use real calculations and temporary databases. Do not mock the whole
   application into passing.
 - Visible copy is direct, terse, practical, and borderline boring. No emojis,
