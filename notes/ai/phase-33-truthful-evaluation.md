@@ -474,6 +474,58 @@ suite plus lint and typecheck after each one, separate commits.
 
 Final counts after round 3: api 370, web 226, deck 10.
 
+## Round 4 corrections
+
+A fourth pass, on independently re-verified round-3 work, found three
+findings: one code fix, one docs fix, and one documentation-quality
+fix on this handover's own sibling document.
+
+1. **Turn/clock 409s still depended on English copy.** Round 3's fix
+   for the false-timeout-loss bug had the frontend distinguish a
+   turn-ownership 409 from a clock-expiry 409 by substring-matching the
+   exception's message. A copy edit to that message could silently
+   restore the original bug, and the unit tests would not catch it,
+   because their mocks repeat the exact old wording rather than
+   exercising a message that had actually changed. Fixed by giving
+   both errors a stable identity independent of their prose:
+   `turn_conflict_detail` (`actions/errors.py`) returns
+   `{code, message}`, with `code` either `"clock_expired"` or
+   `"not_your_turn"`; both `/moves` and `/model-move` send that as the
+   409's `detail`. `apiErrorCode` (`data/api.ts`) reads the code back
+   out; `apiErrorDetail` was extended to still extract the human
+   message from either the new structured shape or the plain string
+   every other error continues to send, so no other caller needed to
+   change. `handleMove` and `triggerModelReply` now branch on
+   `apiErrorCode(error) === "not_your_turn"`. Added direct unit tests
+   for both helpers, including one that gives the same code two
+   different messages and asserts the code alone still resolves
+   correctly -- the exact case a copy edit would exercise.
+2. **`CLAUDE.md` (and its `AGENTS.md` symlink) were behind phase 32.**
+   `just start`'s one-line summary listed only the backend and
+   frontend, omitting the canvas sync room on :8010 that phase 32
+   added as a third process in the Justfile's `start` recipe. It also
+   still claimed `just test-e2e` needed `/opt/pw-browsers/chromium`,
+   the same stale claim already fixed in `README.md`'s body text but
+   missed in the agent instructions -- the file new agents actually
+   read for setup. `README.md`'s command-table one-liner for
+   `just start` had the identical sync-room omission. Fixed both to
+   describe the current three-process `just start` and Playwright's
+   own default browser discovery with the `CHESS_STUDIO_CHROMIUM`
+   override.
+3. **This handover's own learning-guide section was too long and
+   contained an unsupported claim.** The "third review" section in
+   `notes/hu/phase-33-truthful-evaluation.md` ran roughly 90 lines with
+   rhetorical asides that did not fit the requested tone, and asserted
+   that a position sampled a hundred times is "a hundred times more
+   confident" than one sampled once -- not a claim the fix establishes.
+   Shortened to roughly half its length and corrected the claim to
+   what the fix actually guarantees: different multiplicities produce
+   different denominators, which alone is enough to call two samples
+   different measurements, without reaching for a confidence claim the
+   code does not support.
+
+Final counts after round 4: api 370, web 234, deck 10.
+
 ## Intentionally deferred
 
 - The visible adaptation loop (before/after comparison UI) is phase
@@ -568,3 +620,16 @@ hash-match on purpose rather than by accident.
   that might bail out first) counts attempts that never reached the
   network -- exactly the shape of the round-3 overcounting bug in
   `_chat_completion`.
+- `AGENTS.md` is a symlink to `CLAUDE.md`, not a separate file. Edit
+  `CLAUDE.md`; the symlink picks it up automatically. Editing
+  `AGENTS.md` directly would work too (same inode) but there is no
+  reason to reach for it specifically.
+- When two HTTP error causes share one status code and a client needs
+  to react differently to each, do not distinguish them by matching
+  the exception's message text -- a copy edit changes prose without
+  changing meaning, and a test whose mock repeats the old wording will
+  not catch the regression. `turn_conflict_detail` /
+  `apiErrorCode` (a `{code, message}` detail body, code stable,
+  message free to change) is the pattern this phase settled on; reuse
+  it for the next status code that ends up covering more than one
+  cause.

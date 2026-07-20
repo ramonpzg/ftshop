@@ -381,95 +381,80 @@ the endpoint had been collapsing them into one row the whole time.
 Making an implicit accident into an explicit contract is often the
 real fix, not a footnote to it.
 
-## The third review: the same lesson keeps showing up, and one new one
+## The third review: the same lock-before-check bug, twice more
 
-A third round found six more findings. Read that number and feel
-something: not "how many bugs are in this thing," but "how many times
-does the same shape of mistake have to appear before you'd recognize
-it on sight." Two of these six are the check-before-the-lock bug
-again, in different clothes. If that sentence makes you a little
-impatient -- "didn't we already fix this" -- good. That impatience is
-exactly the instinct a code reviewer needs, and it is worth noticing
-that it took a third pass to actually apply it to the game clock.
+A third round found six more findings. Two are round one's
+check-before-the-lock bug again, applied to code nobody had checked
+against it yet.
 
-The clock-expiry bug is worth sitting with precisely because the
-codebase already knew better. Round one fixed the identical race for
-the board position: check-then-write across a lock boundary lets
-another writer change reality in the gap. Round two even wrote the
-fix's comment explaining why. And yet the clock check still ran before
-`BEGIN IMMEDIATE`, with a comment justifying *that* choice on the
-grounds that the clock's own commit shouldn't nest inside a bigger
-transaction. Ask yourself: was that reasoning wrong, or was it correct
-about a different problem than the one that actually existed? It was
-the second one. Nesting the commit is genuinely fine, for a reason
-that only becomes obvious once you trace the control flow all the way
-through: on the branch where the clock has expired, the very next line
-is a raise, and nothing after a raise on that path needs the lock
-protected anymore. The reviewer proved the actual bug by holding the
-write lock open on a second real connection until a backdated,
-almost-expired game genuinely ran out of time, then releasing it --
-the blocked move sailed through afterward as if no time had passed.
-The fix is one clause moved from above a line to below it. The lesson
-is that "I already fixed this class of bug" is a claim about a
-pattern, and a pattern has to be checked against every place it
-applies, not just the first place you noticed it.
+The clock-expiry bug is the clearer of the two. Round one fixed
+check-then-write for the board position: a read taken before the write
+lock can be stale by the time the write happens. The clock check still
+ran before `BEGIN IMMEDIATE`, on the reasoning that nesting
+`expire_if_over`'s own commit inside the transaction was unsafe. That
+reasoning does not hold up: on the branch where the clock has expired,
+the next line is a raise, so there is nothing later in the transaction
+for an early commit to disturb. The reviewer proved the bug by holding
+the write lock open on a second real connection until a near-expired
+game genuinely ran out of time, then releasing it -- the blocked move
+landed anyway. The fix moves the check inside the lock, onto a fresh
+read. Knowing a pattern exists is not the same as having checked every
+place it applies.
 
-The eval panel bug is a different kind of mistake, and a more common
-one outside chess workshops: confusing what you should *keep* with
-what you should *show*. Round two was right to keep every position-set
-window a re-run produces -- that is the actual history, and deleting
-it would make the "same recipe, different results" story unprovable
-after the fact. The bug was assuming that because keeping every row
-was correct, showing every row was too. It is not. A live status panel
-answers one question -- what is true right now -- and a table that
-answers a different question -- what has ever been true -- needs a
-reduction step in between, not a direct wire from storage to render.
-Notice where that reduction lives: not in the database (which stays a
-complete history) and not thrown together inline in the component
-(which would make it untestable and easy to get subtly wrong), but as
-its own pure function, `latestEvalResultsByScope`, that takes a list
-and returns a list. The database's job and the panel's job were never
-the same job; they only looked like it because one function was doing
-both without a name.
+The turn-conflict 409 is a smaller version of the same gap: a check
+written for one direction of a two-way condition, with the other
+direction unverified until someone looked for it on purpose.
 
-The `position_set_id` bug is the sharpest one to reason through,
-because the fix is a single word removed from a sentence -- "dedupe"
--- and getting that word right required asking what the id is
-actually for. It exists to let two eval runs prove they measured the
-same thing. Here is the question to answer before reading further:
-what does "the same thing" mean when the thing being measured is a
-sample with retries in it? The old code answered "the same *set* of
-positions" -- drop duplicates, sort, hash. That answer is defensible
-in isolation, but it is not the answer this id needs, because a
-metric's denominator counts every attempt, retries included. A model
-sampled once on a position and a model sampled a hundred times on that
-same position are not the same evaluation; one of them is a hundred
-times more confident, or a hundred times more likely to be a retry
-loop bug, and the id should be able to tell you that something is
-different even when it can't tell you what. Deduplicating erased
-exactly the information that would have revealed it. The fix keeps
-duplicates and only removes order -- hash the sorted list, not the
-sorted set -- which sounds like a tiny change and is, but it is a tiny
-change that required noticing the id's job description had a silent
-scope-narrowing error in it: "prove these are the same positions"
-quietly became "prove these are the same set of positions," and nobody
-had said that second sentence out loud until the review did.
+The eval-panel bug is a different mistake: conflating what should be
+*stored* with what should be *shown*. Keeping every position-set
+window is correct -- that is the actual history, and it is what lets
+two runs prove they measured the same positions. A live panel answers
+a different question, though: what is true right now, not what has
+ever been true. That reduction now lives in its own pure function,
+`latestEvalResultsByScope`, instead of being implied by whichever
+query happened to feed the component.
 
-The remaining three are worth a sentence each, because by now you
-should be able to place them yourself. A 409 is a numeric contract with
-two different English-language failures crammed inside it, and the
-frontend that had already learned to read the message for one of them
-(the participant's move) hadn't yet learned to read it for the other
-(the model's move) -- the same fix, applied to the second of two nearly
-identical code paths that nobody had lined up side by side until now.
-An attempt counter incremented itself for a request that then refused
-to happen, because the increment sat above the check that decides
-whether to bail, instead of below it -- move the line, and a counter
-that used to count intentions starts counting actions instead, which
-is the only thing a counter called "attempts" should ever count.
-And a README kept asserting three things a previous phase had already
-fixed, because nobody's job was to walk back through old prose and ask
-whether it was still true -- which is, in the end, the same discipline
-this whole document keeps returning to: a claim is only trustworthy
-for as long as someone keeps checking it against what the code
-actually does.
+The `position_set_id` fix deserves the closest look. The id exists to
+let two eval runs prove they measured the same input. The old code
+answered that with the deduplicated *set* of positions sampled. That
+is not the same claim as "the same input," because a metric's
+denominator counts every attempt, duplicates included: a position
+sampled once and the same position sampled a hundred times have
+different multiplicities and different denominators, so they are not
+the same measurement, whatever else is true of them. Deduplicating
+before hashing erased that difference. The fix hashes the sorted list
+with duplicates intact instead of the sorted set.
+
+The remaining two are smaller. A retry-loop counter was incremented
+before the check that decides whether the attempt happens at all, so a
+bail-out with no request sent still counted as one -- moving the
+increment below the check means it only counts things that actually
+happened. And a README kept asserting three things a previous phase
+had already fixed, because nobody's job was to walk back through old
+prose and check whether it was still true.
+
+## The fourth review: a test that could pass while lying
+
+The round-3 fix for the false-timeout-loss bug told the two 409 causes
+apart by matching the exception's message text. That is a real fix,
+but it rests on a fact that has nothing to do with the bug: the exact
+wording of an English sentence. Change the wording -- a copy edit, not
+a logic change -- and the match silently stops working, while the
+test built to catch this keeps passing, because its mock repeats the
+old wording rather than a message that has actually changed. A test
+can only catch a regression in the thing it varies; if the wording is
+frozen in the mock, the test is checking the mock, not the contract.
+The fix gives the two causes a `code` that is not prose and is not
+supposed to change: `"clock_expired"`, `"not_your_turn"`. The message
+stays free to reword; the code is the part a client is actually
+allowed to depend on. This is the same discipline the whole phase has
+been circling -- a claim only means what it says if something is
+actually pinning it down, not just repeating it back unchanged.
+
+The other two findings this round were about this document and its
+neighbor: `CLAUDE.md` still described a `just start` from before the
+sync room existed, and the previous section of this file ran long and
+overreached with a claim about "confidence" that the position-set-id
+fix does not actually establish. Both are fixed the same way as
+everything else in this phase: read the claim again, compare it to
+what is actually true, and correct it.
