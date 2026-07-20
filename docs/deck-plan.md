@@ -21,11 +21,15 @@ Working agreements, carried over from polyglot and this repo:
   graceful offline states. Where a component can talk to the running
   FastAPI backend, it should, with a clean fallback when the backend
   is down.
-- The session plan is the narrative source of truth. The accepted phase
-  34 direction is motivation and chess grounding, outcome-first demos,
-  then technical decomposition. The existing slide order below records
-  v1 and will be reorganized only after the engineering fixes are
-  reviewed.
+- The session plan is the narrative source of truth. Phase 34's run of
+  show (docs/demo-plan.md) uses the deck in two passes rather than
+  end to end: slides 1-11 carry the opening (motivation, chess
+  grounding, the map and the mantra), slides 12-17 and 19-24 carry the
+  post-demo decomposition, and the close happens from the notebook, so
+  slides 25-28 are reference material rather than a scheduled return.
+  The slide order below still records v1's sequence; physically
+  reordering and rewording slides is phase 35's job, and the two-pass
+  mapping works on the current order without it.
 
 Build in bouts of five slides. v1 status is tracked per slide.
 

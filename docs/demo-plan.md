@@ -1,15 +1,18 @@
 # Demo plan
 
-For running the EuroSciPy 2026 session with this app. 90 minutes,
-one shared chess domain, four modalities. The narrative and topic plan
-for the session itself lives in [session-plan.md](session-plan.md);
-this file is the app walkthrough.
+The run of show for the EuroSciPy 2026 session. Narrative and topics
+live in [session-plan.md](session-plan.md); this file is the operational
+walkthrough: every transition, button, hard stop, cut, and fallback in
+one place. Advertised length 90 minutes; the core below is 72, the
+remaining 18 are controlled flex (join dead air, questions, recovery,
+optional stretches).
 
-The current timing and detail-first order describe the existing build. The
-accepted direction for phase 34 is a compact motivation and chess grounding,
-then outcome-first demos across all four modalities, followed by technical
-decomposition. Keep this runbook operational until that revised flow has been
-implemented and rehearsed.
+Room assumptions: up to 40 attendees, venue wi-fi that drops after idle
+minutes and may demand a captive-portal login. Everything the session
+depends on runs on the presenter's machine from reviewed local
+fixtures. No attendee needs a provider account or API key. No segment
+turns one generation into 40 cloud requests; provider-backed work is
+presenter-controlled with the reviewed local result already on screen.
 
 ## Before the room fills up
 
@@ -17,6 +20,7 @@ implemented and rehearsed.
 just reset-db
 just seed
 just start
+just deck        # second terminal, port 3030
 ```
 
 Open http://localhost:5173/?presenter=1 and join as yourself. The
@@ -25,195 +29,250 @@ from the editing lock and remote camera moves. It is a convenience
 flag, not auth; anyone who knows it gets the panel too.
 
 Attendees use the Network URL vite prints on startup (your LAN IP,
-port 5173), without the flag. Write it somewhere visible. Do a
-throwaway move on the chess-machine page to confirm the backend is
-live before anyone else joins.
+port 5173), without the flag. Write it somewhere visible.
 
-Presenter actions reach attendee browsers within a few seconds; each
-client polls presenter state. Lock editing makes attendee canvases
-read-only. Bring everyone to presenter view pulls their cameras to the
-exact region you are looking at, and Prev / Next keeps them on your
-slide frame while presenter mode is active. Someone joining late lands
-on your current view, not a blank page. Send users to their workspace
-releases their cameras and returns each to their own board.
+Prep checklist, in order, on the actual laptop:
 
-The presenter panel's Games section is your room monitor: who is
-playing, how much clock they have, who finished and how. When the
-first round wraps, **Download all shapes** collects every sample from
-every game into one JSONL for the training demo; **Download SFT
-dataset** is the prompt/completion subset the snippets load. One
-click each, no shell.
+1. Throwaway move on the chess-machine page: backend is live.
+2. Open the adaptation panel (left of the workspace grid on the
+   chess-machine page). Train the adapter on the reference snapshot,
+   then run base and adapted benchmarks (replayed). The Compare step
+   must show its table before anyone arrives: the outcome reveal in
+   segment 4 depends on it.
+3. On each modality page, run "Show adaptation evidence" and "Reveal
+   cached artifact" once: the image pair, both audio clips, and both
+   video takes must render and play from local files with no network.
+4. Deck on 3030, LiveRoom slide shows the room. Open the deck tab with
+   presenter mode and speaker notes.
+5. If OPPONENT_MODELS/keys are set, start one throwaway game to see the
+   model answer; if not, the fallback plan below covers it.
+6. `just session-notebook` once, then close it: JupyterLab starts cold
+   in seconds when segment 8 arrives.
 
-Start the deck too: `just deck` (port 3030). The Presentation page
-embeds it; the Open link on that panel gives you the deck in its own
-tab with presenter mode and speaker notes. The LiveRoom slide talks to
-the backend through the deck's own /api proxy, so it works from port
-3030 and from any attendee machine that can reach yours. Backend down
-shows a terse offline hint; a drop mid-talk keeps the last numbers
-visible with a reconnecting note. Attendees viewing the embedded deck
-panel get your machine's address automatically when the stored URL
-points at localhost.
+Presenter controls (top of the board with `?presenter=1`): Lock
+editing, Unlock editing, Bring everyone to presenter view, Send users
+to their workspace, Prev/Next slide while presenting, Reset page, and
+the Games room monitor with the two dataset export buttons (Download
+SFT dataset, Download all shapes). Presenter actions reach attendee
+browsers within a few seconds.
 
 The week before: run the load test once on the actual laptop
-(`just mock-llm`, backend pointed at it, `just load-test 40`). It
-simulates a full room and prints latency percentiles; see
-local-dev.md for the three commands.
+(`just mock-llm`, backend pointed at it, `just load-test 40`), and time
+this whole run of show once for real.
 
-## Flow
+## Run of show
 
-### 1. Presentation (5 min)
+Each segment lists: target duration and the hard stop, what the room
+predicts before the action, what participants do, the one artifact
+everyone inspects, the sentence that closes the loop, the cut when
+late, and the fallback when something fails.
 
-Land here by default. The page carries an eleven-frame slide deck
-seeded from the session plan; fill the frames with your content and
-assets before the session. Use the Prev / Next controls (bottom right)
-or PageUp / PageDown from a clicker to step through frames. Everything
-you author lives in the shared room and persists through the backend
-as you edit; the badge top left should read "Room: live".
+### 1. Motivation (deck slides 1, 6) - 4 min, hard stop at 0:05
 
-Tell attendees to open the app and enter their name now, so workspace
-creation isn't blocking the room later.
+- Predict: nothing yet; state the board URL twice while people settle.
+- Participants: open the Network URL, do not join yet.
+- Artifact: the cost-of-training versus cost-of-adapting magic-move.
+- Close the loop: adapting is the affordable end of moulding
+  intelligence.
+- Cut: drop the stages-of-AI beat, keep the URL repetition.
+- Fallback: none needed; slides are local.
 
-### 2. Building a Chess Machine, text (35 min)
+### 2. Chess grounding (deck slides 2-5) - 7 min, hard stop at 0:12
 
-The main technical section. Each attendee's join creates their
-workspace here automatically.
+- Predict: ask who has never played; watch the hands.
+- Participants: none; this is the personal hook.
+- Artifact: the Duolingo streak and Elo counter.
+- Close the loop: chess is checkable, so every claim a model makes here
+  can be verified by the environment. That is why the whole workshop
+  lives in it.
+- Queen's Gambit beat stays. Land it, move on.
+- Cut: compress rules to one slide pass (the board pages re-teach by
+  doing).
+- Fallback: none needed.
 
-- Walk the seeded notes: prompt templates, chess datasets, SFT, LoRA
-  and QLoRA, RL environments, Stockfish, legality checking, evals.
-- Have attendees double-click into their own workspace and play a
-  couple of moves. Point at the dataset panel updating live. This is
-  the PGN-prefix, FEN-to-move, FEN+legal-moves, board-tensor, and
-  policy/move-reward rows building from *their* game, not a canned example.
-- Click **Start game**: a timed match from the starting position (five
-  minutes by default, up to thirty in the picker). The configured model
-  answers every move, its moves feed the same dataset rows, and the
-  Analysis section refreshes after each exchange with a position read
-  plus the real-world scenario mapping, persisted with its model and
-  prompt version so a reload restores it and Accept/Edit records the
-  review. If the model picks an illegal move, celebrate: the
-  environment caught it, the failed attempt lands in model_attempts
-  for the eval, the turn retries, and after the retry budget the board
-  plays a labelled fallback move instead of stalling. That is the RL
-  slide happening live.
-- The two-game beat: with OPPONENT_MODELS set (see local-dev.md), the
-  model picker sits next to the clock. Play one five-minute game
-  against the configured small model, then the configured frontier
-  model. Same recipe, same board, visibly different results. Let the
-  room feel the gap before you show the fine-tuning that closes it.
-- Point at the clock and the **Start over** button. Quitting a match
-  costs a loss, and so does the flag falling; the W/L/D record and
-  the match log under the board keep score. Say it out loud:
-  rage-quitting against the bot is a labeled data point now.
-  Checkmates end the game on their own, either direction, and every
-  check, mate, and loss comes with a rotating one-liner.
-- Open one of the dataset tabs before playing. It stays open while
-  moves land, so the room watches the newest row replace the old one
-  in place. That is the aha moment; do not rush past it.
-- Click **Export dataset**: the room's games become
-  `data/processed/text/chess_sft.jsonl`. The standalone Jupyter
-  notebook and the Unsloth and Axolotl snippets in the mini IDE can
-  load that exact path. Do not switch to Jupyter here unless the
-  accepted run of show explicitly calls for it.
-- Open the mini IDE. Walk through the snippets: the prompt template,
-  the chat template, the legal-move validator, the dataset row builder,
-  the reward function, and the LoRA training run. These are real code.
-  The reward function in the IDE is the literal function the backend
-  runs.
-- Attempt an illegal move on screen. The board doesn't change and the
-  move status shows reward -1. That is what "the environment can
-  validate every move" means for RL.
-- Run both text jobs from the config panel (prompt eval, reward eval).
-  Point out the eval panel now shows live numbers (the participant's
-  legal move rate, the model's legal move rate over its raw replies,
-  valid JSON rate on raw model replies) next to the cached
-  illustrative ones (centipawn
-  loss, mate-in-one accuracy, explanation correctness), and explain
-  why those specific three are cached: they need Stockfish or a judge
-  model, which is out of scope for a workshop backend.
+### 3. The map and the mantra (deck slides 7-11) - 4 min, hard stop 0:16
 
-If you want everyone looking at the same thing: **Bring everyone to
-presenter view**, narrate, then **Send users to their workspace** to
-let them resume. **Lock editing** during a narrated segment if boards
-are distracting; **Unlock editing** to hand control back.
+- Predict: which of the six outcomes (moves, commentary, instruction,
+  style, sound, scenarios) they would build first.
+- Participants: join the board with their name now. Budget dead air;
+  the LiveRoom slide shows joins landing.
+- Artifact: the ModalityGrid mantra slide. Say it out loud: pairs in,
+  adapter out, eval always.
+- Close the loop: everything after this is that sentence, four times.
+- Cut: skip slide 9's how-to-follow detail; joining already happened.
+- Fallback: if the venue wi-fi blocks the room, continue presenter-only
+  and say so; every later segment has a presenter-led mode.
 
-### 3. Painting Our Pieces, image (15 min)
+### 4. Outcome-first reveals (board) - 10 min, hard stop at 0:26
 
-Switch pages. Walk the seeded content: image-caption pairs, trigger
-words, aspect ratios, captions.
+Switch to the board. Bring everyone to presenter view.
 
-Open the modality panel. Run "Show dataset", a small cached batch of
-piece image/caption pairs using the real Cburnett piece SVGs.
-"Reveal cached artifact" shows a before/after style-transfer example.
-Point at the eval panel: piece identity, style consistency, prompt
-adherence, caption sensitivity, human preference, all cached, all
-labeled as such.
+- Predict: before each reveal, one guess out loud. Text: how many of
+  twelve held-out positions does the base model answer legally?
+  Audio/video: which take is the adapted one?
+- Participants: watching your screen (their cameras are driven);
+  shout predictions.
+- Artifacts, in order, one inspection each:
+  1. Adaptation panel, step 5: the comparison table. Legality
+     7/12 to 12/12 improved, JSON validity up, explanation rate 0.75
+     to 0.00 regressed. Open one example: the chatty base reply next
+     to the adapted bare JSON.
+  2. Image page, Show adaptation evidence: the watercolor pair.
+  3. Audio page, Show adaptation evidence: play base then adapted
+     motif; the waveforms show the level ramp.
+  4. Video page, Show adaptation evidence: play the flickery base
+     take, then the steady one; the frame strip is the receipt.
+- Close the loop: same recipe, four modalities, and one metric got
+  worse every time. Adaptation trades.
+- Cut: drop the per-example text inspection; keep all four reveals.
+- Fallback: every file is local and committed; if a panel fails to
+  load media it says so in words. Worst case, `just reset-db && just
+  seed` restores state in seconds (canvas untouched).
 
-With FAL_KEY set, type a prompt in the generate block and hit
-Generate: FLUX.2 Klein 4B renders it in a few seconds, swap the picker
-to schnell to compare. The result downloads to the backend, so it
-stays after fal's URL expires. Have attendees draw their favourite
-piece with the draw tool first, then generate the styled version from
-their caption. That is the page's whole argument in one beat.
+### 5. The shared game (board) - 14 min, hard stop at 0:40
 
-### 4. Giving the Board Sound, audio (15 min)
+Send users to their workspace. Unlock editing.
 
-Same pattern. Run "Make spectrogram", this one's a real (if toy)
-calculation, not a fixture: it deterministically turns a duration and
-a tag list into a spectrogram-shaped grid, rendered live in the
-artifact panel. "Reveal cached artifact" shows the illustrative capture
-sound example. Eval panel: tag similarity, duration error, clipping,
-event recognisability, human preference.
+- Predict: whether the small local model will beat them; whether their
+  own moves are all legal.
+- Participants: hands-on. Double-click their workspace, Start game
+  (five minutes), play the configured model. Open one dataset tab
+  before moving and leave it open: the newest row replaces the old one
+  in place. That is the aha; do not rush it.
+- Artifact: their own dataset rows, plus one illegal-move attempt on
+  purpose: board unchanged, reward -1. If the model answers garbage,
+  celebrate: the failed attempt lands in model_attempts, the turn
+  retries, and after the budget a labelled fallback move plays. Run
+  the two text jobs (prompt eval, reward eval) and read the live
+  numbers next to the cached ones (the eval rows now open into
+  definitions and provenance).
+- The two-game beat when OPPONENT_MODELS is set: one game against the
+  small model, one against the frontier model. Same recipe, same
+  board, different results, felt.
+- Scenario beat: Assess position on a mid-game moment; accept or edit
+  the mapping. Keep Ramon's aside: rage-quitting against the bot is a
+  labeled data point now.
+- Close the loop: pairs in. Everything they just made is the left side
+  of the mantra.
+- Cut: one game instead of two; skip the scenario beat (segment 6's
+  freeze still shows raw/approved counts from rehearsal data).
+- Fallback: no key or provider down means Start game reports the model
+  unavailable with a retry button; play a free-play game against a
+  volunteer instead and narrate the same dataset rows. The mock LLM
+  (`just mock-llm`) is the rehearsal stand-in, not a live-room tool.
 
-With `just install-audio` done, generate a capture sound with
-musicgen-small running on your own machine, then swap the picker to
-stable-audio-open for the diffusion take on the same prompt. The
-standalone Jupyter notebook also contains the click synthesis and
-spectrogram material, but it is a separate presenter asset rather than
-an embedded panel.
+### 6. The adaptation evidence chain (board) - 12 min, hard stop 0:52
 
-### 5. Video of the Real-World Use Case, video (15 min)
+Bring everyone to presenter view. Adaptation panel, top to bottom.
 
-Same pattern again, so the parallel across all four modalities is
-obvious by now. Run "Sample frames", another real calculation,
-uniform frame sampling over a virtual clip length. "Reveal cached
-artifact" shows a real-world incident scene derived from Fool's Mate.
-The clip contains no chessboard or chess pieces. Eval panel: fidelity to
-the case, action success, subject continuity, temporal flicker, prompt
-adherence, human preference.
+- Predict: what a training run needs to be reproducible. Collect three
+  answers before opening the panel.
+- Participants: watching; two called-out checks (do the hashes match
+  between adapter card and snapshot card; which metric regressed).
+- Artifacts, one per step:
+  1. Freeze room dataset: the new snapshot card with eligible versus
+     excluded counts, scenario raw/approved, and its content hash.
+  2. Config card: LoRA parameters, seed, output task, config hash, and
+     the three Gemma roles behind the disclosure.
+  3. Train adapter on the reference snapshot: adapter card, result
+     source cached, runner replay. Then select the just-frozen room
+     snapshot and train again: read the 409 out loud. The cached
+     result is bound to the reference hash and will not pose as
+     training on the room's data. That refusal is the honesty model.
+  4. Run base and adapted benchmarks (replayed). Optionally, with a
+     key configured, Run base live: watch the run list show live
+     provenance, and if a call fails, the run's position set differs
+     and Compare says Not comparable per metric. Do not fish for this;
+     mention it when it happens.
+  5. Compare: deltas with verdict words, the regression on screen, and
+     one example opened.
+- Close the loop: adapter out, eval always. An adapter without a
+  dataset hash is a rumor; a delta without a matching frozen set is
+  decoration.
+- Cut: skip the live base run and the refusal beat; keep freeze,
+  train, compare.
+- Fallback: everything here is fixture-backed and keyless by design;
+  the live button only exists when credentials do.
 
-Copy the detailed scene prompt generated by Luna on the chess page.
-Generate is wired to LTX 2.3 fast (about a minute for six seconds,
-keep talking; the panel says so) with Veo 3.1 fast in the picker for the
-frontier comparison. Costs are real here: cents per second, not fractions
-of a cent per image. Say that out loud, it is the lesson.
+### 7. Decomposition (deck slides 12-17, 19-24) - 6 min, hard stop 0:58
 
-### Wrap-up (5 min)
+Back to the deck, fast pass.
 
-Back to Presentation. If you played moves during setup or rehearsal,
-**Reset page** on chess-machine clears everyone's game state cleanly
-before Q&A or a second run.
+- Predict: which stage of the chain costs the most in each modality.
+- Participants: none; this is naming what they saw.
+- Artifact: DatasetShapes cycling one move through six encodings; the
+  training ladder magic-move; the per-modality what-changes slides;
+  merging's slerp YAML.
+- Close the loop: the recipe never changed; the failure modes did.
+- Cut: drop merging (slide 24) first, then the ladder animation.
+- Fallback: none needed; slides are local.
+
+### 8. Notebook practice (standalone Jupyter) - 12 min, hard stop 1:10
+
+The deliberate switch: `just session-notebook` opens JupyterLab in its
+own window. The board stays up but the projector follows the notebook.
+
+- Predict: how many lines the minimal SFT run needs.
+- Participants: hands-on for anyone with a laptop; everyone else
+  follows the projector. Export the room's dataset first (presenter
+  panel, Download SFT dataset) and note the path
+  `data/processed/text/chess_sft.jsonl`; the notebook loads exactly
+  that file.
+- Artifact: the notebook's dataset-to-training walkthrough over the
+  room's own rows.
+- Close the loop: the notebook is the take-home; the whiteboard was
+  the evidence; the deck was the story.
+- Cut: walk two cells instead of the full arc; the notebook is
+  self-serve after the session.
+- Fallback: the notebook's provider and local-model cells are optional
+  and clearly marked; skip them keyless. If JupyterLab will not start,
+  the mini IDE snippets on the board cover the same training code
+  shapes.
+
+### 9. Close (notebook, then the room) - 3 min, hard stop 1:13
+
+- Restate the four outcomes as questions; let the room answer.
+- Repo link and resources from the notebook's final section (the deck
+  is not reopened for this).
+- The economics point, briefly: open models, falling barriers,
+  intelligence choice.
+
+Core total: 72 minutes at the hard stops. The remaining 18 absorb
+joins, questions, and failures; if nothing goes wrong, segments 5 and
+8 stretch to fill.
 
 ## If something goes wrong mid-session
 
-- Board frozen / weird state for one attendee: they can reload, their
-  identity and workspace persist (localStorage + backend), and the
-  app re-materializes their workspace shape and returns the camera to
-  it automatically.
-- Whole page feels off: **Reset page** clears every workspace's game
-  on chess-machine without restarting anything.
-- Need a truly clean slate: `just reset-db && just seed` on the
-  backend (attendees will need to rejoin, that's a full data wipe,
-  not a per-page reset). Your authored slides are untouched: the canvas
-  lives in `data/canvas/snapshot.json`, not in the database.
+- Board frozen / weird state for one attendee: they reload; identity
+  and workspace persist (localStorage + backend), the workspace shape
+  re-materializes, and the camera returns to it.
+- Whole page feels off: **Reset page** on chess-machine clears every
+  workspace's game state without restarting anything. Benchmark runs,
+  adapters, and snapshots survive; they are room-level evidence, not
+  page state.
+- Need a truly clean slate: `just reset-db && just seed` (attendees
+  rejoin; full workshop-state wipe, canvas untouched). Frozen room
+  snapshots are lost; the reference chain reseeds.
 - Deck damaged mid-session: attendees cannot delete or restructure
-  your authored content (ownership rules block it in their clients),
-  so this now takes the presenter doing it. If it happens, stop the
+  authored content; only the presenter can. If it happens, stop the
   whole stack including the sync server, copy
   `data/canvas/snapshot.prev.json` over `snapshot.json`, start again.
   The room holds the document in memory, so restoring the file while
   the sync server runs would just get overwritten.
-- App unusable or the network is unavailable: `just session-notebook`
-  opens `notebooks/full-session.ipynb` in JupyterLab. It is a separate
-  pragmatic asset, not an iframe. Optional live cells still depend on
-  their configured credentials and packages, so rehearse the exact
-  fallback path before relying on it.
+- Provider trouble: the model-turn fallback and retry button handle a
+  flaky endpoint; a dead endpoint turns segment 5 into free play plus
+  narration and removes only the optional live-benchmark beat from
+  segment 6. Nothing else in the core touches a provider.
+- App unusable entirely: `just session-notebook` opens the standalone
+  notebook and the session continues from segment 8's material; the
+  committed media under `artifacts/cached/media/` can be opened
+  directly from the filesystem if a reveal is needed.
+
+## Timing evidence
+
+Rule: time the walkthrough on the real laptop, do not estimate it from
+headings. Record the measured core duration, what was skipped, and
+every wait on the system. The phase-34 rehearsal measurements and the
+current cut list live in
+[notes/ai/phase-34-learning-experience.md](../notes/ai/phase-34-learning-experience.md);
+re-measure after any structural change to this file.

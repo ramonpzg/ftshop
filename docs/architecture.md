@@ -416,11 +416,10 @@ repeat structure claim to be the identical evaluation. Two eval results
 with matching `position_set_id` were measured over the identical
 positions in the identical proportions and are honestly comparable; a
 mismatch means they were not, regardless of how similar their scope
-otherwise looks. This does not make the app capable of forcing two
-different models to play through identical positions -- there is no
-benchmark-runner here, only organic gameplay -- but it does make
-comparability provable after the fact instead of
-assumed from matching `model`/`checkpoint` alone.
+otherwise looks. Organic gameplay can never guarantee two models see
+the same positions; the benchmark runner (below) exists to force
+exactly that, and this hash is how a comparison proves it happened
+instead of assuming it from matching `model`/`checkpoint` alone.
 
 `eval_results`' storage identity is `(modality, metric, workspace,
 source, model, checkpoint, position_set_id)`: a base and an adapted
@@ -461,6 +460,84 @@ that note survives seeding, storage, the API, and rendering: the panel
 shows it under the value, so a cached number can never pose as live.
 The eval panel renders whatever the API returns; no component
 hardcodes a metric value.
+
+## The adaptation evidence chain
+
+Phase 34's teaching loop is four durable identities and one
+comparison, all owned by the backend:
+
+- `dataset_snapshots`: a frozen training set. Freezing
+  (`POST /adaptation/snapshots`, `actions/adaptation.py`) converts the
+  room's `fen_legal_moves_to_move` rows through the same
+  `build_sft_rows` the export uses, applies the phase-33 eligibility
+  rule (fallback and unknown actors are counted as excluded, never
+  included), carries scenario mappings as separate raw and
+  participant-approved counts, and stores the rows themselves
+  (`rows_json`) so a later page reset cannot hollow the snapshot out.
+  `content_hash` uses the position-set recipe: sorted, duplicates
+  preserved.
+- `eval_suites`: a frozen held-out benchmark. Durable example ids, the
+  exact FEN, legal move list, and rendered prompt per example, a
+  schema version, the prompt-contract version (`sft-v1`, the same
+  template training pairs use), a content hash covering all of it, and
+  the suite's own `position_set_id`. The seeded suite repeats one
+  position on purpose: multiplicity is data.
+- `adapters`: durable adapter provenance. Checkpoint label, base model
+  (always the unquantized training start, never the GGUF inference
+  repo; the serving alias is a third thing and the config keeps all
+  three distinct), method and parameters, seed, output task, config
+  id/hash/full json, dataset snapshot id and content hash, runner,
+  cached-versus-live `result_source`, limitations.
+- `benchmark_runs`: one row per benchmark execution, keyed by the same
+  id that lands as `run_id` on its eval rows and `benchmark_run_id` on
+  its attempts. Records the suite identity it ran against, checkpoint,
+  resolved model, live/replayed source, reply and failure counts, and
+  the position set actually measured.
+
+Two job types run the chain through the ordinary registry.
+`text.train_adapter` replays the reviewed cached training fixture and
+refuses to lie: the fixture is bound to the reference snapshot by
+content hash, so selecting any other snapshot is a 409, and a snapshot
+sharing any FEN with a held-out suite cannot train at all
+(training-data identity and evaluation-suite identity stay separate).
+A rerun over the same identity returns the existing adapter.
+`text.benchmark_eval` forces one checkpoint through one frozen suite.
+Replayed runs load reviewed replies and mark every attempt
+`reply_source='replayed'` with no provider request ids; live runs
+(base checkpoint only; the adapter has no live serving path and the
+error says so) call the opponent profile per example and record real
+request ids and transport provenance. Every attempt is a
+`model_attempts` row with `task='benchmark_move'`, a non-null
+checkpoint, the resolved model, and a null `workspace_id` (benchmark
+evidence belongs to the room, which is why that column went nullable
+in phase 34). A transport failure keeps its example out of every
+denominator, which honestly shrinks that run's position set.
+
+Metrics reuse the phase-33 calculations over those attempts --
+`compute_model_legal_move_rate` with a task parameter,
+`compute_valid_json_rate`, and the phase-34 `compute_explanation_rate`
+(the trade-off metric: bare-completion training improves legality and
+format while the model stops explaining) -- persisted through the same
+`persist_metric` identity rules, so base and adapted rows coexist per
+checkpoint and window.
+
+The comparison (`calculations/comparison.py`, assembled by
+`GET /adaptation/state`) produces a signed delta with an
+improved/regressed/unchanged verdict only when the runs share a suite
+content hash and prompt contract and both metric rows carry the same
+non-null `position_set_id` and definition version. Anything else is an
+explicit "not comparable" with the reason and both values still
+visible. The frontend's adaptation panel (a presenter-owned canvas
+shape on the text page) renders all of this and adds nothing to it.
+
+The non-text modalities show the same conceptual chain as reviewed
+`{modality}.adaptation_evidence` replay fixtures: pairs, an
+illustrative adapter card, a real local before/after media pair, and
+cached metric rows that each include one regression. The committed
+media lives under `artifacts/cached/media/` (generated in-repo by
+`just make-media`, provenance in docs/licenses.md) and is served
+read-only by `GET /artifacts/media/{modality}/{name}`, so an expired
+provider URL or dead venue network can never break a reveal.
 
 ## Presenter navigation
 

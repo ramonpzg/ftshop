@@ -22,10 +22,12 @@ proxies `/api` and `/sync` to the local backend and room, so nothing
 else needs to be reachable from other machines.
 
 On backend startup the app initializes `euro_chess_studio.db` at the
-repo root, seeds the five pages, and seeds the cached illustrative eval
+repo root, seeds the five pages, seeds the cached illustrative eval
 numbers (Stockfish-dependent metrics, image/audio/video quality scores)
-that don't have a live computation path in v0. This happens every
-startup and is idempotent.
+that don't have a live computation path in v0, and seeds the adaptation
+fixtures: the reference training snapshot and the frozen held-out
+evaluation suite, idempotent by content hash. This happens every
+startup.
 
 ## Commands
 
@@ -44,6 +46,7 @@ startup and is idempotent.
 | `just reset-canvas` | Delete the authored canvas snapshot (slides, shapes). Keeps uploaded assets |
 | `just seed` | Re-populate pages and cached eval fixtures |
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
+| `just make-media` | Regenerate the committed workshop media fixtures (deterministic; installs the small `media` extra) |
 | `just deck` | The Slidev deck on port 3030 |
 | `just session-notebook` | Open the standalone Jupyter notebook in JupyterLab |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
@@ -340,9 +343,13 @@ double-click would.
 - Several eval metrics (centipawn loss, image/audio/video quality
   scores) are seeded from cached fixtures, not computed live, because
   they need infrastructure (Stockfish, a trained judge model) that's
-  out of scope for v0. The UI marks these rows with a `cached` badge.
-  Each fixture file also carries a `note` explaining why it's
-  illustrative; the note stays in the fixture and is not shown in the
-  UI yet.
+  out of scope for v0. The UI marks these rows with a `cached` badge
+  and renders each fixture's `note` under the value, so a cached
+  number can never pose as live.
+- Adapter training is a cached replay bound to the reference snapshot
+  by content hash; there is no live training path, and the UI and the
+  409 refusals both say so. The adapted checkpoint has no live serving
+  path either (serving it would need a merge and GGUF conversion), so
+  its benchmark runs are always replayed and labelled.
 - `CloudRunner` is a stub (`NotImplementedError`), no cloud job
   execution exists yet.
