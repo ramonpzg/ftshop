@@ -1,6 +1,10 @@
 <template>
   <figure class="media-frame" :style="{ maxWidth: width }">
-    <div class="stage" :class="{ dark }" :style="{ aspectRatio: ratio }">
+    <div
+      class="stage"
+      :class="{ dark, audio: kind === 'audio' }"
+      :style="kind === 'audio' ? {} : { aspectRatio: ratio }"
+    >
       <img
         v-if="kind === 'image' && !failed"
         :src="src"
@@ -23,7 +27,7 @@
       <div v-else class="placeholder">
         <span class="ph-name">PLACEHOLDER · {{ file }}</span>
         <span class="ph-expected">{{ expected }}</span>
-        <span class="ph-ratio">{{ ratio.replace("/", ":") }}</span>
+        <span v-if="kind !== 'audio'" class="ph-ratio">{{ ratio.replace("/", ":") }}</span>
       </div>
     </div>
     <figcaption class="caption-row">
@@ -90,6 +94,20 @@ watch(
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* Audio needs a control strip, not a picture frame; the stage stays
+ * compact regardless of the ratio prop. */
+.stage.audio {
+  min-height: 3.4rem;
+  padding: 0.4rem 0;
+}
+
+.stage.audio .placeholder {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.4rem 1rem;
 }
 
 .audio-stage {

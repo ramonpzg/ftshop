@@ -103,8 +103,8 @@ clicks: 4
   file="style-translation.mp4"
   ratio="16/9"
   kind="video"
-  expected="Bachata background music, or the Thinking Machines slang-to-corporate translation clip."
-  source="Record source and license with the clip."
+  expected="Bachata background, or the Thinking Machines translation clip."
+  source="Record source and license."
 />
 </div>
 <div v-click="4" class="reserve">
@@ -112,27 +112,31 @@ clicks: 4
   file="canva-template.mp4"
   ratio="16/9"
   kind="video"
-  expected="The real Canva video-template example. This one carries the claim."
+  expected="The real Canva video-template example. Carries the claim."
   source="Canva. Record source and license."
 />
 </div>
 </div>
 
 <style>
+/* One row, four beats, revealed left to right. Cell heights are
+ * bounded so nothing leaves the 16:9 frame at 720p. */
 .style-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.2rem;
-  margin-top: 0.3rem;
+  grid-template-columns: 0.9fr 1fr 1.1fr 1.1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  align-items: start;
 }
 .style-text {
   border: 1px solid var(--rule);
   border-radius: 2px;
   background: var(--paper-raised);
   padding: 0.9rem 1.1rem;
+  min-height: 10rem;
 }
 .style-placeholder {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--ink-soft);
   margin-top: 0.4rem;
 }

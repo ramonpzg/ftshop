@@ -382,7 +382,11 @@ FALLBACK: placeholders keep all three frames.
   margin-top: 0.3rem;
 }
 .audio-row {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+.audio-row .compare-label {
+  display: block;
+  margin-bottom: 0.2rem;
 }
 </style>
 
