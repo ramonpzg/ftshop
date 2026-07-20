@@ -323,7 +323,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
 
   async function refreshGameStatus() {
     const status = await fetchGameStatus(workspaceId).catch(() => null);
-    if (status) applyGameStatus(status);
+    // Every caller uses this to resync after the server's state and the
+    // browser's local fen may have diverged (a clock expiry, a stale
+    // reply, a turn race). Without { board: true } the local fen never
+    // actually updates, so the turn-change effect above keeps reading
+    // the old board and can retrigger the model on the wrong turn.
+    if (status) applyGameStatus(status, { board: true });
   }
 
   /** A 409 on a move means the server's clock ran out first. */

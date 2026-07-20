@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { WorkspacePanel } from "../../src/components/workspace/WorkspacePanel";
 import type { WorkspaceShape } from "../../src/components/tldraw/shapes/workspaceShapeTypes";
 import { CurrentUserContext } from "../../src/lib/currentUserContext";
@@ -801,11 +801,21 @@ describe("WorkspacePanel", () => {
     expect(screen.getByTestId("game-notice").textContent).toContain("position changed");
 
     // The board actually changed elsewhere; the panel resyncs instead
-    // of trusting stale local state.
+    // of trusting stale local state. Fetching /game is not enough proof
+    // by itself: applyGameStatus only touches the local fen when its
+    // { board: true } option is passed, so assert the rendered board
+    // itself moved back to the server's STARTING_FEN, not just that a
+    // request happened. Before the fix e2 stayed empty and the model
+    // could go on to answer white's still-locally-recorded e4.
     await waitFor(() => {
       const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));
       expect(gameCalls.length).toBeGreaterThan(0);
     });
+    await waitFor(() => {
+      const e2 = within(screen.getByTestId("square-e2")).queryByRole("img");
+      expect(e2?.getAttribute("alt")).toBe("P");
+    });
+    expect(within(screen.getByTestId("square-e4")).queryByRole("img")).toBeNull();
   });
 
   test("the board is not interactive on the model's turn in an active game", async () => {

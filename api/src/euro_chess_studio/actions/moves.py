@@ -116,13 +116,20 @@ def make_move(
         # attempts and its unavailable/retry recovery state, and
         # polluting the participant's own legal-move-rate and the
         # exported dataset with moves the model was supposed to make.
-        # Free play (no active game) has no such contract to violate
-        # and is unrestricted.
-        if actor == "participant" and game_id is not None:
+        # The symmetric case is just as real: without it, a raw
+        # /model-move call (or a model_turn racing a participant move)
+        # could play White's move for the participant. Free play (no
+        # active game) has no such contract to violate and is
+        # unrestricted.
+        if game_id is not None:
             active_color = workspace["board_fen"].split(" ")[1]
-            if active_color != PARTICIPANT_COLOR:
+            if actor == "participant" and active_color != PARTICIPANT_COLOR:
                 raise NotYourTurnError(
                     "it is the model's turn; call /model-move instead of playing for it"
+                )
+            if actor in ("model", "fallback") and active_color == PARTICIPANT_COLOR:
+                raise NotYourTurnError(
+                    "it is the participant's turn; the model cannot move for them"
                 )
 
         if precondition is not None:

@@ -36,8 +36,9 @@ class StaleMoveError(ValueError):
 
 
 class NotYourTurnError(ValueError):
-    """A participant tried to move for the color the configured model
-    is playing in an active timed match."""
+    """Someone tried to move for the color they are not playing in an
+    active timed match: a participant moving for the model's color, or
+    the model moving for the participant's."""
 
 
 class GameNotExpiredError(ValueError):

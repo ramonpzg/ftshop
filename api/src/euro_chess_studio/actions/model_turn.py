@@ -65,10 +65,16 @@ from typing import Any
 
 from euro_chess_studio.actions.errors import (
     GameClockExpiredError,
+    NotYourTurnError,
     StaleMoveError,
     WorkspaceNotFoundError,
 )
-from euro_chess_studio.actions.moves import MakeMoveResult, MovePrecondition, make_move
+from euro_chess_studio.actions.moves import (
+    PARTICIPANT_COLOR,
+    MakeMoveResult,
+    MovePrecondition,
+    make_move,
+)
 from euro_chess_studio.calculations.llm_prompts import (
     MOVE_PROMPT_VERSION,
     analyze_move_reply,
@@ -141,6 +147,17 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
     # board is the whole "different results" demo.
     active = get_active_game(conn, workspace_id)
     game_id = active["id"] if active is not None else None
+
+    # Symmetric with make_move's own turn-ownership check: a raw
+    # /model-move call (or a UI that let the model be triggered on the
+    # participant's turn) must not spend an LLM call, let alone a move,
+    # on White's turn. This is a courtesy early exit against the state
+    # this call read; make_move's check inside its write lock is what
+    # actually holds under a concurrent race, same as the participant
+    # side.
+    if game_id is not None and fen.split(" ")[1] == PARTICIPANT_COLOR:
+        raise NotYourTurnError("it is the participant's turn; the model cannot move for them")
+
     opponent_model = active["opponent_model"] if active is not None else None
     requested_model = opponent_model or llm_client.get_llm_model()
     ply = len(list_legal_sans(conn, workspace_id, game_id))

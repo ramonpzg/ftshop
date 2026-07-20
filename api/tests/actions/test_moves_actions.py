@@ -181,7 +181,7 @@ def test_participant_may_play_both_colors_in_free_play(tmp_path: Path):
     assert result.move["actor"] == "participant"
 
 
-def test_model_and_fallback_moves_are_unaffected_by_the_turn_check(tmp_path: Path):
+def test_model_and_fallback_moves_succeed_on_their_own_turn(tmp_path: Path):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     make_move(conn, workspace["id"], "e2e4")
@@ -190,6 +190,27 @@ def test_model_and_fallback_moves_are_unaffected_by_the_turn_check(tmp_path: Pat
     make_move(conn, workspace["id"], "g1f3")
     fallback_result = make_move(conn, workspace["id"], "b8c6", actor="fallback")
     assert fallback_result.move["is_legal"] == 1
+
+
+def test_model_cannot_play_the_participants_color_in_an_active_game(tmp_path: Path):
+    """The symmetric case of the bug above: only the participant side
+    was rejected for playing the wrong color. A raw call standing in
+    as the model (or its fallback) could play the participant's own
+    move, e.g. an immediate White e2e4 the moment a timed game starts,
+    with no model attempt ever recorded for it."""
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+
+    with pytest.raises(NotYourTurnError):
+        make_move(conn, workspace["id"], "e2e4", actor="model", model="gpt-5.6-luna")
+    with pytest.raises(NotYourTurnError):
+        make_move(conn, workspace["id"], "d2d4", actor="fallback")
+
+    # Nothing was recorded for either rejected attempt; the board is
+    # unchanged, still waiting on the participant.
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+    reloaded = get_workspace(conn, workspace["id"])
+    assert reloaded["board_fen"] == chess.STARTING_FEN
 
 
 def test_precondition_check_and_write_are_atomic_across_two_real_connections(tmp_path: Path):

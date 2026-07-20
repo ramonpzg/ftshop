@@ -9,7 +9,7 @@ import chess
 import pytest
 
 from euro_chess_studio.actions import model_turn as model_turn_module
-from euro_chess_studio.actions.errors import GameClockExpiredError
+from euro_chess_studio.actions.errors import GameClockExpiredError, NotYourTurnError
 from euro_chess_studio.actions.games import start_game
 from euro_chess_studio.actions.model_turn import ModelTurnError, model_turn
 from euro_chess_studio.actions.moves import make_move
@@ -281,6 +281,24 @@ def test_no_legal_moves_raises(tmp_path, monkeypatch):
         model_turn(conn, workspace["id"])
 
 
+def test_model_turn_refuses_to_move_on_the_participants_turn(tmp_path, monkeypatch):
+    """Reproduces the reported bug: /model-move had no check of its own,
+    so the model could immediately play White's opening move the moment
+    a timed game started. This must be rejected before any LLM call is
+    made, not just at the eventual make_move write."""
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    calls = stub_replies(monkeypatch, [])
+
+    with pytest.raises(NotYourTurnError):
+        model_turn(conn, workspace["id"])
+
+    # No LLM call was ever made and nothing was recorded for it.
+    assert calls == []
+    assert conn.execute("SELECT COUNT(*) FROM model_attempts").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+
+
 def test_max_attempts_is_configurable_and_clamped(monkeypatch):
     monkeypatch.setenv("MODEL_TURN_MAX_ATTEMPTS", "4")
     assert model_turn_module.max_attempts() == 4
@@ -450,7 +468,9 @@ def test_clock_expiry_after_a_legitimate_reply_still_records_the_attempt(tmp_pat
     recorded anything for it."""
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 60)
-    stub_replies(monkeypatch, [fake_outcome('{"move": "e2e4"}')])
+    # It is the model's (Black's) move: the participant plays White first.
+    make_move(conn, workspace["id"], "e2e4")
+    stub_replies(monkeypatch, [fake_outcome('{"move": "e7e5"}')])
 
     # Backdate the game so make_move's clock check reads it as already
     # expired, simulating a reply that arrived too late.
@@ -465,11 +485,12 @@ def test_clock_expiry_after_a_legitimate_reply_still_records_the_attempt(tmp_pat
 
     (attempt,) = conn.execute("SELECT * FROM model_attempts").fetchall()
     assert attempt["status"] == "clock_expired"
-    assert attempt["parsed_move"] == "e2e4"
-    assert attempt["raw_response"] == '{"move": "e2e4"}'
+    assert attempt["parsed_move"] == "e7e5"
+    assert attempt["raw_response"] == '{"move": "e7e5"}'
     assert attempt["is_legal"] is None
-    # The reply was never applied to the board.
-    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+    # The reply was never applied to the board (the participant's own
+    # opening move is the only row in the table).
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 1
     # The clock check itself already recorded the timeout loss.
     game = conn.execute("SELECT * FROM games WHERE workspace_id = ?", (workspace["id"],)).fetchone()
     assert game["result"] == "loss_timeout"
@@ -478,6 +499,8 @@ def test_clock_expiry_after_a_legitimate_reply_still_records_the_attempt(tmp_pat
 def test_clock_expiry_during_the_fallback_also_records_the_attempt(tmp_path, monkeypatch):
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 60)
+    # It is the model's (Black's) move: the participant plays White first.
+    make_move(conn, workspace["id"], "e2e4")
     stub_replies(monkeypatch, [fake_outcome("not json"), fake_outcome("still not json")])
 
     conn.execute(
@@ -493,7 +516,9 @@ def test_clock_expiry_during_the_fallback_also_records_the_attempt(tmp_path, mon
         row["status"] for row in conn.execute("SELECT status FROM model_attempts").fetchall()
     ]
     assert statuses == ["parse_failed", "parse_failed", "clock_expired"]
-    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+    # The fallback was never applied to the board (the participant's
+    # own opening move is the only row in the table).
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 1
 
 
 def test_attempts_are_queryable_by_scope(tmp_path, monkeypatch):

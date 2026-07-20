@@ -193,19 +193,31 @@ never landed.
 
 In a timed match the participant always plays white and the configured
 model answers as black; there is no color picker. `make_move` enforces
-this server-side, not just by disabling the board: a participant move
-submitted while an active game's fen shows black to move raises
-`NotYourTurnError` (mapped to 409). Without it, a raw call to the
-public move route (no `actor` parameter exists there; it always
-defaults to `participant`) could play both colors, standing in for the
-model, bypassing its recorded attempts and its unavailable/retry
-recovery state, and polluting the participant's own legal-move-rate
-and the exported dataset with moves the model was supposed to make.
-Free play (no active game) has no such contract and is unrestricted;
-model and fallback moves (`actor="model"`/`"fallback"`, only ever set
-by `actions/model_turn.py`) are exempt by construction. The frontend
-mirrors this: the board is only interactive on the participant's own
-turn in an active game.
+this server-side in both directions, not just by disabling the board:
+inside its write lock it checks the active game's fen against `actor`
+and raises `NotYourTurnError` (mapped to 409) whenever they disagree --
+a participant move while the fen shows black to move, or a model/
+fallback move while it shows white. Without the participant-side half,
+a raw call to the public move route (no `actor` parameter exists
+there; it always defaults to `participant`) could play both colors,
+standing in for the model, bypassing its recorded attempts and its
+unavailable/retry recovery state, and polluting the participant's own
+legal-move-rate and the exported dataset with moves the model was
+supposed to make. Without the symmetric model-side half, a raw call to
+`/model-move` (or a UI bug that triggered it early) could play the
+participant's own opening move. `model_turn` also checks this itself
+before making any LLM call, so a wrong-turn request fails immediately
+instead of spending a request on a reply that would only be rejected
+once it tried to land; `make_move`'s own check inside the write lock
+is what actually holds under a concurrent race, same guarantee as the
+precondition check above. Free play (no active game) has no such
+contract and is unrestricted. The frontend mirrors this: the board is
+only interactive on the participant's own turn in an active game, and
+every resync path (a stale reply, a clock expiry, a 409 from a turn
+race) re-applies the server's `board_fen` to local state -- not just
+the game/record/history -- so a resync that skips the board can no
+longer leave the client's fen stale enough to fire the model on the
+wrong turn.
 
 ### The Chat Completions boundary
 

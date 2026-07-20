@@ -155,6 +155,20 @@ def test_a_checkmating_move_reports_the_game_result(
     assert status["game"] is None
 
 
+def test_model_move_on_the_participants_turn_returns_409(client: TestClient):
+    """Reproduces the reported bug end to end through the route: without
+    a server-side check, /model-move could immediately play White's
+    opening move the moment a timed game started."""
+    workspace_id = make_workspace(client)
+    client.post(f"/workspaces/{workspace_id}/game/start", json={})
+
+    response = client.post(f"/workspaces/{workspace_id}/model-move")
+
+    assert response.status_code == 409
+    state = client.get(f"/workspaces/{workspace_id}/state").json()
+    assert state["moves"] == []
+
+
 def test_game_status_on_unknown_workspace_is_404(client: TestClient):
     response = client.get("/workspaces/nope/game")
     assert response.status_code == 404
