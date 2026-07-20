@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from euro_chess_studio.actions.errors import (
     GameClockExpiredError,
+    NotYourTurnError,
     StaleMoveError,
     WorkspaceNotFoundError,
 )
@@ -24,6 +25,13 @@ class MakeMoveResult:
     dataset_rows: list[sqlite3.Row]
     # Set when this move ended a timed game: "win", "loss", or "draw".
     game_result: str | None = None
+
+
+# In a timed match the participant always plays white and the
+# configured model answers as black (actions/model_turn.py); there is
+# no color picker. This is the one place that convention is enforced
+# server-side, not just by the frontend disabling the board.
+PARTICIPANT_COLOR = "w"
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,20 @@ def make_move(
     if game is not None and expire_if_over(conn, game) is None:
         raise GameClockExpiredError("time ran out; that game is a loss")
     game_id = game["id"] if game is not None else None
+
+    # The public move route has no other way to know whose turn it is;
+    # without this check a raw API call could play both colors, silently
+    # standing in for the model, bypassing its recorded attempts and its
+    # unavailable/retry recovery state, and polluting the participant's
+    # own legal-move-rate and the exported dataset with moves the model
+    # was supposed to make. Free play (no active game) has no such
+    # contract to violate and is unrestricted.
+    if actor == "participant" and game_id is not None:
+        active_color = workspace["board_fen"].split(" ")[1]
+        if active_color != PARTICIPANT_COLOR:
+            raise NotYourTurnError(
+                "it is the model's turn; call /model-move instead of playing for it"
+            )
 
     if precondition is not None:
         current_ply = len(list_legal_sans(conn, workspace_id, game_id))

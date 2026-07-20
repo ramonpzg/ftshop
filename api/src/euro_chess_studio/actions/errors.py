@@ -35,6 +35,11 @@ class StaleMoveError(ValueError):
     position that no longer exists."""
 
 
+class NotYourTurnError(ValueError):
+    """A participant tried to move for the color the configured model
+    is playing in an active timed match."""
+
+
 class GameNotExpiredError(ValueError):
     """A timeout was claimed while the clock still had time on it."""
 

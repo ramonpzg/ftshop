@@ -111,15 +111,44 @@ def test_a_move_on_an_expired_clock_returns_409_and_the_loss_sticks(
     assert status["record"]["losses"] == 1
 
 
-def test_a_checkmating_move_reports_the_game_result(client: TestClient):
+def test_a_checkmating_move_reports_the_game_result(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    from euro_chess_studio.actions import model_turn as model_turn_module
+    from euro_chess_studio.data.llm_client import ChatOutcome
+
+    def fake_outcome(content: str) -> ChatOutcome:
+        return ChatOutcome(
+            content=content,
+            model="gpt-5.6-luna",
+            provider_alias="opponent",
+            attempts=1,
+            request_ids=(),
+            json_mode_requested=True,
+            json_mode_sent=True,
+            json_mode_dropped=False,
+            reasoning_effort_dropped=False,
+        )
+
+    # Black's moves must come from the model, not the participant's own
+    # endpoint: in an active game the server now enforces whose turn it
+    # is (see actions/moves.py NotYourTurnError).
+    black_replies = iter(['{"move": "f7f6"}', '{"move": "g7g5"}'])
+    monkeypatch.setattr(
+        model_turn_module.llm_client,
+        "chat",
+        lambda *a, **k: fake_outcome(next(black_replies)),
+    )
+
     workspace_id = make_workspace(client)
     client.post(f"/workspaces/{workspace_id}/game/start", json={})
-    for uci in ["e2e4", "f7f6", "d2d4", "g7g5"]:
-        client.post(f"/workspaces/{workspace_id}/moves", json={"uci": uci})
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
+    client.post(f"/workspaces/{workspace_id}/model-move")
+    client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "d2d4"})
+    client.post(f"/workspaces/{workspace_id}/model-move")
     response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "d1h5"})
     body = response.json()
-    # Both sides came through the same endpoint here, so the mover is
-    # "player" and the mate counts as a win.
+    # The model played black; checkmate by the participant (white) is a win.
     assert body["game_result"] == "win"
     status = client.get(f"/workspaces/{workspace_id}/game").json()
     assert status["record"]["wins"] == 1

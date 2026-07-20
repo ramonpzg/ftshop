@@ -180,7 +180,7 @@ def test_pgn_prefix_restarts_with_each_game(tmp_path: Path):
 
     start_game(conn, workspace["id"], 300)
     make_move(conn, workspace["id"], "e2e4")
-    result = make_move(conn, workspace["id"], "e7e5")
+    result = make_move(conn, workspace["id"], "e7e5", actor="model", model="gpt-5.6-luna")
 
     by_shape = {row["shape"]: row for row in result.dataset_rows}
     payload = json.loads(by_shape["pgn_prefix_to_move"]["payload_json"])
@@ -261,7 +261,7 @@ def test_history_lists_finished_games_newest_first_with_move_counts(tmp_path: Pa
     conn, workspace = make_workspace(tmp_path)
     start_game(conn, workspace["id"], 300)
     make_move(conn, workspace["id"], "e2e4")
-    make_move(conn, workspace["id"], "e7e5")
+    make_move(conn, workspace["id"], "e7e5", actor="model", model="gpt-5.6-luna")
     start_over(conn, workspace["id"])
     make_move(conn, workspace["id"], "d2d4")
     status = start_over(conn, workspace["id"])

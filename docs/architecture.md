@@ -189,6 +189,24 @@ artifact, say) rolls back a job_config that would otherwise have no
 matching artifact, and eval numbers computed by a run whose artifact
 never landed.
 
+### Turn ownership
+
+In a timed match the participant always plays white and the configured
+model answers as black; there is no color picker. `make_move` enforces
+this server-side, not just by disabling the board: a participant move
+submitted while an active game's fen shows black to move raises
+`NotYourTurnError` (mapped to 409). Without it, a raw call to the
+public move route (no `actor` parameter exists there; it always
+defaults to `participant`) could play both colors, standing in for the
+model, bypassing its recorded attempts and its unavailable/retry
+recovery state, and polluting the participant's own legal-move-rate
+and the exported dataset with moves the model was supposed to make.
+Free play (no active game) has no such contract and is unrestricted;
+model and fallback moves (`actor="model"`/`"fallback"`, only ever set
+by `actions/model_turn.py`) are exempt by construction. The frontend
+mirrors this: the board is only interactive on the participant's own
+turn in an active game.
+
 ### The Chat Completions boundary
 
 Every text-model call (opponent moves, scenario assessments, future

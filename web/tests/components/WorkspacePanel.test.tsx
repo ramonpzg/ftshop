@@ -57,6 +57,7 @@ function routedFetch(
     opponentModels?: string[];
     scenario?: Record<string, unknown> | null;
     modelTurn?: "model_move" | "fallback_move" | "unavailable" | "stale";
+    notYourTurnOnMove?: boolean;
   } = {},
 ) {
   let lastArtifact: Record<string, unknown> | null = null;
@@ -149,7 +150,8 @@ function routedFetch(
                 error_detail: "board changed since this move was decided",
               },
             ],
-            detail: "The position changed before this reply could be applied. Refresh and try again.",
+            detail:
+              "The position changed before this reply could be applied. Refresh and try again.",
           }),
         );
       }
@@ -245,6 +247,14 @@ function routedFetch(
       );
     }
     if (url.endsWith("/moves")) {
+      if (opts.notYourTurnOnMove) {
+        return new Response(
+          JSON.stringify({
+            detail: "it is the model's turn; call /model-move instead of playing for it",
+          }),
+          { status: 409 },
+        );
+      }
       const body = JSON.parse(String(init?.body));
       const legal = body.uci === "e2e4";
       const isCheck = legal && opts.checkOnMove === true;
@@ -706,6 +716,50 @@ describe("WorkspacePanel", () => {
 
     // The board actually changed elsewhere; the panel resyncs instead
     // of trusting stale local state.
+    await waitFor(() => {
+      const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));
+      expect(gameCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  test("the board is not interactive on the model's turn in an active game", async () => {
+    globalThis.fetch = routedFetch() as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    // The model's reply (mocked to be instant) lands and hands the
+    // turn back; the board is interactive again for white's move.
+    await waitFor(() => {
+      expect(screen.getByTestId("move-status").textContent).toContain("Model:");
+    });
+    expect(screen.getByTestId("square-e2").hasAttribute("disabled")).toBe(false);
+  });
+
+  test("a not-your-turn rejection does not claim a timeout and resyncs state", async () => {
+    const fetchMock = routedFetch({ notYourTurnOnMove: true });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("chess-board"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => screen.getByTestId("game-notice"));
+    expect(screen.getByTestId("game-notice").textContent).not.toContain("Time ran out");
+
     await waitFor(() => {
       const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));
       expect(gameCalls.length).toBeGreaterThan(0);

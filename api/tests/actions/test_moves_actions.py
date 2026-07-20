@@ -4,7 +4,8 @@ from pathlib import Path
 import chess
 import pytest
 
-from euro_chess_studio.actions.errors import StaleMoveError
+from euro_chess_studio.actions.errors import NotYourTurnError, StaleMoveError
+from euro_chess_studio.actions.games import start_game
 from euro_chess_studio.actions.moves import MovePrecondition, WorkspaceNotFoundError, make_move
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
@@ -140,3 +141,45 @@ def test_make_move_precondition_catches_a_ply_mismatch_at_the_same_fen(tmp_path:
     with pytest.raises(StaleMoveError):
         make_move(conn, workspace["id"], "e2e4", precondition=precondition)
     assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
+
+
+def test_participant_cannot_play_the_models_color_in_an_active_game(tmp_path: Path):
+    """Reproduces the reported bug: without a server-side turn check, a
+    raw call could play both colors in a timed match, standing in for
+    the model, bypassing its recovery state, and polluting participant
+    metrics and the exported dataset with moves the model was supposed
+    to make."""
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    make_move(conn, workspace["id"], "e2e4")  # participant, white: fine
+
+    with pytest.raises(NotYourTurnError):
+        make_move(conn, workspace["id"], "e7e5")  # participant playing black: rejected
+
+    # Nothing was recorded for the rejected attempt; the board is
+    # unchanged, still waiting on the model.
+    moves = conn.execute("SELECT uci, actor FROM moves").fetchall()
+    assert [(m["uci"], m["actor"]) for m in moves] == [("e2e4", "participant")]
+    reloaded = get_workspace(conn, workspace["id"])
+    assert reloaded["board_fen"].split(" ")[1] == "b"
+
+
+def test_participant_may_play_both_colors_in_free_play(tmp_path: Path):
+    """Free play has no model opponent to stand in for, so the turn
+    check does not apply there."""
+    conn, workspace = make_workspace(tmp_path)
+    make_move(conn, workspace["id"], "e2e4")
+    result = make_move(conn, workspace["id"], "e7e5")
+    assert result.move["is_legal"] == 1
+    assert result.move["actor"] == "participant"
+
+
+def test_model_and_fallback_moves_are_unaffected_by_the_turn_check(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 300)
+    make_move(conn, workspace["id"], "e2e4")
+    model_result = make_move(conn, workspace["id"], "e7e5", actor="model", model="gpt-5.6-luna")
+    assert model_result.move["is_legal"] == 1
+    make_move(conn, workspace["id"], "g1f3")
+    fallback_result = make_move(conn, workspace["id"], "b8c6", actor="fallback")
+    assert fallback_result.move["is_legal"] == 1

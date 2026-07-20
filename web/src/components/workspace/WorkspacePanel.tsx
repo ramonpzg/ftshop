@@ -402,7 +402,16 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       applyMoveResponse(await makeMove(workspaceId, uci), "you");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        await handleClockExpired();
+        const detail = apiErrorDetail(error);
+        if (detail?.includes("model's turn")) {
+          // The board disables itself once a turn changes, so this is a
+          // race (a click landing right as the model replied) rather
+          // than the normal path; resync instead of claiming a loss.
+          setGameNotice("That move landed after the turn changed. Board resynced.");
+          await refreshGameStatus();
+        } else {
+          await handleClockExpired();
+        }
       } else {
         // Network down or backend gone: say so instead of eating the
         // click. The board did not change, the clock keeps running.
@@ -434,7 +443,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  const boardInteractive = isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking;
+  // In an active game the model plays black; the board must not invite
+  // clicks on black's turn (the server rejects it anyway, but the
+  // click would otherwise sit there looking like it should work).
+  // Free play has no such contract and stays fully interactive.
+  const participantTurn = !game || fen.split(" ")[1] === "w";
+  const boardInteractive =
+    isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking && participantTurn;
   const llmReady = llm?.configured === true;
   const llmHint = llmReady
     ? `A timed match against ${llm?.model} from the starting position. It answers every move.`
