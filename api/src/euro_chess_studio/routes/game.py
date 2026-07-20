@@ -201,8 +201,9 @@ def _attempt_out(row: sqlite3.Row) -> AttemptOut:
 
 
 class ModelTurnOut(BaseModel):
-    # "model_move", "fallback_move", or "unavailable". Only
-    # "unavailable" leaves the board unchanged, and it says so.
+    # "model_move", "fallback_move", "unavailable", or "stale". Only
+    # "model_move" and "fallback_move" leave a move on the board;
+    # "unavailable" and "stale" leave it unchanged, and detail says why.
     outcome: str
     move: MoveOut | None
     dataset_rows: list[DatasetRowOut]

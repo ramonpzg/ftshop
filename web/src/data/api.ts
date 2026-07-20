@@ -200,8 +200,9 @@ export interface ModelTurnAttempt {
 export interface ModelTurnResponse {
   /** "model_move": the model's reply was applied. "fallback_move": it
    * kept failing and the deterministic fallback moved. "unavailable":
-   * transport never delivered a reply and nothing moved. */
-  outcome: "model_move" | "fallback_move" | "unavailable";
+   * transport never delivered a reply and nothing moved. "stale": the
+   * position changed while a reply was in flight and nothing moved. */
+  outcome: "model_move" | "fallback_move" | "unavailable" | "stale";
   move: Move | null;
   dataset_rows: DatasetRow[];
   game_result: string | null;

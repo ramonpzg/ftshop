@@ -29,6 +29,12 @@ class GameClockExpiredError(ValueError):
     """A move arrived after the clock ran out. The game is already lost."""
 
 
+class StaleMoveError(ValueError):
+    """The board changed since the caller decided which move to apply.
+    Raised instead of silently applying a decision made against a
+    position that no longer exists."""
+
+
 class GameNotExpiredError(ValueError):
     """A timeout was claimed while the clock still had time on it."""
 

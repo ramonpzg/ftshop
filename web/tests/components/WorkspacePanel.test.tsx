@@ -56,7 +56,7 @@ function routedFetch(
     checkOnMove?: boolean;
     opponentModels?: string[];
     scenario?: Record<string, unknown> | null;
-    modelTurn?: "model_move" | "fallback_move" | "unavailable";
+    modelTurn?: "model_move" | "fallback_move" | "unavailable" | "stale";
   } = {},
 ) {
   let lastArtifact: Record<string, unknown> | null = null;
@@ -125,6 +125,31 @@ function routedFetch(
               },
             ],
             detail: "gpt-5.6-luna could not be reached after 2 attempts. No move was played.",
+          }),
+        );
+      }
+      if (outcome === "stale") {
+        // The board advanced to a fresh game somewhere else while the
+        // reply was in flight.
+        activeGame = null;
+        return new Response(
+          JSON.stringify({
+            outcome,
+            move: null,
+            dataset_rows: [],
+            game_result: null,
+            attempts: [
+              {
+                attempt_number: 1,
+                actor: "model",
+                status: "stale",
+                parsed_move: "e7e5",
+                is_legal: null,
+                model: "gpt-5.6-luna",
+                error_detail: "board changed since this move was decided",
+              },
+            ],
+            detail: "The position changed before this reply could be applied. Refresh and try again.",
           }),
         );
       }
@@ -658,6 +683,32 @@ describe("WorkspacePanel", () => {
         String(call[0]).endsWith("/model-move"),
       ).length;
       expect(callsAfter).toBe(callsBefore + 1);
+    });
+  });
+
+  test("a stale model turn shows the retry action and resyncs the board", async () => {
+    const fetchMock = routedFetch({ modelTurn: "stale" });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("start-game"));
+    fireEvent.click(screen.getByTestId("start-game"));
+    await waitFor(() => screen.getByTestId("game-timer"));
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+
+    await waitFor(() => screen.getByTestId("retry-model-move"));
+    expect(screen.getByTestId("game-notice").textContent).toContain("position changed");
+
+    // The board actually changed elsewhere; the panel resyncs instead
+    // of trusting stale local state.
+    await waitFor(() => {
+      const gameCalls = fetchMock.mock.calls.filter((call) => String(call[0]).endsWith("/game"));
+      expect(gameCalls.length).toBeGreaterThan(0);
     });
   });
 

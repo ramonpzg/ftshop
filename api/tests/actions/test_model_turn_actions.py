@@ -257,6 +257,90 @@ def test_max_attempts_is_configurable_and_clamped(monkeypatch):
     assert model_turn_module.max_attempts() == 2
 
 
+def test_a_stale_reply_is_recorded_explicitly_and_never_misapplied(tmp_path, monkeypatch):
+    """Reproduces two overlapping model replies for the same position: the
+    first wins the race and applies; the second's reply, decided against
+    the same now-stale position, must not be misapplied on top of it even
+    though its move happens to still look legal against the stale
+    snapshot the second call captured."""
+    conn, workspace = make_workspace(tmp_path)
+    make_move(conn, workspace["id"], "e2e4")  # black to move
+    conn.commit()
+
+    calls = {"count": 0}
+
+    def racing_chat(messages, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            # A second overlapping request reads the same black-to-move
+            # position, gets a reply, and applies before this call's
+            # reply comes back.
+            inner = model_turn(conn, workspace["id"])
+            assert inner.outcome == "model_move"
+        return fake_outcome('{"move": "e7e5"}')
+
+    monkeypatch.setattr(model_turn_module.llm_client, "chat", racing_chat)
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "stale"
+    assert result.move_result is None
+    (stale_attempt,) = [a for a in result.attempts if a["status"] == "stale"]
+    assert stale_attempt["is_legal"] is None
+    assert stale_attempt["parsed_move"] == "e7e5"
+
+    # Exactly one model move landed on the board -- the race's winner.
+    # The stale reply was not misapplied on top of it, and no attempt
+    # record falsely claims status=applied/is_legal=1 for it.
+    moves = conn.execute(
+        "SELECT actor, uci, is_legal FROM moves ORDER BY created_at"
+    ).fetchall()
+    model_moves = [m for m in moves if m["actor"] == "model"]
+    assert len(model_moves) == 1
+    assert model_moves[0]["uci"] == "e7e5"
+    assert model_moves[0]["is_legal"] == 1
+    applied_attempts = [a for a in result.attempts if a["status"] == "applied"]
+    assert applied_attempts == []
+
+
+def test_a_stale_fallback_is_also_caught(tmp_path, monkeypatch):
+    """Both of the outer call's own attempts are garbage, so it would
+    normally end in the deterministic fallback -- but a race wins and
+    moves the board first, so the fallback must be refused too rather
+    than silently applying a move decided against a stale position."""
+    conn, workspace = make_workspace(tmp_path)
+    make_move(conn, workspace["id"], "e2e4")
+    conn.commit()
+
+    state = {"racing": False, "raced": False}
+
+    def racing_chat(messages, **kwargs):
+        if state["racing"]:
+            # The nested/inner call's own chat invocation.
+            return fake_outcome('{"move": "e7e5"}')
+        if not state["raced"]:
+            state["raced"] = True
+            state["racing"] = True
+            inner = model_turn(conn, workspace["id"])
+            state["racing"] = False
+            assert inner.outcome == "model_move"
+            return fake_outcome("not json at all")
+        return fake_outcome("still not json")
+
+    monkeypatch.setattr(model_turn_module.llm_client, "chat", racing_chat)
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "stale"
+    assert result.move_result is None
+    (stale_attempt,) = [a for a in result.attempts if a["status"] == "stale"]
+    assert stale_attempt["actor"] == "fallback"
+    model_moves = [
+        m for m in conn.execute("SELECT actor FROM moves").fetchall() if m["actor"] == "model"
+    ]
+    assert len(model_moves) == 1
+
+
 def test_attempts_are_queryable_by_scope(tmp_path, monkeypatch):
     conn, workspace = make_workspace(tmp_path)
     stub_replies(

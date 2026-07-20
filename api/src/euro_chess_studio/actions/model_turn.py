@@ -2,9 +2,9 @@
 
 Each request to the model is one recorded attempt: transport failure,
 empty reply, unparsable reply, syntactically invalid move, illegal
-move, or an applied move. Failed attempts commit immediately so the
-eval can count them even when the turn ultimately fails. After the
-configurable attempt limit:
+move, a stale reply, or an applied move. Failed attempts commit
+immediately so the eval can count them even when the turn ultimately
+fails. After the configurable attempt limit:
 
 - If the model answered at least once (garbage or illegal), the turn
   ends with a deterministic fallback: the first legal move in UCI sort
@@ -14,6 +14,17 @@ configurable attempt limit:
   returns 'unavailable' with the reason, and the client offers a retry.
   That is loud waiting, not silent sticking.
 
+Every reply the model produces was judged against the position snapshot
+taken before the network call. If the board changes while that call is
+in flight (a concurrent request wins the race, a clock expiry starts a
+fresh game), applying the reply to whatever board exists later would
+misrepresent a decision made against stale information as a legitimate
+answer to the current position -- and could even coincidentally look
+legal on the new board. make_move's MovePrecondition catches this: a
+mismatch raises StaleMoveError, the attempt is recorded as 'stale'
+rather than mislabeled 'applied', and the turn ends with outcome
+'stale' instead of guessing.
+
 MODEL_TURN_MAX_ATTEMPTS configures the limit (default 2, clamped 1-5).
 """
 
@@ -22,8 +33,8 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
-from euro_chess_studio.actions.errors import WorkspaceNotFoundError
-from euro_chess_studio.actions.moves import MakeMoveResult, make_move
+from euro_chess_studio.actions.errors import StaleMoveError, WorkspaceNotFoundError
+from euro_chess_studio.actions.moves import MakeMoveResult, MovePrecondition, make_move
 from euro_chess_studio.calculations.llm_prompts import (
     MOVE_PROMPT_VERSION,
     analyze_move_reply,
@@ -52,7 +63,8 @@ class ModelTurnError(RuntimeError):
 class ModelTurnResult:
     # "model_move": an attempt was applied. "fallback_move": the model
     # kept failing and the deterministic fallback moved. "unavailable":
-    # transport never delivered a reply; nothing moved.
+    # transport never delivered a reply; nothing moved. "stale": the
+    # position changed while a reply was in flight; nothing moved.
     outcome: str
     move_result: MakeMoveResult | None
     attempts: list[sqlite3.Row]
@@ -87,6 +99,9 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
     requested_model = opponent_model or llm_client.get_llm_model()
     ply = len(list_legal_sans(conn, workspace_id, game_id))
     messages = build_move_messages(fen, legal_moves)
+    # Captured once, applied to every attempt in this turn: if the board
+    # moves out from under a reply, make_move refuses to apply it.
+    precondition = MovePrecondition(fen=fen, game_id=game_id, ply=ply)
 
     attempts: list[sqlite3.Row] = []
     limit = max_attempts()
@@ -165,16 +180,49 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
             conn.commit()
             continue
 
-        # The applied move and its attempt record commit together.
-        move_result = make_move(
-            conn, workspace_id, analysis.uci, actor="model", model=reply.model, commit=False
-        )
+        # The applied move and its attempt record commit together. The
+        # precondition guards against a slow reply landing after the
+        # board moved on (a concurrent request, a fresh game): a
+        # mismatch raises instead of silently applying a decision made
+        # against a position that no longer exists.
+        try:
+            move_result = make_move(
+                conn,
+                workspace_id,
+                analysis.uci,
+                actor="model",
+                model=reply.model,
+                commit=False,
+                precondition=precondition,
+            )
+        except StaleMoveError as exc:
+            record(
+                attempt_number,
+                status="stale",
+                parse_ok=True,
+                parsed_move=analysis.uci,
+                error_detail=str(exc)[:400],
+                **shared,
+            )
+            conn.commit()
+            return ModelTurnResult(
+                outcome="stale",
+                move_result=None,
+                attempts=attempts,
+                detail=(
+                    "The position changed before this reply could be applied. "
+                    "Refresh and try again."
+                ),
+            )
+        # The precondition guarantees the board matched exactly what
+        # legal_moves was computed from, so this is provably legal; the
+        # attempt still records the actual outcome rather than assuming.
         record(
             attempt_number,
             status="applied",
             parse_ok=True,
             parsed_move=analysis.uci,
-            is_legal=True,
+            is_legal=bool(move_result.move["is_legal"]),
             applied_move_id=move_result.move["id"],
             **shared,
         )
@@ -196,18 +244,46 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
 
     # The model answered but never produced a legal move. The documented
     # workshop outcome: the first legal move in UCI sort order, recorded
-    # as the fallback's move, not the model's.
+    # as the fallback's move, not the model's. None of the intermediate
+    # attempts touched the board, so the precondition should still hold;
+    # if something else moved concurrently, it is caught the same way.
     fallback_uci = sorted(legal_moves)[0]
-    move_result = make_move(
-        conn, workspace_id, fallback_uci, actor="fallback", model=requested_model, commit=False
-    )
+    try:
+        move_result = make_move(
+            conn,
+            workspace_id,
+            fallback_uci,
+            actor="fallback",
+            model=requested_model,
+            commit=False,
+            precondition=precondition,
+        )
+    except StaleMoveError as exc:
+        record(
+            limit + 1,
+            actor="fallback",
+            status="stale",
+            parse_ok=True,
+            parsed_move=fallback_uci,
+            error_detail=str(exc)[:400],
+        )
+        conn.commit()
+        return ModelTurnResult(
+            outcome="stale",
+            move_result=None,
+            attempts=attempts,
+            detail=(
+                "The position changed before the fallback could be applied. "
+                "Refresh and try again."
+            ),
+        )
     record(
         limit + 1,
         actor="fallback",
         status="applied",
         parse_ok=True,
         parsed_move=fallback_uci,
-        is_legal=True,
+        is_legal=bool(move_result.move["is_legal"]),
         applied_move_id=move_result.move["id"],
         error_detail=f"deterministic fallback after {limit} failed model attempts",
     )

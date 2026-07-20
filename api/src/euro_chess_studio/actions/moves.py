@@ -3,7 +3,11 @@
 import sqlite3
 from dataclasses import dataclass
 
-from euro_chess_studio.actions.errors import GameClockExpiredError, WorkspaceNotFoundError
+from euro_chess_studio.actions.errors import (
+    GameClockExpiredError,
+    StaleMoveError,
+    WorkspaceNotFoundError,
+)
 from euro_chess_studio.actions.games import expire_if_over
 from euro_chess_studio.calculations.dataset import build_dataset_rows
 from euro_chess_studio.calculations.reward import compute_reward
@@ -22,6 +26,19 @@ class MakeMoveResult:
     game_result: str | None = None
 
 
+@dataclass(frozen=True)
+class MovePrecondition:
+    """An optimistic-concurrency guard for a decision made against a
+    position at some earlier point (e.g. before a slow network call).
+    make_move refuses to apply when the board has moved on, instead of
+    silently applying a choice made against a position that no longer
+    exists."""
+
+    fen: str
+    game_id: str | None
+    ply: int
+
+
 def make_move(
     conn: sqlite3.Connection,
     workspace_id: str,
@@ -29,11 +46,22 @@ def make_move(
     actor: str = "participant",
     model: str | None = None,
     commit: bool = True,
+    precondition: MovePrecondition | None = None,
 ) -> MakeMoveResult:
     """One attempted move: the move record, the board update, the dataset
     rows, and any game outcome commit together or not at all. Callers that
     compose a larger transaction (the model turn) pass commit=False and
-    commit themselves."""
+    commit themselves.
+
+    When `precondition` is given, the move is applied only if the
+    workspace's board, active game, and ply still match it exactly.
+    A mismatch raises StaleMoveError before anything is written: the
+    caller decided this move against a position that has since changed
+    (a concurrent move landed, a clock expired and a new game started,
+    and so on), and applying it anyway would misattribute a decision
+    made against stale information as a legitimate reply to the
+    current position.
+    """
     workspace = get_workspace(conn, workspace_id)
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
@@ -44,6 +72,20 @@ def make_move(
     if game is not None and expire_if_over(conn, game) is None:
         raise GameClockExpiredError("time ran out; that game is a loss")
     game_id = game["id"] if game is not None else None
+
+    if precondition is not None:
+        current_ply = len(list_legal_sans(conn, workspace_id, game_id))
+        if (
+            workspace["board_fen"] != precondition.fen
+            or game_id != precondition.game_id
+            or current_ply != precondition.ply
+        ):
+            raise StaleMoveError(
+                "board changed since this move was decided: expected "
+                f"fen={precondition.fen!r} game={precondition.game_id!r} "
+                f"ply={precondition.ply}; found fen={workspace['board_fen']!r} "
+                f"game={game_id!r} ply={current_ply}"
+            )
 
     fen_before = workspace["board_fen"]
     legal_moves_before = get_legal_moves(fen_before)

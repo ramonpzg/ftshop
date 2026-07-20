@@ -291,7 +291,17 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
 
   /** One completed model turn from the state machine. */
   function applyModelTurn(response: ModelTurnResponse) {
-    if (response.outcome === "unavailable" || response.move === null) {
+    if (response.outcome === "unavailable" || response.outcome === "stale") {
+      setModelUnavailable(true);
+      setGameNotice(response.detail ?? "Model unavailable. No move was played.");
+      if (response.outcome === "stale") {
+        // The board actually changed while the reply was in flight;
+        // resync local state instead of trusting the stale fen.
+        void refreshGameStatus();
+      }
+      return;
+    }
+    if (response.move === null) {
       setModelUnavailable(true);
       setGameNotice(response.detail ?? "Model unavailable. No move was played.");
       return;

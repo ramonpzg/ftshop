@@ -4,7 +4,8 @@ from pathlib import Path
 import chess
 import pytest
 
-from euro_chess_studio.actions.moves import WorkspaceNotFoundError, make_move
+from euro_chess_studio.actions.errors import StaleMoveError
+from euro_chess_studio.actions.moves import MovePrecondition, WorkspaceNotFoundError, make_move
 from euro_chess_studio.calculations.pages import PAGES
 from euro_chess_studio.data.db import get_connection, init_db
 from euro_chess_studio.data.pages_repo import upsert_page
@@ -109,3 +110,33 @@ def test_make_move_pgn_prefix_grows_across_a_sequence(tmp_path: Path):
     payload = json.loads(dataset_by_shape["pgn_prefix_to_move"]["payload_json"])
     assert payload["prefix"] == "1. e4"
     assert payload["target_san"] == "e5"
+
+
+def test_make_move_with_a_matching_precondition_applies_normally(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    precondition = MovePrecondition(fen=chess.STARTING_FEN, game_id=None, ply=0)
+    result = make_move(conn, workspace["id"], "e2e4", precondition=precondition)
+    assert result.move["is_legal"] == 1
+
+
+def test_make_move_with_a_stale_precondition_refuses_and_touches_nothing(tmp_path: Path):
+    conn, workspace = make_workspace(tmp_path)
+    make_move(conn, workspace["id"], "e2e4")  # board moves on
+
+    stale_precondition = MovePrecondition(fen=chess.STARTING_FEN, game_id=None, ply=0)
+    with pytest.raises(StaleMoveError):
+        make_move(conn, workspace["id"], "e7e5", precondition=stale_precondition)
+
+    # Only the first move exists; the stale attempt left no trace.
+    moves = conn.execute("SELECT uci FROM moves").fetchall()
+    assert [m["uci"] for m in moves] == ["e2e4"]
+
+
+def test_make_move_precondition_catches_a_ply_mismatch_at_the_same_fen(tmp_path: Path):
+    """Same fen and game can recur (a fresh game after start-over resets
+    to the starting position); ply distinguishes them."""
+    conn, workspace = make_workspace(tmp_path)
+    precondition = MovePrecondition(fen=chess.STARTING_FEN, game_id=None, ply=1)
+    with pytest.raises(StaleMoveError):
+        make_move(conn, workspace["id"], "e2e4", precondition=precondition)
+    assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
