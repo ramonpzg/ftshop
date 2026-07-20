@@ -8,7 +8,7 @@ class: part-opener
 <div class="part-sub">Economics, data, style. In that order.</div>
 
 <!--
-TIMING: 15 seconds.
+TIMING: 10 seconds.
 SAY: The results exist. Now the reasons.
 CLICK: none.
 SOURCE: none.
@@ -25,7 +25,7 @@ clicks: 4
 <CostAtTarget :clicks="$clicks" />
 
 <!--
-TIMING: 3 minutes.
+TIMING: 90 seconds.
 SAY: Four rows, one per modality. Each is one task at one target quality, not a general head-to-head. The comparison includes training or rental cost, amortisation, request volume, and whether the threshold was met. Never imply fine-tuning alone lowered a serving bill.
 CLICK: 4. One row per click: text, image, audio, video.
 SOURCE: every number is a [SOURCE, DATE] placeholder until checked close to the session.
@@ -68,7 +68,7 @@ fine-tuning are related decisions, not the same decision.
 </style>
 
 <!--
-TIMING: 60 seconds.
+TIMING: 45 seconds.
 SAY: The general model has not seen the examples that define this exact behavior.
 CLICK: 1. The ownership distinction.
 SOURCE: none.
@@ -143,7 +143,7 @@ clicks: 4
 </style>
 
 <!--
-TIMING: 2 minutes.
+TIMING: 75 seconds.
 SAY: Style is the thing providers cannot know by default. The first three beats set up personality; the Canva template is the concrete case and lands last.
 CLICK: 4. Goth Minions, the lamp paragraph, the translation clip, then Canva.
 SOURCE: all four assets pending with source and license. End on Canva.
@@ -160,7 +160,7 @@ clicks: 5
 <DataUniverse :clicks="$clicks" />
 
 <!--
-TIMING: 2 minutes.
+TIMING: 60 seconds.
 SAY: Five boundaries: data we think exists, data we can access, data we can legally use, data relevant to the task, and the private or newly created data outside the public circles.
 CLICK: 5. Four clicks add circles, the fifth splits the useful set into training and held-out evaluation.
 SOURCE: none; the diagram is the content.
@@ -184,7 +184,7 @@ footer: false
 />
 
 <!--
-TIMING: 15 seconds.
+TIMING: 10 seconds.
 SAY: Nothing. Let it breathe.
 CLICK: none.
 SOURCE: assets/meme-cookie.gif pending.
@@ -217,7 +217,7 @@ FALLBACK: the placeholder is less funny. Land the line and move on.
 
 <p class="statement-quiet">
 The chess app already combines them: python-chess owns legality, the prompt
-supplies the position, an adapted model learns how to choose and explain.
+supplies the position, an adapted model learns how to choose.
 </p>
 
 <style>
@@ -245,7 +245,7 @@ supplies the position, an adapted model learns how to choose and explain.
 </style>
 
 <!--
-TIMING: 90 seconds.
+TIMING: 60 seconds.
 SAY: These combine. The chess app already does.
 CLICK: none; the four options are compared at once.
 SOURCE: none.
@@ -263,7 +263,7 @@ repeated task, the data, latency, or the offline requirement justifies it.
 </div>
 
 <!--
-TIMING: 30 seconds.
+TIMING: 20 seconds.
 SAY: This is the defensible version of the claim, using only examples already shown.
 CLICK: none.
 SOURCE: none.
@@ -283,7 +283,7 @@ FALLBACK: static.
 />
 
 <!--
-TIMING: 45 seconds.
+TIMING: 45 seconds. OPTIONAL: the default route skips this slide.
 SAY: One general model, several adapters, merged variants, local aliases, and provider models can coexist. We are not at the effortless version of that yet.
 CLICK: none.
 SOURCE: assets/future-tree.png pending, redrawn from v1.

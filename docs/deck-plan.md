@@ -249,6 +249,29 @@ cd deck && bun run typecheck  # tsc over lib/ and tests/
 `just test` already runs the deck tests. Lint and typecheck are not yet
 in the root Justfile; phase 36 wires them in.
 
+## Default route and timing
+
+PLAN_V2 budgets 20 to 25 minutes for the opening deck. The default
+route hits that budget; every optional slide is marked `OPTIONAL` in
+its own TIMING note and skipping it is the default, not a failure.
+Hard stops are in the notes.
+
+| part | default | slides skipped by default |
+| --- | --- | --- |
+| 1 origin | 5:35 | Oscar (0:30) |
+| 2 outcomes | 8:00 | mappings two and three (1:30) |
+| 3 why adapt | 6:20 | the model tree (0:45) |
+| 4 chess primer | 4:55 | none |
+| total | 24:50 | optional adds up to 2:45 |
+
+The room-join dead air (up to 90 seconds) is budgeted in the LiveRoom
+slide's note on top of its talking time. Part 5 is modular reference
+outside the opening budget: about 11 minutes if run in full, and the
+default workshop path covers most of it on the whiteboard or in the
+notebook instead. If time runs short mid-deck, the cut order is: the
+optional slides above, then the A/B clip playback, then part 5
+entirely.
+
 ## Click-count expectations
 
 Each slide's `CLICK:` speaker-note line states what changes and why.
@@ -261,8 +284,9 @@ phase 35 screenshot pass (slide number: clicks).
 17:1  18:1  19:1  20:1  21:4
 22:0  23:4  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
 32:0  33:3  34:3  35:2  36:0
-37:0  38:5  39:5  40:0  41:12  42:2  43:18  44:0  45:2  46:1
+37:0  38:5  39:5  40:0  41:2  42:2  43:2  44:0  45:0  46:2  47:1
 ```
 
-46 slides. The two large totals are the Magic Move code slides, where
-inner line-highlight steps are clicks; their speaker notes say so.
+47 slides. The two Magic Move code slides morph whole frames with no
+inner line-highlight steps, so they cost two clicks each; the ladder
+summary is its own zero-click slide.

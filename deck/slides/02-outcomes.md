@@ -25,7 +25,7 @@ class: part-opener
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 30 seconds.
 SAY: These are four adaptation problems, not necessarily four model processes. The text path alone may use a player model and a scenario writer.
 CLICK: 4. One modality name per click.
 SOURCE: none.
@@ -81,7 +81,7 @@ FALLBACK: static.
 </style>
 
 <!--
-TIMING: 60 seconds.
+TIMING: 45 seconds.
 SAY: The game model chooses moves. A separate text workflow can map the same sequence to a situation at work, at home, or in sport. Those mappings can become their own reviewed dataset.
 CLICK: 1. The mapping panel appears next to the fixed game.
 SOURCE: Luna is the scenario writer and is labelled as such. This output is never called a fine-tuned chess model result.
@@ -214,7 +214,7 @@ FALLBACK: placeholders carry the structure.
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 45 seconds. OPTIONAL: the default route skips this slide.
 SAY: Same game, different life. The mapping is the variable.
 CLICK: 1. The approved edit appears.
 SOURCE: as mapping one.
@@ -280,7 +280,7 @@ FALLBACK: placeholders carry the structure.
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 45 seconds. OPTIONAL: the default route skips this slide.
 SAY: Third and last. The same sequence reads as a match under pressure.
 CLICK: 1. The approved edit appears.
 SOURCE: as mapping one.
@@ -340,7 +340,7 @@ piece-identity check, style-adherence check pending
 </style>
 
 <!--
-TIMING: 90 seconds.
+TIMING: 60 seconds.
 SAY: The useful question is not whether it looks cool. The pieces still need to be identifiable and the style needs to hold across the full set.
 CLICK: 3. Base output, adapted output, then a second style if it earns the time.
 SOURCE: evidence line pending: same prompt, adapter identity, seed, dimensions, identity and style checks.
@@ -391,7 +391,7 @@ FALLBACK: placeholders keep all three frames.
 </style>
 
 <!--
-TIMING: 90 seconds.
+TIMING: 45 seconds.
 SAY: Audio can cover captures, music, room tone, or speech. These are different tasks and are not one adapter doing everything.
 CLICK: 3. Capture sound, background genre, optional spoken move. Nothing autoplays; each row has its own control.
 SOURCE: MusicGen is enough for the local path; Stable Audio optional. Files pending with provenance.
@@ -451,7 +451,7 @@ FALLBACK: placeholders keep the rows; the board renders locally.
 </style>
 
 <!--
-TIMING: 90 seconds.
+TIMING: 60 seconds.
 SAY: The video model stages the real-world situation. It is not trying to animate a chess move. That looked bad and was not the interesting part anyway.
 CLICK: 2. The scene prompt first, then the clip with its poster. Playback is manual.
 SOURCE: LTX, Gemini, or another video model; identity recorded with the file. The generated scene contains no board, pieces, or move notation unless the source mapping requires one.
@@ -498,7 +498,7 @@ adapted/reference pair, not a before/after experiment.
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 30 seconds.
 SAY: Which is base and which is adapted?
 CLICK: 1. The answer. Hold it back if the room is engaged; the combined reveal comes later. If the room is quiet, use the click and keep moving.
 SOURCE: only an actual adapted/reference pair fills this slide; provenance pending.
@@ -591,7 +591,7 @@ PLACEHOLDER: answer and pair provenance.
 </style>
 
 <!--
-TIMING: 45 seconds, both clips play once.
+TIMING: 30 seconds, both clips play once.
 SAY: Two clips, one text prompt.
 CLICK: 1. The answer, same policy.
 SOURCE: pair provenance pending. No autoplay.
@@ -636,7 +636,7 @@ PLACEHOLDER: answer and pair provenance.
 </style>
 
 <!--
-TIMING: 60 seconds if both clips play.
+TIMING: 30 seconds; play the clips only if the room is engaged.
 SAY: Same saved scene prompt, two clips.
 CLICK: 1. The answer, same policy.
 SOURCE: pair provenance pending.
@@ -702,7 +702,7 @@ Fine-tuning is a trade.
 </style>
 
 <!--
-TIMING: 2 minutes.
+TIMING: 75 seconds.
 SAY: One row per modality: the answer, the exact target behavior, one metric with its sample size, cached or live provenance, and one limitation or regression.
 CLICK: 4. One row per click, fixed modality order.
 SOURCE: every cell lands with the accepted phase 34 evidence or from recorded pairs; nothing here is invented in the meantime.

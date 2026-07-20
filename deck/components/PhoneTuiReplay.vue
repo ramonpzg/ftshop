@@ -3,13 +3,12 @@
     <div class="phone">
       <video
         v-if="!failed"
-        ref="player"
         :src="src"
         :poster="poster"
         preload="metadata"
         playsinline
+        controls
         @error="failed = true"
-        @ended="playing = false"
       />
       <div v-else class="placeholder">
         <span class="ph-name">PLACEHOLDER · {{ file }}</span>
@@ -21,12 +20,7 @@
         <span class="ph-ratio">9:19.5</span>
       </div>
     </div>
-    <div class="controls">
-      <button v-if="!failed" type="button" class="play" @click="toggle">
-        {{ playing ? "Pause" : "Play" }}
-      </button>
-      <span class="provenance">{{ source }}</span>
-    </div>
+    <span class="provenance">{{ source }}</span>
   </div>
 </template>
 
@@ -40,22 +34,8 @@ const props = defineProps({
 });
 
 const failed = ref(false);
-const playing = ref(false);
-const player = ref(null);
 const src = computed(() => `/assets/${props.file}`);
 const poster = computed(() => `/assets/${props.posterFile}`);
-
-function toggle() {
-  const video = player.value;
-  if (!video) return;
-  if (video.paused) {
-    video.play();
-    playing.value = true;
-  } else {
-    video.pause();
-    playing.value = false;
-  }
-}
 </script>
 
 <style scoped>
@@ -67,7 +47,8 @@ function toggle() {
 }
 
 /* The phone is the one dark frame in part 1: the recording is a dark
- * terminal and the bezel keeps its geometry stable. */
+ * terminal and the bezel keeps its geometry stable. Native controls
+ * give seeking, restart, and volume during the demo; no autoplay. */
 .phone {
   aspect-ratio: 9 / 19.5;
   height: 340px;
@@ -80,10 +61,11 @@ function toggle() {
   justify-content: center;
 }
 
+/* contain, never cover: the plan requires the recording uncropped. */
 .phone video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .placeholder {
@@ -111,28 +93,5 @@ function toggle() {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.6rem;
   color: #8a8377;
-}
-
-.controls {
-  display: flex;
-  align-items: baseline;
-  gap: 0.8rem;
-}
-
-.play {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  padding: 0.25rem 0.9rem;
-  background: var(--paper-raised);
-  color: var(--ink);
-  border: 1px solid var(--ink);
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-.play:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 </style>

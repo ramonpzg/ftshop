@@ -8,7 +8,7 @@ class: part-opener
 <div class="part-sub">Names for what you already watched.</div>
 
 <!--
-TIMING: 15 seconds.
+TIMING: 10 seconds.
 SAY: The recap comes late on purpose. You have seen the game; now you get names for what happened.
 CLICK: none.
 SOURCE: none.
@@ -66,7 +66,7 @@ clicks: 3
 </style>
 
 <!--
-TIMING: 2 minutes.
+TIMING: 90 seconds.
 SAY: Only what the rest of the workshop needs. En passant lives in the notebook, or comes up if someone asks.
 CLICK: 3. Turns and legality, check and mate, then captures, promotion, castling.
 SOURCE: board rendered locally from the start position.
@@ -83,7 +83,7 @@ clicks: 3
 <NotationMorph :clicks="$clicks" />
 
 <!--
-TIMING: 2 minutes.
+TIMING: 75 seconds.
 SAY: Same board, same move, four encodings. FEN stores the position, UCI names the move for machines, SAN names it for people, PGN stores the whole game. The workshop consumes exactly these and no others.
 CLICK: 3. FEN is visible first; each click steps to UCI, SAN, PGN while the board and the highlighted move stay fixed.
 SOURCE: the position is the Ruy Lopez after 2...Nc6; the move is 3. Bb5 in every representation.
@@ -121,7 +121,7 @@ handles legal state transitions without pretending to evaluate strategy.
 </style>
 
 <!--
-TIMING: 60 seconds.
+TIMING: 30 seconds.
 SAY: Three different jobs, three different owners. Keeping them separate is what makes the evals honest.
 CLICK: 2. Validate, then evaluate.
 SOURCE: none.
@@ -151,7 +151,7 @@ everyone else's is read-only.
 </style>
 
 <!--
-TIMING: 2 minutes, budget 90 seconds of dead air while the room joins.
+TIMING: 90 seconds, plus up to 90 seconds of dead air while the room joins.
 SAY: Say the board URL out loud, twice. Every match, every clock, every sample; this panel calls the same API the workspaces use.
 CLICK: none; the panel is live data, not staged reveals.
 SOURCE: GET /presenter/games through the deck's /api proxy, polled every 3 seconds. LIVE chip when connected.

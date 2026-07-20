@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Editor } from "tldraw";
+import { track } from "tldraw";
 import { ensureWorkspaceShape } from "../actions/ensureWorkspaceShape";
 import { navigateToWorkspace } from "../actions/navigateToWorkspace";
+import { attendeePanelCollapsed, PRESENTATION_PAGE_ID } from "../calculations/attendeePanel";
 import { fetchWorkspaces, type WorkspaceWithDetails } from "../data/api";
 import "./AttendeePanel.css";
 
@@ -11,8 +13,21 @@ interface AttendeePanelProps {
   refreshToken: number;
 }
 
-export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeePanelProps) {
+export const AttendeePanel = track(function AttendeePanel({
+  editor,
+  currentUserId,
+  refreshToken,
+}: AttendeePanelProps) {
   const [workspaces, setWorkspaces] = useState<WorkspaceWithDetails[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const pageId = editor?.getCurrentPageId() ?? null;
+
+  // Leaving the page clears the override, so the next visit to the
+  // presentation page starts collapsed again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pageId is a reset trigger, not read in the body
+  useEffect(() => {
+    setExpanded(false);
+  }, [pageId]);
 
   // Polls so the presenter can watch the room fill up and late joiners
   // appear without anyone reloading.
@@ -46,9 +61,34 @@ export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeeP
     navigateToWorkspace(editor, workspace, workspace.page_slug);
   }
 
+  if (attendeePanelCollapsed(pageId, expanded)) {
+    return (
+      <button
+        type="button"
+        className="attendee-panel-pill"
+        data-testid="attendee-panel-pill"
+        onClick={() => setExpanded(true)}
+      >
+        Attendees ({workspaces.length})
+      </button>
+    );
+  }
+
   return (
     <aside className="attendee-panel" aria-label="Attendees">
-      <h2>Attendees</h2>
+      <div className="attendee-panel-header">
+        <h2>Attendees</h2>
+        {pageId === PRESENTATION_PAGE_ID && (
+          <button
+            type="button"
+            className="attendee-panel-hide"
+            data-testid="attendee-panel-hide"
+            onClick={() => setExpanded(false)}
+          >
+            Hide
+          </button>
+        )}
+      </div>
       {workspaces.length === 0 && <p className="attendee-panel-empty">No one has joined yet.</p>}
       <ul>
         {workspaces.map((workspace) => (
@@ -69,4 +109,4 @@ export function AttendeePanel({ editor, currentUserId, refreshToken }: AttendeeP
       </ul>
     </aside>
   );
-}
+});

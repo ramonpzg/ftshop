@@ -27,7 +27,7 @@
 </style>
 
 <!--
-TIMING: 60 seconds.
+TIMING: 45 seconds.
 SAY: I bought a book and everything to get better at it, opened it five times, never saw it again, was not any good, and stopped playing.
 CLICK: 1. The book appears as a second physical object next to the photo.
 SOURCE: assets/origin-photo.jpg and assets/origin-book.jpg, Ramon's own.
@@ -50,7 +50,7 @@ FALLBACK: placeholders render with final geometry until the photos land.
 <MediaFrame
   file="duolingo-app.png"
   ratio="9/19.5"
-  width="200px"
+  height="270px"
   expected="Duolingo chess mode, app screenshot."
 />
 </div>
@@ -72,7 +72,7 @@ FALLBACK: placeholders render with final geometry until the photos land.
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 30 seconds.
 SAY: Chess mode launched earlier in the year. I only noticed it in Japan, opening the app to practise Japanese.
 CLICK: 1. The app screenshot takes over the launch post.
 SOURCE: Duolingo launch post and app screenshot; record source URL, license, access date in the asset inventory.
@@ -88,14 +88,14 @@ FALLBACK: placeholders keep the geometry.
 <MediaFrame
   file="oscar-game.png"
   ratio="9/19.5"
-  width="220px"
+  height="330px"
   expected="One game against Oscar, app screenshot."
 />
 <div v-click class="reserve overlay">
 <MediaFrame
   file="oscar.png"
   ratio="9/19.5"
-  width="220px"
+  height="330px"
   expected="Oscar."
 />
 </div>
@@ -104,7 +104,7 @@ FALLBACK: placeholders keep the geometry.
 <style>
 .phone-fixed {
   position: relative;
-  width: 220px;
+  width: fit-content;
   margin: 0.5rem auto 0;
 }
 .phone-fixed .overlay {
@@ -114,7 +114,7 @@ FALLBACK: placeholders keep the geometry.
 </style>
 
 <!--
-TIMING: 30 seconds.
+TIMING: 30 seconds. OPTIONAL: the default route skips this slide.
 SAY: The main player and I became best friends. This is allowed to sound slightly ridiculous because it happened.
 CLICK: 1. The same phone frame stays in place; its contents change from the game to Oscar.
 SOURCE: assets/oscar-game.png, assets/oscar.png, Ramon's screenshots.
@@ -182,7 +182,7 @@ FALLBACK: static counts read fine without the image.
 <MediaFrame
   file="no-internet.png"
   ratio="9/19.5"
-  width="220px"
+  height="330px"
   expected="Duolingo chess rendered useless on the Sydney flight."
 />
 <p class="statement-quiet">
@@ -203,7 +203,7 @@ The opponent I wanted disappeared with the connection.
 </style>
 
 <!--
-TIMING: 30 seconds.
+TIMING: 20 seconds.
 SAY: On the way back from Japan I could not play. That is the constraint that matters.
 CLICK: none.
 SOURCE: assets/no-internet.png, Ramon's screenshot.
@@ -250,7 +250,7 @@ FALLBACK: the sentence carries the slide if the screenshot is missing.
 </style>
 
 <!--
-TIMING: 60 seconds.
+TIMING: 45 seconds.
 SAY: Surely people have fine-tuned models on chess moves. Has anyone explained the complete process, released the evidence, and then done something personal with it?
 CLICK: 3. The dog-thinking meme, the talk-plan line, then "what could possibly go wrong".
 SOURCE: assets/meme-dog-thinking.jpg pending.
@@ -297,7 +297,7 @@ FALLBACK: lines land without the meme.
 </style>
 
 <!--
-TIMING: 3 minutes including the recording.
+TIMING: 2 minutes including the recording, hard stop 2:30.
 SAY: This is the end goal in one object. The recording shows the local llama.cpp server starting, the TUI opening, one participant move, one Gemma move, the commentary, the game record, and a short replay. Its commentary is sassy as fuck. It is not Stockfish analysis and I will not sell it as one.
 CLICK: 1. The objective appears. Phrase it without the double negative; prefer an actual recorded result when one exists.
 SOURCE: assets/tui-recording.mp4 and assets/tui-poster.png, recorded on the presenter phone. Art of War quote optional here; record source if used.

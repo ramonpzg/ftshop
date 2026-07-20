@@ -43,7 +43,7 @@ clicks: 5
 <DatasetShapes :clicks="$clicks" />
 
 <!--
-TIMING: 3 minutes.
+TIMING: 2 minutes.
 SAY: Encoding is a design decision. Each shape trains a different model. The tensor class 3980 is e2e4 under the from times 320 plus to times 5 plus promotion vocabulary, and it inverts back to the move.
 CLICK: 5. The five clicks step from the PGN prefix shape through the RL trajectory.
 SOURCE: shapes match docs/datasets.md and the phase 33 corrections.
@@ -73,7 +73,7 @@ legal-move rate.
 </style>
 
 <!--
-TIMING: 2 minutes.
+TIMING: 90 seconds.
 SAY: Environment feedback is separate from model output. python-chess knows the rules; this function knows what they are worth. Press the outcomes; the return accumulates.
 CLICK: none; the meter is presenter-pressed, and remounting resets it to idle.
 SOURCE: participant rewards as implemented on the board. Model-side illegal replies use the phase 33 fallback semantics stated on the slide.
@@ -85,8 +85,10 @@ FALLBACK: static component, no backend.
 
 # Prompt, chat template, constrained reply
 
-````md magic-move {lines: true}
-```python {*|1-4|6-7|all}
+<div class="code-lg">
+
+````md magic-move
+```python
 PROMPT_TEMPLATE = """You are a chess engine assistant.
 
 Position (FEN): {fen}
@@ -96,35 +98,37 @@ Return exactly one move from the legal moves list.
 Respond with JSON: {{"move": "<uci>"}}"""
 ```
 
-```python {*|3-6|8-9|all}
-# The same intent, shaped for training
-CHAT_TEMPLATE = """{% for m in messages %}
-<start_of_turn>{{ m.role }}
-{{ m.content }}<end_of_turn>
-{% endfor %}
-<start_of_turn>model
-"""
+```python
+# The tokenizer owns the turn format; we never write it by hand.
+from transformers import AutoProcessor
 
-# prompt/completion pairs render through this
-# so the model learns where turns begin and end
+processor = AutoProcessor.from_pretrained(
+    "google/gemma-4-E2B-it-qat-q4_0-unquantized")
+
+rendered = processor.apply_chat_template(
+    [{"role": "user", "content": prompt},
+     {"role": "assistant", "content": '{"move": "e2e4"}'}],
+    tokenize=False)
 ```
 
-```text {*|2|3|4|all}
-<start_of_turn>user
+```text
+<|turn>user
 Position (FEN): rnbqkbnr/pppppppp/8/8/...
 Legal moves (UCI): e2e4, d2d4, g1f3, ...
-Return exactly one move...<end_of_turn>
-<start_of_turn>model
-{"move": "e2e4"}<end_of_turn>
+Return exactly one move...<turn|>
+<|turn>model
+{"move": "e2e4"}<turn|>
 ```
 ````
 
+</div>
+
 <!--
-TIMING: 2 minutes.
-SAY: Three forms of the same intent: the raw prompt, the chat template, the rendered turn. The tokenizer sees the third one. Most fine-tuning bugs live between step one and step three.
-CLICK: 12. Each code stage morphs into the next; the inner steps walk the highlighted lines.
-SOURCE: the template matches the Gemma turn format used in training.
-CUT: the inner highlight steps; the three morphs carry it.
+TIMING: 90 seconds.
+SAY: Three forms of the same intent: the raw prompt, the render call, the rendered turns. The turn markers come from the Gemma 4 tokenizer, not from us; earlier Gemma versions used different markers, which is exactly why rendering is delegated to apply_chat_template. The tokenizer sees the third form. Most fine-tuning bugs live between step one and step three. At inference the same call takes add_generation_prompt=True and stops after the opened model turn.
+CLICK: 2. Prompt morphs into the render call, which morphs into its rendered output.
+SOURCE: turn markers per the selected Gemma 4 tokenizer's chat template; render shown is the apply_chat_template output for this pair.
+CUT: never if this section runs.
 FALLBACK: static code, no dependencies.
 -->
 
@@ -138,7 +142,7 @@ clicks: 2
 
 <!--
 TIMING: 90 seconds.
-SAY: Matched inputs, two checkpoints, the same frozen evaluation suite. The metric names are the real ones; the numbers land with the accepted phase 34 result. One metric gets worse and is shown getting worse.
+SAY: Matched inputs, two checkpoints, the same frozen evaluation suite. The numbers land with the accepted phase 34 result. Legality and JSON validity improve; the explanation rate drops on the adapted checkpoint, by design, and is shown dropping.
 CLICK: 2. The base column, then the adapted column with deltas and the regression row.
 SOURCE: fixture is an explicit placeholder pending phase 34 integration; nothing invented.
 CUT: never if this section runs; this is the honest-evaluation beat.
@@ -149,12 +153,14 @@ FALLBACK: placeholder values keep the structure readable.
 
 # The training ladder
 
-<div class="ladder-intro">Five rungs, one dataset. Deploy:
+<div class="ladder-intro">One dataset, three of the five rungs as real code. Deploy:
 <code>google/gemma-4-E2B-it-qat-q4_0-gguf</code>. Tune:
 <code>google/gemma-4-E2B-it-qat-q4_0-unquantized</code>.</div>
 
-````md magic-move {lines: true}
-```python {*|1-3|5-7|all}
+<div class="code-lg">
+
+````md magic-move
+```python
 # Rung 4: code that reads like config (Unsloth)
 from unsloth import FastModel
 from trl import SFTConfig, SFTTrainer
@@ -165,18 +171,20 @@ model, tok = FastModel.from_pretrained(
 model = FastModel.get_peft_model(model, r=8, lora_alpha=8)
 ```
 
-```yaml {*|1-2|4-8|all}
+```yaml
 # Rung 3: the run is a file (axolotl)
 base_model: google/gemma-4-E2B-it-qat-q4_0-unquantized
 
 adapter: lora
 lora_r: 16
 chat_template: gemma4
+# Gemma 4 loads as multimodal even for text-only training
+freeze_mm_modules: true
 datasets:
   - path: data/processed/text/chess_sft.jsonl
 ```
 
-```python {*|1-2|4-7|all}
+```python
 # Rung 5: no trainer, no config, just the loss (JAX)
 import jax
 import jax.numpy as jnp
@@ -189,16 +197,9 @@ def loss_fn(adapter, frozen_base, batch):
 
 loss, grads = jax.value_and_grad(loss_fn)(adapter, frozen_base, batch)
 ```
-
-```text {*|2|3|4|5|6|all}
-The whole ladder:
-  1. UI       Unsloth Studio: no code, live loss curves
-  2. API      a training endpoint: your data leaves the room
-  3. config   axolotl: the run is a YAML file
-  4. code     Unsloth: five lines, one GPU
-  5. loss     JAX: it trains live in the notebook, on CPU
-```
 ````
+
+</div>
 
 <style>
 .ladder-intro {
@@ -209,12 +210,33 @@ The whole ladder:
 </style>
 
 <!--
-TIMING: 4 minutes.
-SAY: The same run at five levels of abstraction. Rung five actually executes in the notebook. The GGUF is for deployment; training starts from the unquantized weights and the merged result converts back.
-CLICK: 18. Three morphs across the actual code with their line highlights, then the ladder summary steps line by line.
-SOURCE: model ids are the accepted ones; the axolotl path points at the real dataset file.
-CUT: the inner highlight steps.
+TIMING: 2 minutes.
+SAY: The same run at three levels of abstraction: Unsloth code, an axolotl file, the bare JAX loss. Rung five actually executes in the notebook. The GGUF is for deployment; training starts from the unquantized weights and the merged result converts back. Gemma 4 loads as a multimodal model even for text-only training, hence the frozen multimodal modules in the axolotl file.
+CLICK: 2. Unsloth morphs into the axolotl file, which morphs into the JAX loss.
+SOURCE: model ids are the accepted ones; the axolotl path points at the real dataset file and follows current axolotl Gemma 4 guidance.
+CUT: skippable when the notebook carries the ladder.
 FALLBACK: static code, no dependencies.
+-->
+
+---
+
+# The whole ladder
+
+| rung | surface | what it costs you |
+| --- | --- | --- |
+| 1. UI | Unsloth Studio, live loss curves | no code, least control |
+| 2. API | a training endpoint | your data leaves the room |
+| 3. config | axolotl, the run is a YAML file | one file to review |
+| 4. code | Unsloth, five lines | one GPU |
+| 5. loss | raw JAX, trains in the notebook | everything is yours to break |
+
+<!--
+TIMING: 45 seconds.
+SAY: The full ladder in one frame. You saw rungs three, four, and five as real code on the previous slide; the notebook runs rung five live on CPU.
+CLICK: none; the rungs are compared at once.
+SOURCE: same as the previous slide.
+CUT: skippable with the previous slide.
+FALLBACK: static.
 -->
 
 ---

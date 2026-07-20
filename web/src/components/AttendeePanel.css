@@ -57,3 +57,34 @@
   font-size: 11px;
   color: #495057;
 }
+
+.attendee-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.attendee-panel-hide {
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: #495057;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Collapsed form on the presentation page, where the full panel would
+ * cover the embedded deck. */
+.attendee-panel-pill {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 900;
+  background: white;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}

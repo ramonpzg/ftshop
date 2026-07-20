@@ -2,8 +2,8 @@
   <figure class="media-frame" :style="{ maxWidth: width }">
     <div
       class="stage"
-      :class="{ dark, audio: kind === 'audio' }"
-      :style="kind === 'audio' ? {} : { aspectRatio: ratio }"
+      :class="{ dark, audio: kind === 'audio', capped: !!height && kind !== 'audio' }"
+      :style="stageStyle"
     >
       <img
         v-if="kind === 'image' && !failed"
@@ -55,11 +55,19 @@ const props = defineProps({
   poster: { type: String, default: "" },
   alt: { type: String, default: "" },
   width: { type: String, default: "100%" },
+  /** Cap the stage height; width derives from the aspect ratio.
+   * Portrait media must set this or it overflows the 16:9 canvas. */
+  height: { type: String, default: "" },
   dark: { type: Boolean, default: false },
 });
 
 const failed = ref(false);
 const src = computed(() => `/assets/${props.file}`);
+const stageStyle = computed(() => {
+  if (props.kind === "audio") return {};
+  if (props.height) return { aspectRatio: props.ratio, height: props.height };
+  return { aspectRatio: props.ratio };
+});
 watch(
   () => props.file,
   () => {
@@ -75,7 +83,8 @@ watch(
 }
 
 .stage {
-  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   border: 1px solid var(--rule);
   border-radius: 2px;
   background: var(--paper-raised);
@@ -88,6 +97,14 @@ watch(
 .stage.dark {
   background: #211f1b;
   border-color: #211f1b;
+}
+
+.stage:not(.audio) {
+  width: 100%;
+}
+
+.stage.capped {
+  width: auto;
 }
 
 .fill {

@@ -167,6 +167,43 @@ rerun: `just lint`, `just typecheck`, `just test`, the deck build, the
 screenshot sweep at all three resolutions, and the LiveRoom/embed
 checks against a running backend.
 
+## Review round two (Ramon's findings, all addressed)
+
+1. Timing: every slide retimed to a 20-25 minute default route
+   (24:50 measured from the notes), with Oscar, mappings two and
+   three, and the model tree marked OPTIONAL and skipped by default.
+   Budget table and cut order in docs/deck-plan.md.
+2. Chat template: the slide now renders through
+   AutoProcessor.apply_chat_template with the Gemma 4 turn markers
+   `<|turn>` and `<turn|>`; no handwritten template syntax remains.
+3. Overflow: MediaFrame gained a height cap for portrait media; the
+   Duolingo overlay, Oscar phones, and no-internet phone no longer
+   cross the title or footer at 1280x720.
+4. Dataset rows: every payload is strictly valid JSON with real FENs;
+   truncation is stated in the caption, and a JSON.parse test covers
+   all six alongside a wrapped-row fit estimate.
+5. SFC checking: typecheck is vue-tsc over lib, tests, setup, and all
+   Vue components, with a minimal typed shim for @slidev/client
+   (its shipped .ts source needs Slidev's build globals).
+6. Click load: the two code slides dropped their inner highlight
+   steps to 2 clicks each; the ladder summary moved to its own slide;
+   code-first slides render at a larger type size.
+7. Axolotl: the YAML carries freeze_mm_modules: true with the reason
+   in a comment (Gemma 4 loads as multimodal even for text-only).
+8. TUI video: object-fit contain (uncropped, per the plan) and native
+   controls for seeking, restart, and volume.
+9. Embedded fallback: the web attendees panel collapses to a pill on
+   the presentation page so it cannot cover the embedded deck, with
+   an explicit expand override; pure calculation plus component test.
+   This is the one parallel-stage edit outside deck/, made on Ramon's
+   direct instruction; it touches only AttendeePanel and a new
+   calculations/attendeePanel.ts, nothing phase 34 is known to own.
+10. Fixture contract: OutcomeCompare metrics are now
+    model_legal_move_rate, valid_json_rate, explanation_rate with the
+    phase 34 trade direction (explanations drop by design), and the
+    interventions slide no longer claims the adapter learns to
+    explain.
+
 ## Gotchas
 
 - Slide separators inside imported section files are ordinary `---`;

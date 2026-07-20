@@ -85,6 +85,13 @@
   line-height: 1.5;
 }
 
+/* Code-first slides: the block is the content, so it gets more type. */
+.code-lg pre.shiki,
+.code-lg .slidev-code-wrapper pre {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
 .slidev-layout table {
   width: 100%;
   border-collapse: collapse;

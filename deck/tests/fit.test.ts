@@ -8,14 +8,21 @@ import { NOTATION_EXAMPLE } from "../lib/chess";
 import { DATASET_SHAPES } from "../lib/datasetShapes";
 import { COST_ROWS, TEXT_COMPARE_PLACEHOLDER } from "../lib/fixtures";
 
-describe("dataset shapes fit their panel", () => {
+describe("dataset shapes are honest and fit their panel", () => {
   for (const shape of DATASET_SHAPES) {
+    test(`${shape.name} payload is strictly valid JSON`, () => {
+      expect(() => JSON.parse(shape.payload)).not.toThrow();
+    });
+
     test(`${shape.name} payload and point stay inside the reserved panel`, () => {
-      const lines = shape.payload.split("\n");
-      expect(lines.length).toBeLessThanOrEqual(5);
-      for (const line of lines) {
-        expect(line.length).toBeLessThanOrEqual(72);
-      }
+      // The panel wraps at roughly 55 mono characters; the reserved
+      // height holds nine wrapped rows. Estimate wrapped rows rather
+      // than capping raw line length, since full FENs must not be
+      // truncated just to fit one line.
+      const wrappedRows = shape.payload
+        .split("\n")
+        .reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / 55)), 0);
+      expect(wrappedRows).toBeLessThanOrEqual(9);
       expect(shape.point.length).toBeLessThanOrEqual(160);
     });
   }

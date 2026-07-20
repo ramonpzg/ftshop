@@ -28,7 +28,9 @@ export interface CompareFixture {
 }
 
 /** Base versus adapted on the frozen text eval suite. Values land at
- * phase 34 integration; metric names are the accepted phase 33 ones. */
+ * phase 34 integration. The metric set and the trade direction follow
+ * the phase 34 contract: legality and JSON validity improve, the
+ * adapted checkpoint deliberately loses explanations. */
 export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
   task: "Legal move as JSON, frozen eval suite",
   input: "PLACEHOLDER: one FEN + prompt from the frozen suite",
@@ -37,11 +39,11 @@ export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
   baseOutput: "--",
   adaptedOutput: "--",
   metrics: [
-    { name: "model_legal_move_rate", base: "--", adapted: "--", delta: "none" },
-    { name: "valid_json_rate", base: "--", adapted: "--", delta: "none" },
-    { name: "latency p50", base: "--", adapted: "--", delta: "none" },
+    { name: "model_legal_move_rate", base: "--", adapted: "--", delta: "good" },
+    { name: "valid_json_rate", base: "--", adapted: "--", delta: "good" },
+    { name: "explanation_rate", base: "--", adapted: "--", delta: "bad" },
   ],
-  regression: "PLACEHOLDER: the metric that got worse, stated plainly",
+  regression: "Explanation rate drops on the adapted checkpoint, by design.",
   provenance: "PENDING PHASE 34 INTEGRATION",
 };
 

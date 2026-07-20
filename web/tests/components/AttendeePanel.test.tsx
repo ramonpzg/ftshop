@@ -39,6 +39,7 @@ describe("AttendeePanel", () => {
   test("clicking an attendee navigates the editor to their workspace", async () => {
     globalThis.fetch = fetchReturning([sampleWorkspace]);
     const editor = {
+      getCurrentPageId: mock(() => "page:chess-machine"),
       getShape: mock(() => ({ id: "shape:workspace-user_1-chess-machine" })),
       createShape: mock(() => {}),
       updateShape: mock(() => {}),
@@ -64,5 +65,24 @@ describe("AttendeePanel", () => {
     await waitFor(() => {
       expect(screen.getByText("No one has joined yet.")).toBeTruthy();
     });
+  });
+
+  test("collapses to a pill on the presentation page and expands on demand", async () => {
+    globalThis.fetch = fetchReturning([sampleWorkspace]);
+    const editor = {
+      getCurrentPageId: mock(() => "page:presentation"),
+    };
+
+    render(<AttendeePanel editor={editor as never} currentUserId={null} refreshToken={0} />);
+
+    const pill = await screen.findByTestId("attendee-panel-pill");
+    expect(screen.queryByTestId("attendee-user_1")).toBeNull();
+
+    pill.click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("attendee-user_1")).toBeTruthy();
+    });
+    expect(screen.getByTestId("attendee-panel-hide")).toBeTruthy();
   });
 });
