@@ -180,7 +180,15 @@ this: the applied move and its attempt record commit together, while
 failed attempts commit individually as they happen because a failed
 reply is evidence that must survive the turn failing. The lazy timeout
 check commits on its own; a flag fall is a fact about the wall clock,
-not part of whichever action noticed it. `run_job` persists the job
+not part of whichever action noticed it. That check runs *inside*
+`make_move`'s write lock (after `BEGIN IMMEDIATE`, on a fresh read of
+the game), not before it: a move that beat the clock can still lose
+the race for the lock to another writer, and the wait for that lock is
+exactly the kind of delay a clock check taken beforehand would miss
+entirely. Checking again once the lock is actually held is what makes
+"the clock was fine when this call started" and "the clock is still
+fine right before this call writes" the same claim, rather than two
+claims separated by an unaccounted-for wait. `run_job` persists the job
 config, the artifact, and any eval_results a handler wrote as one
 transaction too; every repository on this path (`job_configs_repo`,
 `artifacts_repo`, `eval_results_repo`) takes writes without committing,

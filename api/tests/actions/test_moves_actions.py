@@ -1,11 +1,13 @@
 import json
 import threading
+import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import chess
 import pytest
 
-from euro_chess_studio.actions.errors import NotYourTurnError, StaleMoveError
+from euro_chess_studio.actions.errors import GameClockExpiredError, NotYourTurnError, StaleMoveError
 from euro_chess_studio.actions.games import start_game
 from euro_chess_studio.actions.moves import (
     MakeMoveResult,
@@ -211,6 +213,56 @@ def test_model_cannot_play_the_participants_color_in_an_active_game(tmp_path: Pa
     assert conn.execute("SELECT COUNT(*) FROM moves").fetchone()[0] == 0
     reloaded = get_workspace(conn, workspace["id"])
     assert reloaded["board_fen"] == chess.STARTING_FEN
+
+
+def test_clock_expiry_is_reconciled_after_the_write_lock_not_before(tmp_path: Path):
+    """Reproduces the reported bug: the clock used to be checked before
+    BEGIN IMMEDIATE, so a move that started while time remained could
+    still lose the race for the write lock to another writer, and by
+    the time that wait ended, the clock had genuinely run out without
+    this call ever looking again. A second real connection grabs the
+    write lock first and holds it comfortably longer than the little
+    time left on the clock, so this call's own BEGIN IMMEDIATE blocks
+    until well past expiry -- the clock check has to happen after that
+    wait, not before it, to catch this."""
+    conn, workspace = make_workspace(tmp_path)
+    start_game(conn, workspace["id"], 60)
+    make_move(conn, workspace["id"], "e2e4")
+
+    # ~0.2s left on the clock: still active right now, not for long.
+    conn.execute(
+        "UPDATE games SET started_at = ? WHERE workspace_id = ?",
+        ((datetime.now(UTC) - timedelta(seconds=59.8)).isoformat(), workspace["id"]),
+    )
+    conn.commit()
+
+    lock_acquired = threading.Event()
+
+    def hold_the_lock() -> None:
+        holder_conn = get_connection(tmp_path / "test.db")
+        try:
+            holder_conn.execute("BEGIN IMMEDIATE")
+            lock_acquired.set()
+            time.sleep(0.5)
+            holder_conn.commit()
+        finally:
+            holder_conn.close()
+
+    holder = threading.Thread(target=hold_the_lock)
+    holder.start()
+    assert lock_acquired.wait(timeout=5)
+
+    # The 0.2s remaining on the clock is long gone by the time the
+    # holder's 0.5s hold ends and this call's own BEGIN IMMEDIATE
+    # finally returns.
+    with pytest.raises(GameClockExpiredError):
+        make_move(conn, workspace["id"], "e7e5", actor="model", model="stub")
+    holder.join(timeout=5)
+
+    game = conn.execute("SELECT * FROM games WHERE workspace_id = ?", (workspace["id"],)).fetchone()
+    assert game["result"] == "loss_timeout"
+    (count,) = conn.execute("SELECT COUNT(*) FROM moves WHERE ply = 1").fetchone()
+    assert count == 0
 
 
 def test_precondition_check_and_write_are_atomic_across_two_real_connections(tmp_path: Path):

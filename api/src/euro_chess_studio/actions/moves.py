@@ -80,16 +80,6 @@ def make_move(
     if workspace is None:
         raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
 
-    # The server clock is the referee. A move that arrives after the
-    # flag fell is not a move; the game is already a timeout loss. This
-    # runs before the write lock below because expire_if_over commits
-    # its own timeout loss immediately and independently of whatever
-    # this call goes on to do; it must not be nested inside the
-    # transaction that follows.
-    game = get_active_game(conn, workspace_id)
-    if game is not None and expire_if_over(conn, game) is None:
-        raise GameClockExpiredError("time ran out; that game is a loss")
-
     # From here on, everything is one write-locked transaction: BEGIN
     # IMMEDIATE acquires SQLite's write lock up front, rather than
     # SQLite's default deferred behaviour (no lock until the first
@@ -99,15 +89,34 @@ def make_move(
     # would then write against a position that already changed --
     # exactly the race that let two overlapping model replies both
     # record a legal e7e5 at consecutive plies. Everything the checks
-    # read is re-read fresh here, after the lock is held, because the
-    # workspace/game read above happened before we held it and can
-    # already be stale.
+    # read is re-read fresh here, after the lock is held, because any
+    # read taken before we held it can already be stale.
     conn.execute("BEGIN IMMEDIATE")
     try:
         workspace = get_workspace(conn, workspace_id)
         if workspace is None:
             raise WorkspaceNotFoundError(f"unknown workspace id: {workspace_id}")
         game = get_active_game(conn, workspace_id)
+
+        # The server clock is the referee: a move that arrives after
+        # the flag fell is not a move, the game is already a timeout
+        # loss. This has to be reconciled here, after the write lock is
+        # held, not before it -- a move that beat the clock could still
+        # end up waiting for BEGIN IMMEDIATE above if another writer
+        # held the lock first, and by the time that wait ends, real
+        # time has passed that this call never re-checked. Checking
+        # only before the lock let exactly that happen: hold the lock
+        # elsewhere until a short game's clock runs out, and the
+        # blocked move sails through afterwards as if no time had
+        # passed. expire_if_over's own commit (the timeout loss is a
+        # fact about the wall clock, independent of this call, so it
+        # commits on its own even when the caller's transaction later
+        # rolls back) is safe to call from inside this transaction:
+        # nothing has been written yet on this path, and the only thing
+        # that happens next is raising, so an early commit here has
+        # nothing later in the transaction to leave half-done.
+        if game is not None and expire_if_over(conn, game) is None:
+            raise GameClockExpiredError("time ran out; that game is a loss")
         game_id = game["id"] if game is not None else None
 
         # The public move route has no other way to know whose turn it
