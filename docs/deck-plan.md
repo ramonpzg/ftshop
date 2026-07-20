@@ -239,11 +239,13 @@ slide.
 Deck-owned until phase 36 consolidates them into the Justfile:
 
 ```
-cd deck && bun run dev        # slidev on :3030
-cd deck && bun run build      # production build to dist/
-cd deck && bun test           # lib + copy checks (already in `just test`)
+cd deck && bun run dev        # default route on :3030
+cd deck && bun run dev:full   # full route incl. optional slides
+cd deck && bun run build      # default-route build to dist/
+cd deck && bun run build:full # full-route build
+cd deck && bun test           # lib + copy + route checks (in `just test`)
 cd deck && bun run lint       # biome, deck only
-cd deck && bun run typecheck  # tsc over lib/ and tests/
+cd deck && bun run typecheck  # vue-tsc over lib, tests, components
 ```
 
 `just test` already runs the deck tests. Lint and typecheck are not yet
@@ -252,9 +254,12 @@ in the root Justfile; phase 36 wires them in.
 ## Default route and timing
 
 PLAN_V2 budgets 20 to 25 minutes for the opening deck. The default
-route hits that budget; every optional slide is marked `OPTIONAL` in
-its own TIMING note and skipping it is the default, not a failure.
-Hard stops are in the notes.
+route is encoded, not aspirational: `deck/slides.md` imports each
+section with a range that excludes the OPTIONAL slides, so ordinary
+linear navigation is the 24:50 route. `deck/slides-full.md` imports
+every slide for rehearsal (`bun run dev:full`). `tests/route.test.ts`
+asserts the ranges exclude exactly the slides whose TIMING notes say
+OPTIONAL. Hard stops are in the notes.
 
 | part | default | slides skipped by default |
 | --- | --- | --- |
@@ -281,12 +286,15 @@ phase 35 screenshot pass (slide number: clicks).
 ```
 1:0   2:1   3:1   4:1   5:4   6:0   7:3   8:1
 9:4   10:1  11:1  12:1  13:1  14:3  15:3  16:2
-17:1  18:1  19:1  20:1  21:4
+17:0  18:0  19:0  20:0  21:4
 22:0  23:4  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
 32:0  33:3  34:3  35:2  36:0
 37:0  38:5  39:5  40:0  41:2  42:2  43:2  44:0  45:0  46:2  47:1
 ```
 
-47 slides. The two Magic Move code slides morph whole frames with no
-inner line-highlight steps, so they cost two clicks each; the ladder
-summary is its own zero-click slide.
+47 slides, numbered on the full route; the default route drops slides
+4, 12, 13, and 29. The A/B slides (17 to 20) have zero clicker clicks:
+their answers are mouse-only disclosures held for the combined reveal.
+The two Magic Move code slides morph whole frames with no inner
+line-highlight steps, so they cost two clicks each; the ladder summary
+is its own zero-click slide.

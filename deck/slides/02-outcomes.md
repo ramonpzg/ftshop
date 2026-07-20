@@ -474,11 +474,12 @@ FALLBACK: poster and placeholder keep the geometry.
 </div>
 </div>
 
-<div v-click class="reserve ab-answer">
-PLACEHOLDER: answer and pair provenance. Model card, adapter, license, input,
-parameters. If the pair does not share a controlled input, it is an
-adapted/reference pair, not a before/after experiment.
-</div>
+<details class="ab-answer">
+<summary>Answer</summary>
+<p>PLACEHOLDER: answer and pair provenance. Model card, adapter, license,
+input, parameters. If the pair does not share a controlled input, it is an
+adapted/reference pair, not a before/after experiment.</p>
+</details>
 
 <style>
 .ab-grid {
@@ -500,7 +501,7 @@ adapted/reference pair, not a before/after experiment.
 <!--
 TIMING: 30 seconds.
 SAY: Which is base and which is adapted?
-CLICK: 1. The answer. Hold it back if the room is engaged; the combined reveal comes later. If the room is quiet, use the click and keep moving.
+CLICK: none. The Answer disclosure opens by mouse only, so the clicker cannot leak it; default is to hold answers for the combined reveal. If the room is quiet, open it and keep moving.
 SOURCE: only an actual adapted/reference pair fills this slide; provenance pending.
 CUT: any of the four A/B slides can be skipped independently.
 FALLBACK: placeholders keep the frames.
@@ -521,9 +522,10 @@ FALLBACK: placeholders keep the frames.
 </div>
 </div>
 
-<div v-click class="reserve ab-answer">
-PLACEHOLDER: answer and pair provenance.
-</div>
+<details class="ab-answer">
+<summary>Answer</summary>
+<p>PLACEHOLDER: answer and pair provenance.</p>
+</details>
 
 <style>
 .ab-grid {
@@ -546,7 +548,7 @@ PLACEHOLDER: answer and pair provenance.
 <!--
 TIMING: 30 seconds.
 SAY: Same prompt, two sets of pieces.
-CLICK: 1. The answer, same policy as the text pair.
+CLICK: none. Answer opens by mouse only, same policy as the text pair.
 SOURCE: pair provenance pending.
 CUT: skippable.
 FALLBACK: placeholders keep the frames.
@@ -567,9 +569,10 @@ FALLBACK: placeholders keep the frames.
 </div>
 </div>
 
-<div v-click class="reserve ab-answer">
-PLACEHOLDER: answer and pair provenance.
-</div>
+<details class="ab-answer">
+<summary>Answer</summary>
+<p>PLACEHOLDER: answer and pair provenance.</p>
+</details>
 
 <style>
 .ab-audio {
@@ -593,7 +596,7 @@ PLACEHOLDER: answer and pair provenance.
 <!--
 TIMING: 30 seconds, both clips play once.
 SAY: Two clips, one text prompt.
-CLICK: 1. The answer, same policy.
+CLICK: none. Answer opens by mouse only, same policy.
 SOURCE: pair provenance pending. No autoplay.
 CUT: skippable.
 FALLBACK: placeholders keep the rows.
@@ -614,9 +617,10 @@ FALLBACK: placeholders keep the rows.
 </div>
 </div>
 
-<div v-click class="reserve ab-answer">
-PLACEHOLDER: answer and pair provenance.
-</div>
+<details class="ab-answer">
+<summary>Answer</summary>
+<p>PLACEHOLDER: answer and pair provenance.</p>
+</details>
 
 <style>
 .ab-grid {
@@ -638,7 +642,7 @@ PLACEHOLDER: answer and pair provenance.
 <!--
 TIMING: 30 seconds; play the clips only if the room is engaged.
 SAY: Same saved scene prompt, two clips.
-CLICK: 1. The answer, same policy.
+CLICK: none. Answer opens by mouse only, same policy.
 SOURCE: pair provenance pending.
 CUT: skippable.
 FALLBACK: posters and placeholders keep the frames.

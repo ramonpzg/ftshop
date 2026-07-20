@@ -4,29 +4,35 @@
       <thead>
         <tr>
           <th>modality</th>
-          <th>task</th>
-          <th>target quality</th>
-          <th>local base/adapted</th>
-          <th>api reference</th>
-          <th>cost</th>
+          <th>task and target</th>
+          <th>local setup, amortised</th>
+          <th>local /req</th>
+          <th>api /req</th>
+          <th>volume</th>
+          <th>target met</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(row, index) in rows" :key="row.modality" :class="{ shown: index < shownRows }">
           <td>{{ row.modality }}</td>
-          <td>{{ row.task }}</td>
-          <td>{{ row.target }}</td>
-          <td>{{ row.local }}</td>
-          <td>{{ row.api }}</td>
-          <td class="cost">{{ row.cost }}</td>
+          <td>
+            <span class="task">{{ row.task }}</span>
+            <span class="target">{{ row.target }}</span>
+          </td>
+          <td class="cost">{{ row.localSetup }}</td>
+          <td class="cost">{{ row.localPerRequest }}</td>
+          <td class="cost">{{ row.apiPerRequest }}</td>
+          <td>{{ row.volume }}</td>
+          <td>{{ row.thresholdMet }}</td>
         </tr>
       </tbody>
     </table>
+    <p class="paths">{{ paths }}</p>
     <p class="footnote">
-      Each row includes training or rental cost, hardware amortisation, request
-      volume, and the quality threshold being met. Numbers are placeholders
-      until checked close to the session; every final number gets a source and
-      access date.
+      Setup cost carries its amortisation basis; per-request costs are marginal;
+      the volume column states the assumption the amortisation uses. Values are
+      placeholders until checked close to the session; every final number gets a
+      source and access date.
     </p>
   </div>
 </template>
@@ -34,7 +40,7 @@
 <script setup>
 import { computed } from "vue";
 import { revealedRows } from "../lib/clicks";
-import { COST_ROWS } from "../lib/fixtures";
+import { COST_PATHS, COST_ROWS } from "../lib/fixtures";
 
 const props = defineProps({
   /** Slide click count; one row per click, in the fixed modality order. */
@@ -42,20 +48,31 @@ const props = defineProps({
 });
 
 const rows = COST_ROWS;
+const paths = COST_PATHS;
 const shownRows = computed(() => revealedRows(props.clicks, rows.length));
 </script>
 
 <style scoped>
 .cost-at-target {
-  max-width: 52rem;
+  max-width: 54rem;
   margin: 0 auto;
   text-align: left;
 }
 
 .cost-at-target td,
 .cost-at-target th {
-  font-size: 0.72rem;
-  padding-right: 0.6rem;
+  font-size: 0.7rem;
+  padding-right: 0.5rem;
+}
+
+.task {
+  display: block;
+}
+
+.target {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.62rem;
 }
 
 /* Rows keep their space; reveal is visibility only. */
@@ -72,9 +89,16 @@ tbody tr.shown {
   color: var(--accent);
 }
 
+.paths {
+  margin-top: 0.7rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--ink-faint);
+}
+
 .footnote {
-  margin-top: 0.8rem;
-  font-size: 0.75rem;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
   line-height: 1.5;
   color: var(--ink-soft);
 }

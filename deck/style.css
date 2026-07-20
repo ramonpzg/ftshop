@@ -269,6 +269,34 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A/B answers are presenter-mouse disclosures, deliberately outside
+ * the click flow so the clicker cannot leak them. */
+details.ab-answer summary {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  cursor: pointer;
+  width: fit-content;
+  list-style: none;
+}
+
+details.ab-answer summary::-webkit-details-marker {
+  display: none;
+}
+
+details.ab-answer[open] summary {
+  color: var(--ink-faint);
+}
+
+details.ab-answer p {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
 /* Click reveals toggle visibility inside reserved space; they do not
  * insert layout. Slides opt in with .reserve on the revealed block. */
 .slidev-vclick-target {

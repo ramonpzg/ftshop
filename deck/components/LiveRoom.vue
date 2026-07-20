@@ -3,7 +3,7 @@
     <div class="room-header">
       <h3 class="room-title">The room, right now</h3>
       <span class="chip" :class="{ live: phase === 'connected' }">
-        {{ phase === "connected" ? "LIVE" : phase === "recovering" ? "RECONNECTING" : "OFFLINE" }}
+        {{ CHIP_LABELS[phase] }}
       </span>
       <div v-if="room" class="room-totals">
         <span class="total"
@@ -57,6 +57,15 @@ const props = defineProps({
   apiBase: { type: String, default: "/api" },
   maxGames: { type: Number, default: 8 },
 });
+
+// One label per connection phase; OFFLINE is reserved for the
+// unavailable state, not the initial lookup.
+const CHIP_LABELS = {
+  connecting: "CONNECTING",
+  connected: "LIVE",
+  recovering: "RECONNECTING",
+  unavailable: "OFFLINE",
+};
 
 const state = ref(INITIAL_LIVE_ROOM_STATE);
 const room = computed(() => state.value.room);

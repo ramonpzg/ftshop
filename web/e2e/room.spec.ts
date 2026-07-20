@@ -254,22 +254,33 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
   const late = await openAttendee(browser, `Late-${Date.now()}`);
   await attendeeFollowed(late.page);
 
-  // No overlap between the room panels after remote navigation, on a
-  // projector-sized viewport (presenter) and the attendee defaults.
+  // On the presentation page the attendee panel collapses to a pill so
+  // nothing covers the embedded deck: the pill is visible and the full
+  // panel is absent on every client.
   for (const page of [presenter, attendee.page, late.page]) {
-    const attendees = await page.locator(".attendee-panel").boundingBox();
-    const controls = await page.locator('[data-testid="slide-controls"]').boundingBox();
-    if (attendees && controls) {
-      const overlaps =
-        attendees.x < controls.x + controls.width &&
-        controls.x < attendees.x + attendees.width &&
-        attendees.y < controls.y + controls.height &&
-        controls.y < attendees.y + attendees.height;
-      expect(overlaps).toBe(false);
-    }
+    await expect(page.getByTestId("attendee-panel-pill")).toBeVisible();
+    await expect(page.locator(".attendee-panel")).toHaveCount(0);
   }
 
-  // Send everyone back: both attendees end on their own workspace.
+  // Expanding is an explicit override: the full panel appears, does
+  // not overlap the slide controls, and Hide collapses it again.
+  await presenter.getByTestId("attendee-panel-pill").click();
+  const attendees = await presenter.locator(".attendee-panel").boundingBox();
+  const controls = await presenter.locator('[data-testid="slide-controls"]').boundingBox();
+  if (attendees && controls) {
+    const overlaps =
+      attendees.x < controls.x + controls.width &&
+      controls.x < attendees.x + attendees.width &&
+      attendees.y < controls.y + controls.height &&
+      controls.y < attendees.y + attendees.height;
+    expect(overlaps).toBe(false);
+  }
+  await presenter.getByTestId("attendee-panel-hide").click();
+  await expect(presenter.getByTestId("attendee-panel-pill")).toBeVisible();
+  await expect(presenter.locator(".attendee-panel")).toHaveCount(0);
+
+  // Send everyone back: both attendees end on their own workspace, and
+  // leaving the presentation page restores the full panel on its own.
   await presenter.click("text=Send users to their workspace");
   for (const page of [attendee.page, late.page]) {
     await page.waitForFunction(
@@ -278,6 +289,7 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
       { timeout: 10_000 },
     );
     await expect(page.locator(".workspace-panel-own")).toBeAttached();
+    await expect(page.locator(".attendee-panel")).toBeVisible();
   }
 
   await presenterContext.close();

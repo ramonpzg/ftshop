@@ -51,45 +51,67 @@ export interface CostRow {
   modality: string;
   task: string;
   target: string;
-  local: string;
-  api: string;
-  cost: string;
+  /** Training or rental cost, stated with its amortisation basis. */
+  localSetup: string;
+  /** Marginal per-request cost on the local path. */
+  localPerRequest: string;
+  /** Marginal per-request cost on the API reference. */
+  apiPerRequest: string;
+  /** The request-volume assumption the amortisation uses. */
+  volume: string;
+  /** Whether the target quality is met, and by which checkpoint. */
+  thresholdMet: string;
 }
 
-/** Slide 22 economics rows. Every number is a placeholder until
- * checked close to the session; sources and access dates required. */
+/** Identity of the compared paths, one line under the table instead
+ * of a column per row. */
+export const COST_PATHS =
+  "Local: Gemma / FLUX / MusicGen / LTX, base and adapted. API: the configured provider path for the same task.";
+
+/** Slide 22 economics rows. Every value is a placeholder until checked
+ * close to the session; sources and access dates required. The shape
+ * carries what the comparison claims: setup cost with amortisation,
+ * marginal cost per side, volume, and threshold attainment. */
 export const COST_ROWS: CostRow[] = [
   {
     modality: "Text",
     task: "legal-move JSON",
-    target: "legal rate and JSON rate at threshold",
-    local: "Gemma base/adapted, presenter laptop",
-    api: "configured API model, same task",
-    cost: "[SOURCE, DATE]",
+    target: "legal + JSON rate at threshold",
+    localSetup: "[SOURCE, DATE]",
+    localPerRequest: "[SOURCE, DATE]",
+    apiPerRequest: "[SOURCE, DATE]",
+    volume: "PENDING",
+    thresholdMet: "PENDING",
   },
   {
     modality: "Image",
     task: "themed set, same prompt",
-    target: "piece identity + style adherence",
-    local: "FLUX base/style-adapted",
-    api: "API reference, same prompt",
-    cost: "[SOURCE, DATE]",
+    target: "identity + style adherence",
+    localSetup: "[SOURCE, DATE]",
+    localPerRequest: "[SOURCE, DATE]",
+    apiPerRequest: "[SOURCE, DATE]",
+    volume: "PENDING",
+    thresholdMet: "PENDING",
   },
   {
     modality: "Audio",
     task: "same prompt and duration",
     target: "adherence, no clipping",
-    local: "MusicGen base/adapted",
-    api: "API reference",
-    cost: "[SOURCE, DATE]",
+    localSetup: "[SOURCE, DATE]",
+    localPerRequest: "[SOURCE, DATE]",
+    apiPerRequest: "[SOURCE, DATE]",
+    volume: "PENDING",
+    thresholdMet: "PENDING",
   },
   {
     modality: "Video",
     task: "saved Luna scene prompt",
     target: "case adherence + continuity",
-    local: "LTX on rented hardware",
-    api: "configured API video path",
-    cost: "[SOURCE, DATE]",
+    localSetup: "[SOURCE, DATE]",
+    localPerRequest: "[SOURCE, DATE]",
+    apiPerRequest: "[SOURCE, DATE]",
+    volume: "PENDING",
+    thresholdMet: "PENDING",
   },
 ];
 

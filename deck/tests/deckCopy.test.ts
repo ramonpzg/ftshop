@@ -22,6 +22,7 @@ function deckFiles(): string[] {
     .map((name) => join(DECK_ROOT, "lib", name));
   return [
     join(DECK_ROOT, "slides.md"),
+    join(DECK_ROOT, "slides-full.md"),
     join(DECK_ROOT, "style.css"),
     ...slides,
     ...components,
@@ -41,7 +42,9 @@ describe("deck copy", () => {
 const NOTE_TAGS = ["TIMING:", "SAY:", "CLICK:", "SOURCE:", "CUT:", "FALLBACK:"];
 
 describe("speaker-note contract", () => {
-  const slideFiles = deckFiles().filter((file) => file.endsWith(".md"));
+  // Section files only: the two entry files hold headmatter and
+  // imports, not content slides.
+  const slideFiles = deckFiles().filter((file) => file.includes("/slides/"));
   for (const file of slideFiles) {
     test(`every note block carries all six tags in ${file.slice(DECK_ROOT.length + 1)}`, () => {
       const text = readFileSync(file, "utf8");

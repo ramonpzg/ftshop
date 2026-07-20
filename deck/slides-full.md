@@ -5,6 +5,7 @@ info: |
   Same Recipe, Different Results.
   Fine-tuning models across text, image, audio, and video.
   One domain: chess. EuroSciPy 2026 workshop.
+  Full route: every slide, including the ones the default route skips.
 colorSchema: light
 fonts:
   provider: none
@@ -15,20 +16,18 @@ drawings:
 transition: fade
 mdc: true
 footer: false
-# This entry IS the default route: the ranges exclude the slides whose
-# notes say OPTIONAL (Oscar; mappings two and three; the model tree),
-# keeping the opening at the 20-25 minute budget. slides-full.md
-# imports everything for rehearsal; tests/route.test.ts keeps these
-# ranges honest against the OPTIONAL markers.
-src: ./slides/01-origin.md#1-3,5-8
+# The rehearsal entry: every slide of every section, including the
+# OPTIONAL ones the default route (slides.md) excludes. Run with
+# `bun run dev:full`.
+src: ./slides/01-origin.md
 ---
 
 ---
-src: ./slides/02-outcomes.md#1-3,6-13
+src: ./slides/02-outcomes.md
 ---
 
 ---
-src: ./slides/03-why-adapt.md#1-8,10
+src: ./slides/03-why-adapt.md
 ---
 
 ---

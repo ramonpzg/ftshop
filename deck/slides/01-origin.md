@@ -1,3 +1,53 @@
+<div class="title-grid">
+<div>
+
+<div class="kicker">EUROSCIPY 2026 · WORKSHOP</div>
+
+# Same Recipe,<br>Different Results
+
+<div class="title-modalities">
+
+Fine-tuning across text, image, audio, and video.<br>
+One domain: chess.
+
+</div>
+
+</div>
+<div>
+<MediaFrame
+  file="cover.jpg"
+  ratio="4/3"
+  expected="One strong chess image or a frame of the actual TUI board. Not a generic AI illustration."
+/>
+</div>
+</div>
+
+<style>
+.title-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  height: 100%;
+}
+.title-modalities {
+  margin-top: 1.4rem;
+  font-size: 1.15rem;
+  color: var(--ink-soft);
+}
+</style>
+
+<!--
+TIMING: 30 seconds, hard stop.
+SAY: One sentence. We will use chess to inspect the same adaptation recipe across text, image, audio, and video.
+CLICK: none.
+SOURCE: cover image pending (assets/cover.jpg); record source and license when it lands.
+CUT: never.
+FALLBACK: static slide, nothing to fail.
+-->
+
+---
+
 # This is what I looked like when I discovered chess
 
 <div class="origin-grid">

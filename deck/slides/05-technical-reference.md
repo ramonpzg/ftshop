@@ -112,7 +112,7 @@ rendered = processor.apply_chat_template(
 ```
 
 ```text
-<|turn>user
+<bos><|turn>user
 Position (FEN): rnbqkbnr/pppppppp/8/8/...
 Legal moves (UCI): e2e4, d2d4, g1f3, ...
 Return exactly one move...<turn|>
@@ -153,7 +153,8 @@ FALLBACK: placeholder values keep the structure readable.
 
 # The training ladder
 
-<div class="ladder-intro">One dataset, three of the five rungs as real code. Deploy:
+<div class="ladder-intro">One dataset, three of the five rungs as abbreviated
+implementation shapes. Deploy:
 <code>google/gemma-4-E2B-it-qat-q4_0-gguf</code>. Tune:
 <code>google/gemma-4-E2B-it-qat-q4_0-unquantized</code>.</div>
 
@@ -211,9 +212,9 @@ loss, grads = jax.value_and_grad(loss_fn)(adapter, frozen_base, batch)
 
 <!--
 TIMING: 2 minutes.
-SAY: The same run at three levels of abstraction: Unsloth code, an axolotl file, the bare JAX loss. Rung five actually executes in the notebook. The GGUF is for deployment; training starts from the unquantized weights and the merged result converts back. Gemma 4 loads as a multimodal model even for text-only training, hence the frozen multimodal modules in the axolotl file.
+SAY: The same run's shape at three levels of abstraction: Unsloth code, an axolotl file, the bare JAX loss. These are abbreviated implementation shapes, not complete scripts; the runnable version of rung five executes in the notebook. The GGUF is for deployment; training starts from the unquantized weights and the merged result converts back. Gemma 4 loads as a multimodal model even for text-only training, hence the frozen multimodal modules in the axolotl file.
 CLICK: 2. Unsloth morphs into the axolotl file, which morphs into the JAX loss.
-SOURCE: model ids are the accepted ones; the axolotl path points at the real dataset file and follows current axolotl Gemma 4 guidance.
+SOURCE: model ids are the accepted ones; the axolotl path points at the real dataset file and follows current axolotl Gemma 4 guidance. All three frames are deliberately abbreviated.
 CUT: skippable when the notebook carries the ladder.
 FALLBACK: static code, no dependencies.
 -->
@@ -272,11 +273,14 @@ clicks: 2
 
 ```yaml
 merge_method: slerp
-models:
-  - model: gemma-4-chess-moves
-  - model: gemma-4-chess-commentary
+base_model: gemma-4-chess-moves
+slices:
+  - sources:
+      - model: gemma-4-chess-moves
+      - model: gemma-4-chess-commentary
 parameters:
   t: 0.5
+dtype: bfloat16
 ```
 
 </div>
@@ -288,9 +292,9 @@ same as everywhere else in this session: eval before you believe.
 
 <!--
 TIMING: 90 seconds.
-SAY: Two adapters, one model, a YAML file. Merging can also damage both skills, which is why the frozen suite runs again after every merge.
+SAY: Two fine-tuned checkpoints, one merged model, a YAML file. mergekit slerp works on full checkpoints; merging at the adapter level goes through PEFT instead. Merging can also damage both skills, which is why the frozen suite runs again after every merge.
 CLICK: 2. The mergekit config, then the caution.
-SOURCE: mergekit slerp config, adapter names as trained in the workshop.
+SOURCE: valid mergekit slerp config over the two merged workshop checkpoints; slerp requires base_model and full checkpoints per the mergekit docs.
 CUT: skippable.
 FALLBACK: static.
 -->
