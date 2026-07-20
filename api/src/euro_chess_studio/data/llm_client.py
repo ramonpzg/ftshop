@@ -66,8 +66,12 @@ class LlmNotConfiguredError(RuntimeError):
 
 class LlmRequestError(RuntimeError):
     """A chat completion failed. Carries the provider request ids and
-    status so callers can persist diagnostics without re-parsing the
-    message. Never contains the API key or the full prompt."""
+    status, plus whatever transport-attempt count and capability-fallback
+    provenance had already accumulated before the failure -- the same
+    diagnostics ChatOutcome carries for a success, so a terminal failure
+    does not lose evidence that JSON mode or reasoning_effort was
+    dropped just because the call went on to fail anyway. Never contains
+    the API key or the full prompt."""
 
     def __init__(
         self,
@@ -75,10 +79,16 @@ class LlmRequestError(RuntimeError):
         *,
         status_code: int | None = None,
         request_ids: tuple[str, ...] = (),
+        transport_attempts: int | None = None,
+        json_mode_dropped: bool = False,
+        reasoning_effort_dropped: bool = False,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.request_ids = request_ids
+        self.transport_attempts = transport_attempts
+        self.json_mode_dropped = json_mode_dropped
+        self.reasoning_effort_dropped = reasoning_effort_dropped
 
 
 @dataclass(frozen=True)
@@ -220,6 +230,9 @@ def _chat_completion(
                     f"deadline exceeded before attempt {attempt} to {url} "
                     f"({settings.profile}); request_ids={_format_ids(request_ids)}",
                     request_ids=tuple(request_ids),
+                    transport_attempts=attempt,
+                    json_mode_dropped=json_mode_dropped,
+                    reasoning_effort_dropped=reasoning_effort_dropped,
                 )
             try:
                 response = client.post(
@@ -239,6 +252,9 @@ def _chat_completion(
                         f"request_ids={_format_ids(request_ids)}; "
                         f"error={type(exc).__name__}: {exc}",
                         request_ids=tuple(request_ids),
+                        transport_attempts=attempt,
+                        json_mode_dropped=json_mode_dropped,
+                        reasoning_effort_dropped=reasoning_effort_dropped,
                     ) from exc
                 transient_retries += 1
                 _sleep_backoff(transient_retries, deadline)
@@ -249,7 +265,14 @@ def _chat_completion(
                 request_ids.append(request_id)
 
             if response.status_code == 200:
-                content = _extract_content(response, settings, attempt, request_ids)
+                content = _extract_content(
+                    response,
+                    settings,
+                    attempt,
+                    request_ids,
+                    json_mode_dropped=json_mode_dropped,
+                    reasoning_effort_dropped=reasoning_effort_dropped,
+                )
                 _remember_working_credential(settings)
                 return ChatOutcome(
                     content=content,
@@ -284,7 +307,14 @@ def _chat_completion(
                     body.pop("reasoning_effort", None)
                     reasoning_effort_dropped = True
                     continue
-                raise _request_error(response, settings, attempt, request_ids)
+                raise _request_error(
+                    response,
+                    settings,
+                    attempt,
+                    request_ids,
+                    json_mode_dropped=json_mode_dropped,
+                    reasoning_effort_dropped=reasoning_effort_dropped,
+                )
 
             if response.status_code == 401:
                 remaining = deadline - time.monotonic()
@@ -297,12 +327,26 @@ def _chat_completion(
                     permission_retries += 1
                     _sleep_backoff(permission_retries, deadline)
                     continue
-                raise _request_error(response, settings, attempt, request_ids)
+                raise _request_error(
+                    response,
+                    settings,
+                    attempt,
+                    request_ids,
+                    json_mode_dropped=json_mode_dropped,
+                    reasoning_effort_dropped=reasoning_effort_dropped,
+                )
 
             if response.status_code == 429 or response.status_code >= 500:
                 remaining = deadline - time.monotonic()
                 if transient_retries >= MAX_TRANSIENT_RETRIES or remaining <= 0:
-                    raise _request_error(response, settings, attempt, request_ids)
+                    raise _request_error(
+                        response,
+                        settings,
+                        attempt,
+                        request_ids,
+                        json_mode_dropped=json_mode_dropped,
+                        reasoning_effort_dropped=reasoning_effort_dropped,
+                    )
                 transient_retries += 1
                 _sleep_backoff(
                     transient_retries, deadline, retry_after=response.headers.get("retry-after")
@@ -310,11 +354,24 @@ def _chat_completion(
                 continue
 
             # Any other status is deterministic; retrying cannot fix it.
-            raise _request_error(response, settings, attempt, request_ids)
+            raise _request_error(
+                response,
+                settings,
+                attempt,
+                request_ids,
+                json_mode_dropped=json_mode_dropped,
+                reasoning_effort_dropped=reasoning_effort_dropped,
+            )
 
 
 def _extract_content(
-    response: httpx.Response, settings: LlmSettings, attempt: int, request_ids: list[str]
+    response: httpx.Response,
+    settings: LlmSettings,
+    attempt: int,
+    request_ids: list[str],
+    *,
+    json_mode_dropped: bool = False,
+    reasoning_effort_dropped: bool = False,
 ) -> str:
     """Validates the response shape before indexing into it. An empty
     string is a valid shape; classifying it is the caller's decision."""
@@ -326,6 +383,9 @@ def _extract_content(
             f"request_ids={_format_ids(request_ids)}; body={response.text[:ERROR_EXCERPT_CHARS]}",
             status_code=200,
             request_ids=tuple(request_ids),
+            transport_attempts=attempt,
+            json_mode_dropped=json_mode_dropped,
+            reasoning_effort_dropped=reasoning_effort_dropped,
         ) from exc
     try:
         content = data["choices"][0]["message"]["content"]
@@ -335,6 +395,9 @@ def _extract_content(
             f"request_ids={_format_ids(request_ids)}; body={str(data)[:ERROR_EXCERPT_CHARS]}",
             status_code=200,
             request_ids=tuple(request_ids),
+            transport_attempts=attempt,
+            json_mode_dropped=json_mode_dropped,
+            reasoning_effort_dropped=reasoning_effort_dropped,
         ) from exc
     if content is None:
         return ""
@@ -344,12 +407,21 @@ def _extract_content(
             f"request_ids={_format_ids(request_ids)}",
             status_code=200,
             request_ids=tuple(request_ids),
+            transport_attempts=attempt,
+            json_mode_dropped=json_mode_dropped,
+            reasoning_effort_dropped=reasoning_effort_dropped,
         )
     return content
 
 
 def _request_error(
-    response: httpx.Response, settings: LlmSettings, attempt: int, request_ids: list[str]
+    response: httpx.Response,
+    settings: LlmSettings,
+    attempt: int,
+    request_ids: list[str],
+    *,
+    json_mode_dropped: bool = False,
+    reasoning_effort_dropped: bool = False,
 ) -> LlmRequestError:
     """Status, attempt, request ids, and a bounded excerpt. Never the
     API key, never the prompt."""
@@ -359,6 +431,9 @@ def _request_error(
         f"body={response.text[:ERROR_EXCERPT_CHARS]}",
         status_code=response.status_code,
         request_ids=tuple(request_ids),
+        transport_attempts=attempt,
+        json_mode_dropped=json_mode_dropped,
+        reasoning_effort_dropped=reasoning_effort_dropped,
     )
 
 

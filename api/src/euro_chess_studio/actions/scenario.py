@@ -88,6 +88,12 @@ def suggest_scenario(conn: sqlite3.Connection, workspace_id: str) -> sqlite3.Row
             status="transport_failed",
             error_detail=str(exc)[:400],
             request_ids=exc.request_ids,
+            # Same provenance a success carries: a terminal failure can
+            # still have dropped a capability or made more than one
+            # HTTP attempt before it gave up.
+            transport_attempts=exc.transport_attempts,
+            json_mode_dropped=exc.json_mode_dropped,
+            reasoning_effort_dropped=exc.reasoning_effort_dropped,
         )
         record_failure(attempt, str(exc)[:400])
         raise

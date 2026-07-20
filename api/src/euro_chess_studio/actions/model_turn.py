@@ -216,6 +216,13 @@ def model_turn(conn: sqlite3.Connection, workspace_id: str) -> ModelTurnResult:
                 status="transport_failed",
                 error_detail=str(exc)[:400],
                 request_ids=exc.request_ids,
+                # A terminal failure can still have dropped a capability
+                # (or made more than one HTTP attempt) before it gave
+                # up; that provenance is real evidence and must not be
+                # lost just because the attempt ultimately failed.
+                transport_attempts=exc.transport_attempts,
+                json_mode_dropped=exc.json_mode_dropped,
+                reasoning_effort_dropped=exc.reasoning_effort_dropped,
             )
             conn.commit()
             continue

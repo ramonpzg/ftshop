@@ -117,6 +117,39 @@ def test_capability_fallback_provenance_is_persisted_not_discarded(tmp_path, mon
     assert attempt["reasoning_effort_dropped"] == 1
 
 
+def test_terminal_transport_failure_still_persists_capability_provenance(tmp_path, monkeypatch):
+    """The success path above already persists this; a terminal
+    failure must too. Reproduces the reported gap: LlmRequestError used
+    to carry only status and request ids, so a call that dropped JSON
+    mode and then still exhausted its retries stored a failed attempt
+    with a null transport count and null fallback flags -- as if no
+    capability had ever been dropped."""
+    conn, workspace = make_workspace(tmp_path)
+    stub_replies(
+        monkeypatch,
+        [
+            LlmRequestError(
+                "500 from opponent",
+                request_ids=("req-1", "req-2", "req-3"),
+                transport_attempts=3,
+                json_mode_dropped=True,
+                reasoning_effort_dropped=False,
+            ),
+            LlmRequestError("500 from opponent", request_ids=("req-4",)),
+        ],
+    )
+
+    result = model_turn(conn, workspace["id"])
+
+    assert result.outcome == "unavailable"
+    first, second = result.attempts
+    assert first["status"] == "transport_failed"
+    assert first["transport_attempts"] == 3
+    assert first["json_mode_dropped"] == 1
+    assert first["reasoning_effort_dropped"] == 0
+    assert second["transport_attempts"] is None
+
+
 def test_illegal_then_legal_retains_both_attempts_and_applies_one_move(tmp_path, monkeypatch):
     conn, workspace = make_workspace(tmp_path)
     stub_replies(

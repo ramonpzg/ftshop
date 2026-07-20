@@ -232,7 +232,14 @@ capabilities. Capability decisions (does this model accept
 `calculations/model_catalog.py`, not in string checks at call sites.
 The transport returns a `ChatOutcome` carrying content plus the
 provenance callers persist: model, provider alias, attempt count,
-request ids, and whether a capability fallback fired.
+request ids, and whether a capability fallback fired. A call that
+fails instead of succeeding carries the same provenance on the raised
+`LlmRequestError` (`transport_attempts`, `json_mode_dropped`,
+`reasoning_effort_dropped`), not just status and request ids: a
+capability can be dropped on an early attempt and the call can still
+go on to exhaust its retries for an unrelated reason, and that dropped-
+capability evidence must not disappear just because the call ended in
+an exception rather than a return value.
 
 ### Model attempts and the model turn
 

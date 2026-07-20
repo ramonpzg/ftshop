@@ -240,6 +240,39 @@ def test_500_exhaustion_raises_after_bounded_retries(monkeypatch: pytest.MonkeyP
     assert excinfo.value.request_ids == ("req-1", "req-2", "req-3")
 
 
+def test_a_terminal_failure_still_carries_the_dropped_capability_and_attempt_count(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Reproduces the reported gap: LlmRequestError used to carry only
+    status and request ids, so a call that dropped JSON mode and then
+    went on to exhaust its retries anyway lost that provenance the
+    moment it raised instead of returning. A success already carries
+    this via ChatOutcome; a terminal failure must too."""
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                400, json={"error": {"message": "response_format is not supported"}}
+            )
+        return httpx.Response(500, headers={"x-request-id": f"req-{calls}"}, text="boom")
+
+    install_transport(monkeypatch, handler)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with pytest.raises(llm_client.LlmRequestError) as excinfo:
+        llm_client.chat([{"role": "user", "content": "move"}], json_response=True)
+
+    assert excinfo.value.json_mode_dropped is True
+    assert excinfo.value.reasoning_effort_dropped is False
+    # attempt 1 dropped json mode, attempts 2-4 are the 500 and its two
+    # retries before MAX_TRANSIENT_RETRIES is exhausted.
+    assert calls == 4
+    assert excinfo.value.transport_attempts == 4
+
+
 def test_transport_timeout_retries_then_raises(monkeypatch: pytest.MonkeyPatch):
     calls = 0
 

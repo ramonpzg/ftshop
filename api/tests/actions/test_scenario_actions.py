@@ -203,7 +203,15 @@ def test_parse_failure_records_raw_and_does_not_erase_prior_records(tmp_path, mo
 
 def test_transport_failure_has_a_recoverable_persisted_state(tmp_path, monkeypatch):
     conn, workspace = make_workspace(tmp_path)
-    stub_reply(monkeypatch, LlmRequestError("502 from video_prompt", request_ids=("req-x",)))
+    stub_reply(
+        monkeypatch,
+        LlmRequestError(
+            "502 from video_prompt",
+            request_ids=("req-x",),
+            transport_attempts=3,
+            json_mode_dropped=True,
+        ),
+    )
 
     with pytest.raises(LlmRequestError):
         suggest_scenario(conn, workspace["id"])
@@ -211,6 +219,14 @@ def test_transport_failure_has_a_recoverable_persisted_state(tmp_path, monkeypat
     row = conn.execute("SELECT * FROM scenario_assessments").fetchone()
     assert row["status"] == "failed"
     assert "502" in row["error_detail"]
+    # The same capability-fallback and transport-attempt provenance a
+    # success carries (see the test above) must survive a terminal
+    # failure too, not just get thrown away with the exception.
+    attempt = conn.execute(
+        "SELECT * FROM model_attempts WHERE id = ?", (row["attempt_id"],)
+    ).fetchone()
+    assert attempt["transport_attempts"] == 3
+    assert attempt["json_mode_dropped"] == 1
     # Recovery is asking again; the failed row stays as history.
     stub_reply(monkeypatch, fake_outcome(GOOD_REPLY))
     scenario = suggest_scenario(conn, workspace["id"])
