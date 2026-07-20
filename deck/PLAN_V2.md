@@ -34,6 +34,10 @@ notes still belong to one presentation.
 
 ## Delivery guardrails
 
+- Pragmatism beats spectacle. Use the smallest amount of code that makes the
+  argument clear and reliable. Reuse Slidev, CSS, and existing components
+  before adding abstractions, dependencies, or miniature applications. Motion
+  earns its place by preserving context or revealing a comparison.
 - The opening deck should take 20 to 25 minutes, including the TUI recording
   and audience responses. It may contain many slides because most are one
   visual beat, not one minute of speaking.
@@ -477,6 +481,12 @@ the narrative without auditing every implementation detail during delivery.
 
 ## Assets and provenance
 
+- When an image, video, audio clip, quote card, screenshot, or personal asset
+  is not already in the repository, leave a clearly named placeholder for me.
+  Give it the final aspect ratio and stable geometry, state the expected file
+  name or content in the source, and add it to the placeholder inventory. Do
+  not search for, generate, or invent a substitute merely to make the slide
+  look finished.
 - Use the actual childhood photo, book image, Duolingo screenshots, TUI
   recording, model outputs, and generated media wherever possible.
 - Keep local copies of every workshop-critical image, audio file, video,

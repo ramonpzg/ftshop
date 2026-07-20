@@ -34,6 +34,11 @@ the deck, weak E2E coverage, and no single presenter preflight.
 - Do not perform another visual redesign or rewrite the workshop narrative.
 - Everything operational must be reachable through the `Justfile`. Do not add
   one-off shell or Python scripts outside the existing package/tool structure.
+- Prefer deletion, consolidation, and direct reuse over new infrastructure.
+  Add an abstraction or dependency only when it removes measured complexity or
+  closes an acceptance gap. A smaller codebase that rehearses reliably is the
+  goal. Pragmatism beats release theatre; polish is not permission to build
+  another framework.
 
 ### 1. Enforce actions, calculations, and data boundaries
 

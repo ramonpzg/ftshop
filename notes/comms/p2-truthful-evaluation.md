@@ -54,6 +54,10 @@ rather than replacing it from memory.
 - Update technical statements in the app, deck, and docs when this phase makes
   them false. Leave deck visual redesign and the general copy pass for phase
   35.
+- Prefer the smallest implementation that makes the evidence truthful. Reuse
+  existing actions, calculations, repositories, and transport boundaries
+  before adding layers or dependencies. Do not turn provenance into a new
+  framework. Pragmatism and inspectable code beat novelty.
 
 ### 1. Tighten the Chat Completions boundary
 

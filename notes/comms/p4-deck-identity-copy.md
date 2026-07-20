@@ -1,6 +1,7 @@
 # Phase 4 prompt: deck identity and copy
 
-Use this prompt only after phase 34 has established the final teaching flow.
+Use this prompt only after phase 34 has established the truthful teaching
+machinery. `deck/PLAN_V2.md` is the narrative source of truth for the refresh.
 
 ## Prompt
 
@@ -25,8 +26,9 @@ swagger, and familiar AI-talk phrases that do not match the requested voice.
 - Start from the accepted phase 34 result and create
   `phase-35-deck-identity-copy`.
 - Read `AGENTS.md`, all of `CLAUDE.md` with particular attention to its final
-  tone guide, `docs/deck-plan.md`, the accepted session/demo plan, and phase
-  34 handover.
+  tone guide, `deck/PLAN_V2.md`, `docs/deck-plan.md`, the accepted session/demo
+  plan, and phase 34 handover. When an older narrative document conflicts with
+  `deck/PLAN_V2.md`, the V2 plan wins for deck order and delivery.
 - Inspect `/home/rpg/d2/projects/polyglot` on branch `deck-polish-1` as a
   reference for component variety, Shiki Magic Move, morphing, easing, and
   presenter interaction. Do not modify that repository. Do not copy its
@@ -37,14 +39,26 @@ swagger, and familiar AI-talk phrases that do not match the requested voice.
 - Commit coherent, tested increments throughout the phase. Push the phase
   branch, finish with no relevant untracked or uncommitted files, and do not
   merge it into `main`. Ramon reviews the summary and diff first.
-- Content placeholders Ramon intends to fill are valid. Preserve them and make
-  their layout usable; do not invent final biography, resources, prices,
-  images, or personal stories.
+- Content placeholders Ramon intends to fill are valid. If an image, video,
+  audio clip, screenshot, meme, quote card, or personal asset is absent, leave
+  a clearly named placeholder with its final aspect ratio and stable geometry.
+  Record the expected file name/content in the source and placeholder
+  inventory. Do not search for, generate, or invent substitute media. Do not
+  invent final biography, resources, prices, or personal stories.
 - Do not redesign the whiteboard to match the deck.
-- Preserve the accepted outcome-first structure from phase 34: compact
-  motivation and chess grounding, demos before implementation detail, then
-  decomposition. Do not drift back to a framework-first lecture while
-  polishing individual slides.
+- Preserve the exact high-level sequence in `deck/PLAN_V2.md`: personal origin,
+  the TUI outcome, four adaptation problems and their results, why adaptation,
+  then the chess primer and technical decomposition. The TUI intentionally
+  appears before the chess recap. Do not linearize that choice or drift back
+  to a framework-first lecture.
+- Preserve the dog-thinking meme, "what could possibly go wrong", "Cool bruh"
+  and the cookie GIF, goth Minions, and the corporate-lamp paragraph. They are
+  deliberate delivery beats, not stock copy for the tone pass to remove.
+- Prefer the smallest deck implementation that fulfils V2. Reuse Slidev,
+  existing Vue components, CSS, and native media elements. Do not add a
+  dependency, component, state machine, or animation system for polish alone.
+  Pragmatism beats spectacle; movement must clarify sequence, identity, or
+  comparison.
 
 ### 1. Define a restrained deck system
 
@@ -76,11 +90,9 @@ slides, live room, modality grid, reward explanation, dataset shapes, closing,
 and placeholder slides as a connected presentation rather than independent
 templates.
 
-The sequence must establish why fine-tuning and why chess, teach only the
-chess rules needed to follow the demos, include Ramon's personal route into the
-domain, then show results across modalities before explaining how they were
-produced. Use section transitions and repeated visual anchors so the later
-decomposition clearly refers back to an earlier observed result.
+The sequence must follow V2. Use section transitions and repeated visual
+anchors so the later chess primer and technical decomposition clearly refer
+back to results the audience has already observed.
 
 ### 2. Make components specific to their concepts
 
@@ -135,8 +147,8 @@ errors, loading states, and fallback messages. Apply these rules:
   supercharge, or future-is-here language;
 - no swagger about price, hardware, hallucination, or model superiority;
 - prefer concrete nouns, measured values, and clear verbs;
-- keep Ramon's deliberate personal story and Queen's Gambit joke where the
-  source-of-truth plan requires them, without adding surrounding banter.
+- keep Ramon's deliberate personal story and every explicitly protected V2
+  delivery beat, without adding surrounding banter.
 
 Add a lightweight, maintainable copy check for banned punctuation and a short
 list of genuinely unwanted stock phrases. It should support a narrow explicit

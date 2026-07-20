@@ -11,6 +11,10 @@ This is a real application and a recording target, not a mockup. Optimize for
 the shortest route from a fresh clone to a readable, repeatable recording.
 Keep the scope narrow. The phone already has native llama.cpp; the TUI should
 normally connect to its localhost OpenAI-compatible Chat Completions API.
+Pragmatism beats visual flourish. Use the fewest dependencies and the least
+code that produce a readable board, a correct game loop, persistence, and
+replay. Do not add an abstraction or effect merely because a desktop TUI could
+support it.
 
 ### Branch and repository boundaries
 

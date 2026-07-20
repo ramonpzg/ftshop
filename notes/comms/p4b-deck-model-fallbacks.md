@@ -33,6 +33,11 @@ existing job and artifact boundaries, and preserve the accepted deck design.
   dashboard, provider-management screen, prompt editor, or model playground.
 - Commit coherent, tested increments and push the branch. Do not merge it.
   Finish with no phase-owned uncommitted files.
+- Prefer the smallest extension of the accepted profile, job, and artifact
+  contracts. Do not build a second application, generic provider framework,
+  or decorative control system inside the deck. Reuse native media elements
+  and existing component primitives. Pragmatism and reliable fallback behavior
+  beat flashy live generation.
 
 ### 1. Keep model access behind the backend
 

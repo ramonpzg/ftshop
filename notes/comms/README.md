@@ -86,6 +86,9 @@ All five phases must follow `AGENTS.md`, `CLAUDE.md`, and
   scratch when a proven local-first option fits.
 - Run project work through the `Justfile`. Add or improve recipes instead of
   leaving one-off scripts behind.
+- Across every phase, prefer the smallest reliable implementation. Reuse the
+  existing stack and remove complexity before adding abstractions,
+  dependencies, services, or decorative interactions. Pragmatism beats flash.
 - Commit coherent increments throughout the phase and push the phase branch.
   Commit every phase-owned source, test, fixture, migration, lockfile, and
   document. Finish with a clean tree. Do not merge into `main` before Ramon

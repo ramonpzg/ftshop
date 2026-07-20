@@ -53,6 +53,10 @@ first responsibility of this phase.
   API key or provider login. No core outcome may depend on 40 simultaneous
   cloud requests. Keep paid or remote generation presenter-controlled and
   optional, with the reviewed local result already visible.
+- Prefer the smallest teaching surface that exposes the complete evidence
+  chain. Reuse existing components and backend contracts. Do not add a
+  framework, dependency, dashboard, or decorative interaction when a direct
+  view and one clear action are enough. Pragmatism beats flash.
 
 ### 1. Build one complete adaptation evidence chain
 

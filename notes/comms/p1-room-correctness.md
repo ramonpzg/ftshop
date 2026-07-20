@@ -43,6 +43,10 @@ Treat these as release blockers. Do not hide them with optimistic status copy.
   acceptance. An existing legacy panel may remain unless it produces a broken
   user-facing surface; document that decision without changing notebook files.
 - Do not perform deck visual redesign or broad copy work in this phase.
+- Prefer the smallest reliable change that satisfies the acceptance cases.
+  Reuse the current tldraw, FastAPI, and Vite boundaries. Do not add an
+  abstraction, dependency, service, or UI flourish unless it removes real
+  complexity or is required for correctness. Pragmatism beats novelty.
 
 ### 1. Make shared canvas state safe
 
