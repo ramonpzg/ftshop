@@ -19,6 +19,7 @@ import { EvalPanel } from "../../components/eval/EvalPanel";
 import { MiniIde } from "../../components/ide/MiniIde";
 import {
   ApiError,
+  apiErrorCode,
   apiErrorDetail,
   type Artifact,
   type DatasetExport,
@@ -331,7 +332,9 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     if (status) applyGameStatus(status, { board: true });
   }
 
-  /** A 409 on a move means the server's clock ran out first. */
+  /** The server confirmed the clock ran out. Callers reach this only
+   * after ruling out a turn-ownership conflict, which also 409s but is
+   * not a loss. */
   async function handleClockExpired() {
     setGameNotice(describeGameEnd("loss_timeout"));
     dropBanter("loss");
@@ -344,8 +347,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       applyModelTurn(await modelMove(workspaceId));
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        const detail = apiErrorDetail(error);
-        if (detail?.includes("participant's turn")) {
+        if (apiErrorCode(error) === "not_your_turn") {
           // A duplicate or late model-move request lost a turn-
           // ownership race, not the clock: the game is still running,
           // it is just not this reply's turn anymore. Treating this
@@ -418,8 +420,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       applyMoveResponse(await makeMove(workspaceId, uci), "you");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        const detail = apiErrorDetail(error);
-        if (detail?.includes("model's turn")) {
+        if (apiErrorCode(error) === "not_your_turn") {
           // The board disables itself once a turn changes, so this is a
           // race (a click landing right as the model replied) rather
           // than the normal path; resync instead of claiming a loss.

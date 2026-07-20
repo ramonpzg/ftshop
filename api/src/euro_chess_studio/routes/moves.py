@@ -5,7 +5,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from euro_chess_studio.actions.errors import GameClockExpiredError, NotYourTurnError
+from euro_chess_studio.actions.errors import (
+    GameClockExpiredError,
+    NotYourTurnError,
+    turn_conflict_detail,
+)
 from euro_chess_studio.actions.moves import WorkspaceNotFoundError, make_move
 from euro_chess_studio.data.dataset_rows_repo import list_dataset_rows
 from euro_chess_studio.data.moves_repo import list_moves
@@ -77,7 +81,7 @@ def post_move(
     except WorkspaceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (GameClockExpiredError, NotYourTurnError) as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail=turn_conflict_detail(exc)) from exc
     return MoveResponse(
         move=MoveOut(**dict(result.move)),
         dataset_rows=[_dataset_row_out(row) for row in result.dataset_rows],

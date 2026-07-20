@@ -235,13 +235,22 @@ two causes are not identical *reactions*, though: a clock expiry ends
 the game, so the client should show the timeout-loss message; a
 turn-ownership conflict (a late duplicate request racing a turn
 change) does not end anything, the game is still running, just not
-that request's turn anymore. `handleMove` and `triggerModelReply` both
-inspect the 409's detail text for the `NotYourTurnError` phrasing
-(`"model's turn"` on the participant path, `"participant's turn"` on
-the model path) before deciding which reaction applies, rather than
+that request's turn anymore. Distinguishing them by pattern-matching
+the exception's English message would work until a copy edit changed
+the wording -- and a test whose mock repeats the old wording would
+keep passing right through that regression, proving nothing. Instead
+`turn_conflict_detail` (`actions/errors.py`) builds the 409 body as
+`{code, message}`: `code` is `"clock_expired"` or `"not_your_turn"`,
+a stable contract independent of `message`'s prose, which stays free
+to change. `apiErrorCode` (`data/api.ts`) reads it back out; both
+`handleMove` and `triggerModelReply` branch on `apiErrorCode(error) ===
+"not_your_turn"` before deciding which reaction applies, instead of
 routing every 409 to the clock-expiry handler regardless of cause --
 the latter would show a false timeout loss for a turn-ownership race
-the game clock had nothing to do with.
+the game clock had nothing to do with. Every other error the app
+raises still sends a plain string `detail`; `apiErrorDetail` handles
+both shapes so existing callers that only want the human message
+don't need to know which kind of body they got.
 
 ### The Chat Completions boundary
 

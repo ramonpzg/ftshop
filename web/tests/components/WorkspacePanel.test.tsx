@@ -157,7 +157,10 @@ function routedFetch(
       if (opts.notYourTurnOnModelMove) {
         return new Response(
           JSON.stringify({
-            detail: "it is the participant's turn; the model cannot move for them",
+            detail: {
+              code: "not_your_turn",
+              message: "it is the participant's turn; the model cannot move for them",
+            },
           }),
           { status: 409 },
         );
@@ -306,7 +309,10 @@ function routedFetch(
       if (opts.notYourTurnOnMove) {
         return new Response(
           JSON.stringify({
-            detail: "it is the model's turn; call /model-move instead of playing for it",
+            detail: {
+              code: "not_your_turn",
+              message: "it is the model's turn; call /model-move instead of playing for it",
+            },
           }),
           { status: 409 },
         );

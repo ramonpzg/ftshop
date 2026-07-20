@@ -53,7 +53,9 @@ def test_moving_the_models_color_in_an_active_game_is_rejected(client: TestClien
     response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e7e5"})
 
     assert response.status_code == 409
-    assert "model's turn" in response.json()["detail"]
+    body = response.json()["detail"]
+    assert body["code"] == "not_your_turn"
+    assert "model's turn" in body["message"]
 
 
 def test_workspace_state_reflects_moves_and_dataset(client: TestClient):

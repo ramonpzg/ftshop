@@ -41,6 +41,18 @@ class NotYourTurnError(ValueError):
     the model moving for the participant's."""
 
 
+def turn_conflict_detail(exc: GameClockExpiredError | NotYourTurnError) -> dict[str, str]:
+    """The {code, message} body a route hands to HTTPException(detail=...)
+    for either of these two 409s. `message` is free-form prose for
+    display; `code` is the stable contract a client branches on, so a
+    copy edit to the message can never silently change which reaction a
+    client takes -- the failure mode this exists to prevent is a route
+    returning 409 for two different reasons and a client that used to
+    tell them apart by pattern-matching the English sentence."""
+    code = "clock_expired" if isinstance(exc, GameClockExpiredError) else "not_your_turn"
+    return {"code": code, "message": str(exc)}
+
+
 class GameNotExpiredError(ValueError):
     """A timeout was claimed while the clock still had time on it."""
 

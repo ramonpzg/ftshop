@@ -106,6 +106,10 @@ def test_a_move_on_an_expired_clock_returns_409_and_the_loss_sticks(
 
     response = client.post(f"/workspaces/{workspace_id}/moves", json={"uci": "e2e4"})
     assert response.status_code == 409
+    # A stable code, not just a status shared with turn-conflict 409s:
+    # the client has to be able to tell this apart from NotYourTurnError
+    # without depending on the wording of "message".
+    assert response.json()["detail"]["code"] == "clock_expired"
 
     status = client.get(f"/workspaces/{workspace_id}/game").json()
     assert status["record"]["losses"] == 1
@@ -165,6 +169,7 @@ def test_model_move_on_the_participants_turn_returns_409(client: TestClient):
     response = client.post(f"/workspaces/{workspace_id}/model-move")
 
     assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "not_your_turn"
     state = client.get(f"/workspaces/{workspace_id}/state").json()
     assert state["moves"] == []
 

@@ -16,6 +16,7 @@ from euro_chess_studio.actions.errors import (
     ScenarioNotFoundError,
     ScenarioReviewError,
     WorkspaceNotFoundError,
+    turn_conflict_detail,
 )
 from euro_chess_studio.actions.games import (
     GameStatus,
@@ -302,7 +303,7 @@ def post_model_move(workspace_id: str, conn: sqlite3.Connection = Depends(get_db
     try:
         result = model_turn(conn, workspace_id)
     except (GameClockExpiredError, NotYourTurnError) as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail=turn_conflict_detail(exc)) from exc
     except (WorkspaceNotFoundError, LlmNotConfiguredError, ModelTurnError) as exc:
         raise _map_llm_errors(exc) from exc
     return _model_turn_out(result)

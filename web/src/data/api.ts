@@ -11,16 +11,43 @@ export class ApiError extends Error {
   }
 }
 
+/** FastAPI's error body is `{"detail": ...}`. `detail` is usually a
+ * plain string, but a few 409s (turn-ownership vs. clock-expiry
+ * conflicts) send `{code, message}` instead, so a client can branch on
+ * `code` rather than pattern-matching English prose. */
+type ErrorDetail = string | { code?: string; message?: string };
+
+function parsedErrorDetail(error: unknown): ErrorDetail | null {
+  if (!(error instanceof ApiError)) return null;
+  try {
+    return JSON.parse(error.message).detail ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** The human sentence inside a FastAPI error body, for showing to the
  * user instead of a silent failure. */
 export function apiErrorDetail(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
-  try {
-    const detail = JSON.parse(error.message).detail;
-    return typeof detail === "string" ? detail : error.message;
-  } catch {
-    return error.message;
+  const detail = parsedErrorDetail(error);
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail.message === "string") return detail.message;
+  return error.message;
+}
+
+/** The stable machine code on a structured error body (see
+ * ErrorDetail), or null when this error doesn't carry one -- either
+ * because it never had structured detail, or detail is a plain
+ * string. Callers branch on this instead of substring-matching
+ * `apiErrorDetail`'s prose, which a copy edit could change without
+ * anyone noticing the branch it used to control. */
+export function apiErrorCode(error: unknown): string | null {
+  const detail = parsedErrorDetail(error);
+  if (detail && typeof detail === "object" && typeof detail.code === "string") {
+    return detail.code;
   }
+  return null;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
