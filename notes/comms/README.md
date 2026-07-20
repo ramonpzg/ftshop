@@ -50,6 +50,14 @@ and apply to every phase:
   then decomposition of the data, adaptation, and evaluation details. Keep
   the material modular because Ramon will refine this sequence after the
   engineering fixes.
+- The intended asset order is deck first, collaborative whiteboard second,
+  and the standalone Jupyter notebook as the closer. The notebook may refer
+  back to a deck slide or whiteboard frame, but these phases must not wire the
+  notebook into either frontend.
+- Plan for a full room and unreliable venue Internet. Workshop-critical paths
+  run on the presenter's machine or use reviewed local fixtures. Attendees do
+  not need provider accounts or API keys, and no core segment fans out paid
+  cloud generation across the room.
 
 ## Shared standards
 
