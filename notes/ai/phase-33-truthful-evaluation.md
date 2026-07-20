@@ -196,6 +196,102 @@ API state; persistence orchestration left `WorkspacePanel`.
   that evidence produced the example metrics above; scenario
   suggest -> accept -> reload -> export round-tripped with provenance.
 
+## Post-review corrections
+
+Ramon's review of this branch found nine real defects, all now fixed
+on top of the work above (separate commits, same branch). Each was
+reproduced before being fixed.
+
+1. **Concurrent model turns could misapply stale replies.**
+   `model_turn` snapshotted fen/legal_moves before the network call but
+   applied the reply to whatever board existed later with no
+   precondition, and never checked `make_move`'s actual result --
+   trusting the stale snapshot instead. Reproduced: two overlapping
+   replies for the same position, second one's attempt record claiming
+   `status=applied, is_legal=1` for a move that was actually illegal on
+   the board it landed on. Fixed with `MovePrecondition` (fen, game_id,
+   ply): a mismatch raises `StaleMoveError` before anything is written;
+   the attempt is recorded `status=stale` instead of guessed, and the
+   turn returns a new `stale` outcome. The applied-branch attempt
+   record now also reads `move_result.move["is_legal"]` instead of
+   hardcoding `True`.
+2. **Empty eval runs left stale results on display.** An unavailable
+   metric skipped persisting rather than clearing the prior scoped row,
+   and `reset_page` never touched `eval_results`. Reproduced: a 1/1
+   result surviving both a page reset and a subsequent empty
+   re-run. Fixed: an unavailable metric now deletes its prior scoped
+   row (`delete_eval_result`), and `reset_page` clears computed
+   `eval_results` for the workspaces it wipes.
+3. **The promised phase-34 contract didn't actually exist.**
+   `replace_eval_result`'s identity ignored `scope_json`, so a
+   differently-scoped rerun (a different model) silently clobbered the
+   prior one, and the job never threaded model/checkpoint params
+   through at all. `eval_results` gained real `model`, `checkpoint`,
+   `run_id`, and `sample_ids_json` columns; identity is now
+   `(modality, metric, workspace, source, model, checkpoint)`, so a
+   base and an adapted model's results coexist; `text_prompt_eval`
+   accepts `model`/`checkpoint` job params and threads them into the
+   metrics. `sample_ids` records the exact row ids a value was computed
+   from -- the frozen input set, auditable after the fact.
+4. **Exports weren't self-contained or provenance-safe.** The
+   `board_tensor_to_move_class` row's own note claimed the tensor was
+   "cheap to regenerate from the FEN" while storing no FEN; fixed by
+   adding it. The full archive dropped `move_id` and any join to the
+   producing move; it now joins `dataset_rows` to `moves` (LEFT JOIN,
+   since `move_id` is nullable) and includes `move_id`, `game_id`,
+   `actor`, `model`. That join surfaced a real data-quality bug: a
+   fallback move's arbitrary lexicographic pick was indistinguishable
+   from a real answer in `chess_sft.jsonl`. `calculations/export.py`
+   now defines `is_training_eligible` (participant and model only) and
+   the SFT export filters on it; the full archive keeps every row but
+   tags each with an explicit `training_eligible` boolean.
+5. **Capability-fallback provenance was computed and discarded.**
+   `ChatOutcome.attempts`/`json_mode_dropped`/`reasoning_effort_dropped`
+   were never written anywhere. `model_attempts` gained matching
+   columns; both `model_turn.py` and `scenario.py`'s shared per-reply
+   dicts now include all three.
+6. **`run_job` wasn't actually atomic.** `job_configs_repo` and
+   `artifacts_repo` each called `conn.commit()` internally despite
+   `run_job`'s own comment claiming one transaction, which flushed a
+   handler's `eval_results` writes prematurely. Reproduced: a forced
+   artifact failure left one committed config, no artifact. Both repos
+   no longer commit; `run_job` wraps its three writes in the same
+   try/rollback/raise pattern as `make_move`.
+7. **Turn ownership was UI-only.** The public move route always
+   recorded the caller as `actor=participant` with no server check.
+   Reproduced: after participant e2e4, participant e7e5 (black's move)
+   was accepted. `make_move` now raises `NotYourTurnError` (409) for a
+   participant move on the wrong turn in an active game; free play is
+   unrestricted; model/fallback moves are exempt. The frontend also
+   gates `boardInteractive` on whose turn it actually is, not just
+   locked/pending/thinking.
+8. **Timeout handling could overrun the game and lose evidence.**
+   Attempt-count-only bounding let worst-case latency reach roughly six
+   minutes (transport retries times model-turn retries), and a
+   legitimate reply arriving after clock expiry vanished with zero
+   persisted attempts (`make_move`'s clock check raised before
+   `model_turn` recorded anything). Fixed with one overall
+   `MODEL_TURN_DEADLINE_SECONDS` (default 30s) checked before each
+   attempt, the last attempt's timeout capped to the remaining budget,
+   and a new `clock_expired` attempt status recorded before
+   `GameClockExpiredError` re-raises.
+9. **Failed scenarios vanished on reload; review failures were
+   silent.** `latest_scenario` explicitly excluded `status='failed'`
+   rows, so reload after a failed assessment silently showed the
+   pristine empty state. It now returns the true latest row regardless
+   of status, and `ScenarioOut` exposes `error_detail` so the frontend
+   renders the same recoverable error state a live failure shows.
+   Separately, `accept()` swallowed review failures
+   (`.catch(() => scenario)`) and `saveEdit()` set an error without
+   setting the state that gates rendering it; both now surface the
+   failure, with an `errorSource` distinguishing an assessment failure
+   from a review failure so the retry button's label stays honest.
+
+Every fix above has a dedicated reproduction test at the layer where
+the bug lived (repository, action, route, or component), plus the full
+suite, lint, and typecheck rerun clean after each one. Final counts:
+api 349, web 216, deck 10.
+
 ## Intentionally deferred
 
 - The visible adaptation loop (before/after comparison UI) is phase

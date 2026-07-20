@@ -195,3 +195,78 @@ participate in your transaction.
 If you change this area, copy the second-connection test pattern.
 sqlite3 will not warn you when a repo function quietly grows a commit
 and turns your atomic action back into three independent hopes.
+
+## The review round: what a second reader caught
+
+Ramon reviewed the branch and found nine real bugs. None of them were
+typos. All of them were the same shape of mistake: a piece of state
+was read once, trusted for the rest of a function, and the function
+never asked itself "is this still true by the time I act on it?" That
+question is the whole discipline of concurrent and time-sensitive
+code, and it is very easy to forget to ask because the happy path
+never needs it.
+
+Take the worst one. `model_turn` reads the board, asks the model, and
+applies the reply. Between "ask" and "apply" sits a network round
+trip, which on a bad day is sixty seconds. Anything could happen to
+the board in that window: another request racing in, a fresh game
+starting, a resignation. The bug was applying the reply anyway,
+trusting that the board the model saw was still the board that
+existed. Here is the question worth sitting with before you read the
+fix: what test would catch this, given that in a single-threaded test
+process nothing genuinely races? You cannot wait for a real race to
+happen by accident. You have to manufacture one on purpose, which the
+fix does by having the model's own stubbed reply, mid-flight, go
+start and finish a second `model_turn` call before returning. That is
+a race you can write down and run every time, not one you hope shows
+up in CI.
+
+The fix itself is a pattern worth keeping: an optimistic precondition.
+Before you act on a decision made from a snapshot, you check whether
+the snapshot still matches reality, atomically, right before writing.
+If it doesn't, you refuse and say so, rather than writing anyway and
+hoping the mismatch doesn't matter. Notice what this is not: it is not
+a lock. Nothing blocked the second request from running. The board was
+free to change; the guarantee is only that a decision from a stale
+snapshot cannot land unnoticed. That is a cheaper, weaker, and in this
+case sufficient promise, and weaker-but-sufficient is usually the
+right trade in a system with one SQLite file and forty attendees, not
+a distributed database.
+
+The clock-expiry bug is the same shape wearing a different coat. A
+model reply arrives, genuinely legal, genuinely on time by the model's
+own reckoning -- and then the code that applies it discovers the
+clock ran out a moment ago. The old code let that discovery destroy
+the evidence: the exception fired before anything was written, so a
+possibly-correct answer left no trace at all. Ask yourself: why does
+that matter, given the game is over either way and the move was never
+going to count? It matters because the workshop's entire premise is
+that you can inspect what the model actually did. "The clock happened
+to run out one HTTP round-trip before we recorded anything" is an
+implementation detail of a Bun process, not a fact about the model's
+competence, and letting an implementation detail erase data is
+exactly the kind of small dishonesty this whole phase exists to
+remove. The fix records the attempt before the exception is allowed to
+propagate. The order of operations -- evidence first, consequence
+second -- is the lesson, and it recurs: failed attempts in general
+commit before the turn resolves, for the identical reason.
+
+The eval-result scoping bug rewards a slower kind of attention. Nothing
+crashed. Nothing raced. `replace_eval_result` just deleted and
+reinserted using an identity that didn't include which model the
+number was about, so scoring model A and then model B produced two
+computations and one row. The visible symptom -- a plausible-looking
+number sitting on screen -- is more dangerous than a crash, because
+nothing tells you to go looking. This is why the review asked
+specifically "can a base and an adapted model's results coexist,"
+rather than "does it crash": the failure mode you should worry about
+in a metrics system is never the loud one.
+
+One quieter finding is worth naming because it will recur in your own
+code long after this workshop: `accept()` on a failed API call did
+`.catch(() => scenario)`, silently returning to where it started as if
+the click had never happened. A catch clause that swallows an error
+without doing anything observable is not error handling, it's error
+disposal. If you cannot articulate what the user sees when this branch
+runs, that is the signal to stop and add it, not to ship the catch
+and move on.
