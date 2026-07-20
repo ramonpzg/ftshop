@@ -1,0 +1,60 @@
+{
+  "modality": "audio",
+  "kind": "adaptation_evidence",
+  "payload": {
+    "result_source": "cached",
+    "chain": {
+      "pairs": {
+        "label": "40 (text, audio) pairs",
+        "detail": "Short board-music clips tagged with game phase and tension."
+      },
+      "adapter": {
+        "label": "board-tension finetune (illustrative)",
+        "base_model": "facebook/musicgen-small",
+        "method": "text-to-audio finetune",
+        "status": "No audio adapter was trained for this workshop. MusicGen runs locally via just install-audio; the pair below is synthesized in-repo."
+      },
+      "evaluation": {
+        "label": "8 held-out tag prompts",
+        "status": "Cached illustrative values below; tag similarity needs an embedding model."
+      }
+    },
+    "before": {
+      "label": "Base output (illustrative)",
+      "file_url": "/artifacts/media/audio/board_music_base.wav",
+      "waveform_url": "/artifacts/media/audio/board_music_base_waveform.png",
+      "caption": "the motif, calm, 90 bpm",
+      "duration_seconds": 8.7
+    },
+    "after": {
+      "label": "Adapted output (illustrative)",
+      "file_url": "/artifacts/media/audio/board_music_adapted.wav",
+      "waveform_url": "/artifacts/media/audio/board_music_adapted_waveform.png",
+      "caption": "the same motif as the game sharpens: 132 bpm, tension notes, rising level",
+      "duration_seconds": 5.9
+    },
+    "metrics": [
+      {
+        "metric": "tag_similarity",
+        "base": 0.58,
+        "adapted": 0.81,
+        "delta": 0.23,
+        "unit": "ratio",
+        "direction": "higher_is_better",
+        "verdict": "improved"
+      },
+      {
+        "metric": "clipping",
+        "base": 0.01,
+        "adapted": 0.04,
+        "delta": 0.03,
+        "unit": "ratio",
+        "direction": "lower_is_better",
+        "verdict": "regressed"
+      }
+    ],
+    "metrics_note": "Illustrative cached values. Louder and tenser output clips more; the target metric improved and a safety metric got worse.",
+    "media_provenance": "Both clips synthesized locally by tools/make_media.py (same motif, two arrangements); not model output.",
+    "note": "The same conceptual chain the text page runs for real: pairs in, adapter out, eval always. Here every element is a reviewed cached illustration, because live audio training is impractical in the room; the card says which parts are real files and which are illustrative numbers."
+  }
+}

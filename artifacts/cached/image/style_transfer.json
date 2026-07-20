@@ -3,9 +3,25 @@
   "kind": "style_transfer_reveal",
   "payload": {
     "trigger_word": "wtrclrchess",
-    "description": "Cached example: a bishop re-rendered in the fine-tuned watercolor style.",
-    "before_image": "wB.svg",
-    "after_caption": "a wtrclrchess style white bishop, soft watercolor edges, plain background",
-    "note": "v0 doesn't run image generation live; this reveals a cached example of the intended before/after."
+    "description": "The bishop re-rendered in the target watercolor style, side by side with its source.",
+    "before": {
+      "label": "Source render",
+      "file_url": "/artifacts/media/image/style_before.png",
+      "caption": "the Cburnett white bishop, clean render on paper"
+    },
+    "after": {
+      "label": "Target style",
+      "file_url": "/artifacts/media/image/style_after.png",
+      "caption": "a wtrclrchess style white bishop, soft watercolor edges, plain background"
+    },
+    "width": 768,
+    "height": 768,
+    "provenance": {
+      "method": "Rendered locally by tools/make_media.py (just make-media): wB.svg rasterized, then restyled with layered watercolor washes, edge pooling, ink linework, and paper grain. Deterministic seed.",
+      "source": "web/public/pieces/wB.svg by Colin M.L. Burnett, CC BY-SA 3.0",
+      "model": null,
+      "license": "Derivative of the CC BY-SA 3.0 piece set; see docs/licenses.md."
+    },
+    "note": "An inspectable before/after pair for the style-transfer story. Composed programmatically in this repo; no diffusion model produced these. Live FLUX generation stays presenter-controlled and optional."
   }
 }

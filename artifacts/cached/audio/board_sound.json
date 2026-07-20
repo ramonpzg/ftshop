@@ -3,9 +3,20 @@
   "kind": "board_sound_reveal",
   "payload": {
     "event": "capture",
-    "description": "Cached example: a wood-on-wood capture sound.",
-    "tags": ["capture", "wood", "impact"],
-    "duration_seconds": 0.4,
-    "note": "v0 doesn't synthesize or play real audio; this reveals a cached example of the intended sound event."
+    "description": "A wood-on-wood capture sound: a damped noise burst with a low thump underneath.",
+    "tags": [
+      "capture",
+      "wood",
+      "impact"
+    ],
+    "duration_seconds": 0.42,
+    "file_url": "/artifacts/media/audio/capture_sound.wav",
+    "waveform_url": "/artifacts/media/audio/capture_sound_waveform.png",
+    "provenance": {
+      "method": "Synthesized locally by tools/make_media.py (just make-media): filtered noise burst plus 168 Hz thump and 620 Hz knock, deterministic seed.",
+      "model": null,
+      "license": "Generated in-repo; no third-party material."
+    },
+    "note": "A real, playable local file. It was synthesized in this repo, not produced by an audio model; the deck's click-synthesis beat teaches exactly this."
   }
 }

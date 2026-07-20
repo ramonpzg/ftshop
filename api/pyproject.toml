@@ -22,6 +22,15 @@ audio = [
     "scipy>=1.14",
     "soundfile>=0.13",
 ]
+# Deterministic regeneration of the committed workshop media fixtures
+# (piece renders, synthesized audio, the storyboard clip). Install via
+# `just make-media`; the app itself never imports these.
+media = [
+    "pillow>=11",
+    "numpy>=2",
+    "av>=14",
+    "cairosvg>=2.8",
+]
 
 [dependency-groups]
 dev = [

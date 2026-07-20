@@ -32,3 +32,38 @@ https://tldraw.dev/community/license.
 
 UI icons come from Phosphor Icons (`@phosphor-icons/react`), MIT
 licensed.
+
+## Workshop media fixtures
+
+`artifacts/cached/media/{image,audio,video}/*`
+
+Every file is generated inside this repository by
+`api/src/euro_chess_studio/tools/make_media.py` (`just make-media`),
+deterministically seeded so a regeneration is reviewable against the
+committed bytes. No provider or model produced any of them; each
+fixture JSON that references a file repeats its method in a
+`provenance` block, and the artifact panels label them illustrative.
+
+- `image/style_before.png`, `image/style_after.png`: the Cburnett
+  white bishop (`web/public/pieces/wB.svg`, CC BY-SA 3.0, attribution
+  above) rasterized with cairosvg, and the same silhouette restyled
+  programmatically into watercolor washes with Pillow. Both are
+  derivatives of the CC BY-SA 3.0 artwork and carry the same license
+  with the same attribution.
+- `audio/capture_sound.wav`: a synthesized wood-impact click (filtered
+  noise burst plus low sine thumps). `audio/board_music_base.wav` and
+  `audio/board_music_adapted.wav`: one original motif rendered twice,
+  calm and sharpened. All synthesized with numpy; the `_waveform.png`
+  files are plots of those exact samples. Original in-repo material,
+  no third-party audio.
+- `video/scene_clip.mp4`, `video/scene_clip_base.mp4`,
+  `video/scene_poster.png`, `video/scene_frames.png`: a storyboard
+  animatic of the rushed-release incident scene, drawn frame by frame
+  with Pillow and encoded to H.264 with PyAV (the base take adds
+  per-frame jitter). Original in-repo material; no chessboard, chess
+  pieces, or readable text appears.
+
+Generation tooling licenses: Pillow (MIT-CMU), numpy (BSD), cairosvg
+(LGPL-3.0, used as a build-time tool only), PyAV (BSD) bundling FFmpeg
+libraries (LGPL). None of these ship in the application runtime; they
+are the `media` extra used only by `just make-media`.
