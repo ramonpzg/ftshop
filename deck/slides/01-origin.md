@@ -58,9 +58,10 @@ FALLBACK: static slide, nothing to fail.
 />
 <div v-click class="reserve">
 <MediaFrame
-  file="origin-book.jpg"
+  file="old-book.jpg"
   ratio="3/4"
-  width="200px"
+  width="400px"
+  height="400px"
   expected="The chess book, photographed as a physical object. Not in a card."
 />
 </div>
@@ -99,9 +100,9 @@ FALLBACK: placeholders render with final geometry until the photos land.
 />
 <div v-click class="reserve overlay">
 <MediaFrame
-  file="duolingo-app.png"
+  file="duo-example-cmate.jpg"
   ratio="9/19.5"
-  height="270px"
+  height="400px"
   expected="Duolingo chess mode, app screenshot."
 />
 </div>
@@ -188,7 +189,7 @@ FALLBACK: placeholders keep the phone geometry.
   file="queens-gambit.jpg"
   ratio="16/9"
   expected="Queen's Gambit still."
-  source="Netflix, The Queen's Gambit. Record exact source and license."
+  source="until I had to watch this..."
 />
 </div>
 </div>
@@ -227,18 +228,38 @@ FALLBACK: static counts read fine without the image.
 
 ---
 
-# No Internet
+# No internet, no problem?
 
 <div class="no-internet">
 <MediaFrame
-  file="no-internet.png"
+  file="no-internet.jpg"
   ratio="9/19.5"
-  height="330px"
-  expected="Duolingo chess rendered useless on the Sydney flight."
+  height="445px"
+  expected="Duolingo chess rendered useless from Sydney to Doha."
 />
 <p class="statement-quiet">
-The opponent I wanted disappeared with the connection.
+    You don't really know you're an addict until you start experiencing bad withdrawal symptoms...
 </p>
+</div>
+
+<div v-click class="reserve centered-overlay">
+<MediaFrame
+  file="frustrated.jpg"
+  ratio="1/1"
+  height="330px"
+  width="370px"
+  expected="Oscar."
+/>
+</div>
+
+<div v-click class="reserve centered-overlay">
+<MediaFrame
+  file="plane-chair-meme.png"
+  ratio="4/3"
+  height="370px"
+  width="470px"
+  expected="Oscar."
+/>
 </div>
 
 <style>
@@ -250,6 +271,13 @@ The opponent I wanted disappeared with the connection.
 }
 .no-internet p {
   max-width: 20rem;
+}
+.centered-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
 }
 </style>
 
@@ -273,13 +301,22 @@ FALLBACK: the sentence carries the slide if the screenshot is missing.
   ratio="1/1"
   width="300px"
   expected="The dog-thinking meme."
-  source="Meme. Record origin and license."
 />
 </div>
 <div class="response-lines">
   <p v-click class="reserve">What if I completely change what I had planned for my talk with less than a month to go</p>
   <p v-click class="reserve emphasis">What could possibly go wrong</p>
 </div>
+</div>
+
+<div v-click class="reserve centered-overlay">
+<MediaFrame
+  file="burning-house.jpg"
+  ratio="4/3"
+  height="370px"
+  width="470px"
+  expected="Oscar."
+/>
 </div>
 
 <style>
@@ -298,6 +335,14 @@ FALLBACK: the sentence carries the slide if the screenshot is missing.
   font-weight: 700;
   font-size: 1.6rem;
 }
+
+.centered-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+}
 </style>
 
 <!--
@@ -310,32 +355,25 @@ FALLBACK: lines land without the meme.
 -->
 
 ---
+layout: side-media
+side: left
+---
 
 # The end goal, in one object
 
-<div class="tui-grid">
-<PhoneTuiReplay />
-<div class="tui-side">
-  <p>It runs on my phone. It records wins, losses, and draws, keeps the moves, and replays the game.</p>
-  <div v-click class="reserve objective">
-    <span class="compare-label">objective</span>
-    <p>Win while taking as few opposing pieces as possible.</p>
-    <span class="provenance">PLACEHOLDER: one actual recorded result, e.g. a win with the capture count.</span>
-  </div>
-</div>
+<p>It runs on my phone. It records wins, losses, and draws, keeps the moves, and replays the game.</p>
+
+<div v-click class="reserve objective">
+  <span class="compare-label">objective</span>
+  <p>Win while taking as few opposing pieces as possible.</p>
+  <span class="provenance">PLACEHOLDER: one actual recorded result, e.g. a win with the capture count.</span>
 </div>
 
+::media::
+
+<PhoneTuiReplay />
+
 <style>
-.tui-grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3rem;
-  align-items: center;
-  margin-top: 0.2rem;
-}
-.tui-side {
-  max-width: 24rem;
-}
 .objective {
   margin-top: 1.2rem;
   border-top: 2px solid var(--accent);

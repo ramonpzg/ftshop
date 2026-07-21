@@ -18,5 +18,5 @@
       "@slidev/client": ["./types/slidev-client.d.ts"]
     }
   },
-  "include": ["lib", "tests", "setup", "types", "components/**/*.vue", "global-bottom.vue"]
+  "include": ["lib", "tests", "setup", "types", "components/**/*.vue", "layouts/**/*.vue", "global-bottom.vue"]
 }

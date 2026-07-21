@@ -220,13 +220,16 @@ test asserts every referenced file name appears in this table.
 | --- | --- | --- |
 | `cover.jpg` | 4:3 | one strong chess image or a frame of the actual TUI board |
 | `origin-photo.jpg` | 4:3 | childhood photo, readable from the back |
-| `origin-book.jpg` | 3:4 | the chess book, photographed as an object |
+| `old-book.jpg` | 3:4 | the chess book, photographed as an object |
 | `duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
-| `duolingo-app.png` | 9:19.5 | Duolingo chess app screenshot |
+| `duo-example-cmate.jpg` | 9:19.5 | Duolingo chess app screenshot |
 | `oscar-game.png` | 9:19.5 | one game against Oscar, app screenshot |
 | `oscar.png` | 9:19.5 | Oscar |
 | `queens-gambit.jpg` | 16:9 | Queen's Gambit still |
-| `no-internet.png` | 9:19.5 | Duolingo chess offline on the Sydney flight |
+| `no-internet.jpg` | 9:19.5 | Duolingo chess offline on the Sydney flight |
+| `frustrated.jpg` | 1:1 | frustration reaction, no-internet overlay |
+| `plane-chair-meme.png` | 4:3 | plane-seat meme, no-internet overlay |
+| `burning-house.jpg` | 4:3 | burning-house meme, reasonable-response overlay |
 | `meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
 | `tui-recording.mp4`, `tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
 | `mapping-game.png` | 4:5 | the completed board and game log the mapping slides share |
