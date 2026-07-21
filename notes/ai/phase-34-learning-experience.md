@@ -360,8 +360,12 @@ migration rebuild, cached media availability, and panel states.
   tabs restore the locked state. Since round four, startup clears the
   table (a lock that survives its process is orphaned by definition)
   and the 330 s TTL remains only for a process that is alive but
-  hung. True server-side cancellation would need the handler to check
-  a cancellation flag between gather calls; not built, deliberately.
+  hung. Since round five, acquisition runs read-decide-delete-insert
+  inside one BEGIN IMMEDIATE transaction (two requests racing an
+  expired row admit exactly one) and release is owner-scoped (a hung
+  run finishing after replacement deletes nothing). True server-side
+  cancellation would need the handler to check a cancellation flag
+  between gather calls; not built, deliberately.
 - Every entry in `OPPONENT_MODELS` resolves against the single
   `OPENAI_BASE_URL` and key. The documented "local Gemma default plus
   Luna in the picker" therefore cannot work across separate llama.cpp
@@ -753,3 +757,64 @@ credentials, so the panels take the unconfigured-LLM path and the new
 gates never fire from loopback anyway). The venue-laptop load test
 against real Gemma remains open prep work by design: the repo cannot
 run it, and nothing opens the room until someone does.
+
+## Review corrections, round five (2026-07-21)
+
+Three findings on the round-four build, all fixed on this branch.
+
+1. **The capacity test could not certify honestly (high).** Four
+   defects in `tools/load_sim.py`, each capable of blessing a broken
+   room: the error column counted only 5xx and transport failures, so
+   a run of nothing but 403s reported zero errors; `unavailable`,
+   `stale`, and `fallback_move` are HTTP 200, so overload looked like
+   success at the HTTP layer; `unavailable` and `stale` carry
+   `move: null`, so the simulator crashed at
+   `reply_body["move"]["is_legal"]` on exactly the runs it existed to
+   measure; and it still fired `/assess` after every exchange,
+   doubling model traffic the room stopped producing when assessments
+   went manual and presenter-only. The sim now counts every non-2xx
+   and transport failure as an error (`is_error_status`), interprets
+   model turns through a pure `interpret_model_turn` that tolerates
+   the null move and tallies all four outcomes, drops assessments
+   from the workload entirely, retries an open model turn the way the
+   UI's retry button does instead of 409-spiraling the game into a
+   restart (the loop is turn-aware now), and ends with an explicit
+   verdict from pure `build_verdict`: PASS only when model-move p95
+   sits inside the turn deadline with zero model-move errors and zero
+   unavailable or stale turns; fallbacks are reported but do not fail
+   it (the model answering badly is not the server failing to
+   answer); a run with no model traffic says it cannot certify
+   instead of passing by vacuous truth. `tests/tools/test_load_sim.py`
+   covers all four outcomes, the error classification, and every
+   verdict branch.
+2. **Expired-lock replacement could admit two live runs (medium).**
+   The reproduced interleaving: both requests read the same expired
+   row, the first replaced it, the second then deleted the first's
+   fresh lock and inserted its own, and both reported acquisition.
+   `_acquire_single_flight` now runs read-decide-delete-insert inside
+   one short `BEGIN IMMEDIATE` transaction, so the write lock
+   precedes the read and the loser sees the winner's fresh row. The
+   lock also carries an owner token (`run_locks.owner`, migrated in
+   `init_db`), and release deletes only its own row, so a hung run
+   finishing after its TTL replacement cannot delete its successor's
+   lock. Two new tests: a real two-connection race from one expired
+   row (blocking runner, exactly one admitted; on the broken code
+   both runners run and the test fails), and the late-finisher
+   release proving the successor's row survives. The round-four
+   primary-key test stays as the last-resort arbiter check.
+3. **Docs contradicted the shipped behavior (low).** The demo plan's
+   policy paragraph claimed enforcement happens "rather than by
+   hiding buttons" and that attendees play the default opponent; it
+   now states the two-gate policy, the free-play default, and that
+   the UI's hidden controls are courtesy while the 403s are the
+   enforcement. local-dev's load-test section described the removed
+   per-exchange assessment; it now describes the actual workload, the
+   honest error counting, and the verdict. Both load-test walkthroughs
+   point at the verdict line instead of hand-reading the report.
+
+Verification after this round: ruff check and biome clean, ty and tsc
+clean, api 471 passed, web 260 passed, deck 10 passed, e2e 11 passed
+(Playwright against the real stack). The two-connection expired-lock
+race runs in the suite; the sim's verdict logic is unit-tested on
+every branch, while an actual certifying run still requires the venue
+laptop and real Gemma, by design.

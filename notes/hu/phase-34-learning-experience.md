@@ -457,6 +457,54 @@ interleaving where both requests read an empty table and the primary
 key decides. A guarantee that only exists in production traffic is a
 hope with good posture. That one stays.
 
+## Round five: trust your instruments last
+
+Round five audited the things the other rounds leaned on, and both
+findings are the same lesson: the code that certifies your system
+deserves the scrutiny you give the system, because a broken
+instrument fails in the direction of good news.
+
+The load simulator had four ways to bless a broken room. It counted
+only 5xx and transport failures as errors, so a run where every
+model move was refused with 403 reported an error column of zero.
+The three outcomes that signal trouble, unavailable, stale, and
+fallback, all arrive as HTTP 200, so the transport layer saw
+success. Unavailable and stale carry no move, and the simulator
+indexed into the move unconditionally, so it crashed on precisely
+the runs it existed to measure. And it still fired an assessment
+after every exchange, a workload the room stopped producing two
+rounds ago, so it measured double the model traffic the real room
+generates. Each defect points the same way. Ask of any test
+harness: if the system under test failed right now, which line of
+the report would say so? If you cannot answer, the harness is
+measuring something else. The simulator now counts every non-2xx as
+an error, reads model turns through a function that survives a null
+move and tallies all four outcomes, retries an open model turn the
+way the UI's retry button does, drops assessments from the workload,
+and ends with a verdict that says PASS, FAIL, or that the run
+carried no model traffic and cannot certify anything. That last case
+matters: zero errors over zero model calls proves nothing, and the
+old report could not tell the difference.
+
+The second finding is a classic. Acquiring the lock read the row,
+decided it was expired, deleted it, and inserted a fresh one, all
+outside a transaction that held the write lock. Two requests could
+both read the same expired row; the first replaced it, the second
+then deleted the first's brand-new lock and inserted its own, and
+both reported success. Walk through it once with two fingers on the
+page and the bug is obvious, which is the point: interleavings do
+not announce themselves, you have to go looking. The fix is to take
+the write lock before the read, one short BEGIN IMMEDIATE
+transaction around read, decide, delete, insert, so the loser's read
+happens after the winner's insert and sees a fresh row instead of an
+expired one. The lock row also carries an owner token now, and
+release deletes only its own row, because a run that hangs past its
+TTL, gets replaced, and then wakes up to run its finally must not
+delete its successor's lock. Ask where else you read a value, decide
+something, and write on the strength of that decision without
+holding anything that keeps the value true. Every one of those is
+this bug waiting for traffic.
+
 ## Where to poke first
 
 Read `calculations/adaptation.py` and `calculations/comparison.py`
