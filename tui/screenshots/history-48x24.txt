@@ -1,0 +1,5 @@
+history
+
+ 1  2026-07-21 13:29  1-0 checkmate  4 moves
+
+replay <number>  new  quit

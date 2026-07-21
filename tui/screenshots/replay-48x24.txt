@@ -1,0 +1,16 @@
+replay  2026-07-21 13:29  1-0
+
+    a b c d e f g h
+ 8  r n b q k b n r  8
+ 7  p p p p . p p p  7
+ 6  . . . . . . . .  6
+ 5  . . . . p . . Q  5
+ 4  . . . . P . . .  4
+ 3  . . . . . . . .  3
+ 2  P P P P . P P P  2
+ 1  R N B . K B N R  1
+    a b c d e f g h
+
+ply 3/7  2. Qh5
+
+next  prev  flip  quit. enter is next
