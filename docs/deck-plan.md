@@ -239,6 +239,10 @@ test asserts every referenced file name appears in this table.
 | `audio-genre.wav` | audio | background music, one genre |
 | `audio-move.wav` | audio | optional spoken move |
 | `video-scene.mp4`, `video-scene-poster.png` | 16:9 | Luna scene video, no chess objects |
+| `chess-log.png` | 9:16 | completed board and game log for the mapping slides |
+| `sun-tzu.jpg` | 1:1 | Art of War quote image for the TUI objective |
+| `gemma-webui-1.jpg`, `gemma-webui-2.jpg` | 9:19.5 | llama.cpp web UI in a phone browser |
+| `duo-chess-sound.mp4` | 9:19.5 | Duolingo chess screen recording with sound |
 | `ab-text-a.png`, `ab-text-b.png` | 16:10 | text A/B pair, rendered replies |
 | `ab-image-a.png`, `ab-image-b.png` | 1:1 | image A/B pair |
 | `ab-audio-a.wav`, `ab-audio-b.wav` | audio | audio A/B pair |
@@ -292,12 +296,16 @@ included, for rehearsal (`bun run dev:full`).
 | part | default | slides skipped by default |
 | --- | --- | --- |
 | 1 origin | 5:35 | Oscar (0:30) |
-| 2 outcomes | 8:00 | mappings two and three (1:30) |
+| 2 outcomes | 9:15 | mappings two and three (1:30) |
 | 3 why adapt | 6:20 | the model tree (0:45) |
 | 4 chess primer | 4:55 | none |
-| **opening (1-4)** | **24:50** | optional adds up to 2:45 |
+| **opening (1-4)** | **26:05** | optional adds up to 2:45 |
 | 5 technical reference | 14:55 | modular, see below |
-| **slides.md total** | **39:45** | |
+| **slides.md total** | **41:00** | |
+
+The opening runs 1:05 over the 20-25 minute budget since the browser
+bridge and the Duolingo sound clip joined part 2; rehearsal decides
+what shaves back, starting from the cut order below.
 
 The room-join dead air (up to 90 seconds) is budgeted in the LiveRoom
 slide's note on top of its talking time. The last slide of part 4
@@ -316,15 +324,16 @@ phase 35 screenshot pass (slide number: clicks).
 
 ```
 1:0   2:1   3:1   4:1   5:4   6:0   7:3   8:1
-9:4   10:1  11:1  12:1  13:1  14:3  15:3  16:2
-17:0  18:0  19:0  20:0  21:4
-22:0  23:3  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
-32:0  33:3  34:3  35:2  36:0
-37:0  38:5  39:5  40:0  41:2  42:2  43:2  44:0  45:0  46:2  47:1
+9:4   10:1  11:1  12:1  13:1  14:1  15:3  16:0  17:3  18:2
+19:0  20:0  21:0  22:0  23:4
+24:0  25:3  26:1  27:4  28:5  29:0  30:0  31:0  32:0  33:0
+34:0  35:3  36:3  37:2  38:0
+39:0  40:5  41:5  42:0  43:2  44:2  45:2  46:0  47:0  48:2  49:1
 ```
 
-47 slides, numbered on the full route; the default route drops slides
-4, 12, 13, and 29. The A/B slides (17 to 20) have zero clicker clicks:
+49 slides, numbered on the full route; the default route drops slides
+4, 12, 13, and 31. Slide 14 is the browser bridge, 16 the Duolingo
+sound clip. The A/B slides (17 to 20) have zero clicker clicks:
 their answers are `<details>` disclosures outside the Slidev click
 sequence, opened with a direct click or Enter on the focused summary,
 held for the combined reveal by default.

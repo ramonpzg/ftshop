@@ -24,7 +24,7 @@ src: ./slides/01-origin.md#1-3,5-8
 ---
 
 ---
-src: ./slides/02-outcomes.md#1-3,6-13
+src: ./slides/02-outcomes.md#1-3,6-15
 ---
 
 ---

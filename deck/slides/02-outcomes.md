@@ -48,8 +48,9 @@ footer: false
 <div v-click class="reserve mapping-panel">
   <span class="compare-label">real-world mapping</span>
   <div class="mapping-placeholder">
-      The White Queen sitting on `e7` looks dominant and polished at first glance, much like a 300-line AI-generated pull request that passes its initial tests. Look at the clutter of captured pawns piled along the side margins of the board: that is the visual equivalent of modern "AI slop" clogging software repositories. Developers accept AI-generated code without checking edge cases, trading sound architecture for the illusion of velocity. The synthetic code compiles cleanly and looks superficially competent, yet it quietly bloats systems with duplicated logic, redundant functions, and fragile abstractions. Just as a flashy piece move can disguise positional weaknesses, unverified code tricks teams into thinking they are winning right until a refactor is needed. Maintainers now spend their days triaging hallucinated imports and useless boilerplate that no human on the team actually wrote or understands. Test suites pass because the AI wrote unit tests that merely mirror its own flawed logic rather than validating actual behavior. Pushing thousands of lines of unverified code into production isn't genuine engineering. It is merely using an automated assistant to manufacture technical debt at scale.
+      While the hand-drawn board illustration shows a generic tactical checkmate rather than Kasparov’s 1997 match against Deep Blue, the position illustrates a trap modern software teams fall into daily. The White Queen sitting on `e7` looks like a decisive, impressive move, much like an AI-generated pull request that compiles on its first run. Developers routinely accept thousands of lines of unverified AI "slop" just to hit short-term output metrics, confusing sheer volume with sound architecture. The chaotic pile of captured pawns cluttering the board's margin is the visual equivalent of a repository accumulating redundant functions, useless abstractions, and hallucinated dependencies. This synthetic code creates a false sense of security because AI-written unit tests usually just validate the AI's own flawed logic. Engineers then waste entire sprints playing forensic investigator against complex boilerplate that no human on the team wrote or understands. Just as an overextended piece gets refuted without solid positional backing, unverified code collapses the moment messy, real-world data hits it. Letting an automated assistant write your core system without rigorous oversight isn't a strategy; it is merely generating technical debt at scale.
   </div>
+  <span class="provenance">scenario writer: gpt-5.6-luna · prompt version pending · CACHED, date pending</span>
 </div>
 </div>
 
@@ -72,7 +73,7 @@ footer: false
   gap: 0.7rem;
 }
 .mapping-placeholder {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: var(--ink-soft);
 }
 .mapping-panel .provenance {
@@ -289,6 +290,66 @@ FALLBACK: placeholders carry the structure.
 -->
 
 ---
+clicks: 1
+---
+
+# Same server, different surface
+
+<p class="statement-quiet">
+The TUI is one client. The llama.cpp server behind it speaks plain HTTP, so a
+browser works too: open the laptop's address on a phone and chat with the
+same local Gemma.
+</p>
+
+<div class="webui-pair">
+<MediaFrame
+  file="gemma-webui-1.jpg"
+  ratio="9/19.5"
+  height="300px"
+  expected="llama.cpp web UI in a phone browser, chat view."
+/>
+<MediaFrame
+  file="gemma-webui-2.jpg"
+  ratio="9/19.5"
+  height="300px"
+  expected="llama.cpp web UI in a phone browser, a reply mid-stream."
+/>
+<div class="webui-side">
+  <span class="provenance">just start-gemma · llama.cpp serves its own web UI on the same port</span>
+  <p v-click class="reserve bridge-question">
+  What if we also want to design the pieces and the boards?
+  </p>
+</div>
+</div>
+
+<style>
+.webui-pair {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+.webui-side {
+  max-width: 20rem;
+}
+.bridge-question {
+  margin-top: 1rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+</style>
+
+<!--
+TIMING: 30 seconds.
+SAY: You already saw the terminal app. The server underneath is an ordinary HTTP endpoint, so the browser on any phone in the room can be the interface instead. Bind the server to the LAN and share the address.
+CLICK: 1. The question that turns the page: designing the pieces and boards themselves.
+SOURCE: assets/gemma-webui-1.jpg and gemma-webui-2.jpg, Ramon's phone screenshots of the llama.cpp web UI.
+CUT: skippable; the TUI slide already made the local-serving point.
+FALLBACK: placeholders keep the phone geometry.
+-->
+
+---
 
 # Image adaptation
 
@@ -326,8 +387,10 @@ FALLBACK: placeholders carry the structure.
 </div>
 
 <div class="provenance">
-same prompt where possible · adapter/model identity, seed, dimensions pending ·
-piece-identity check, style-adherence check pending
+prompt, both runs: "a complete chess set arranged on its board, all six piece
+types visible and identifiable, low angle, studio light, in the style of TOK"
+· the base run drops the TOK trigger · adapter identity, seed, dimensions
+pending · piece-identity and style-adherence checks pending
 </div>
 
 <style>
@@ -343,9 +406,50 @@ piece-identity check, style-adherence check pending
 TIMING: 60 seconds.
 SAY: The useful question is not whether it looks cool. The pieces still need to be identifiable and the style needs to hold across the full set.
 CLICK: 3. Base output, adapted output, then a second style if it earns the time.
-SOURCE: evidence line pending: same prompt, adapter identity, seed, dimensions, identity and style checks.
+SOURCE: the shared prompt is on the slide; the adapted run keeps the TOK trigger word, the base run drops it. Adapter identity, seed, dimensions, and both checks land with the generated pair.
 CUT: the third click.
 FALLBACK: placeholders keep all three frames.
+-->
+
+---
+
+# Chess apps already ship sound
+
+<div class="duo-sound">
+<MediaFrame
+  file="duo-chess-sound.mp4"
+  ratio="9/19.5"
+  height="360px"
+  kind="video"
+  expected="Screen recording of Duolingo chess with sound: moves, captures, the win fanfare."
+  source="Duolingo chess mode, screen recording from Ramon's phone."
+/>
+<p class="statement-quiet">
+Moves click, captures knock, wins get a fanfare. Listen first; then we make
+our own.
+</p>
+</div>
+
+<style>
+.duo-sound {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+.duo-sound p {
+  max-width: 22rem;
+}
+</style>
+
+<!--
+TIMING: 45 seconds including playback.
+SAY: Sound is already part of the product the room has been looking at all session. Play the clip, let them hear it, then move to the three sounds we generate ourselves.
+CLICK: none; playback is manual, no autoplay.
+SOURCE: assets/duo-chess-sound.mp4, Ramon's screen recording of Duolingo chess.
+CUT: trim playback to a few seconds if time is short.
+FALLBACK: skip straight to the generated audio rows.
 -->
 
 ---
@@ -360,15 +464,15 @@ FALLBACK: placeholders keep all three frames.
 <div class="audio-rows">
   <div v-click class="reserve audio-row">
     <span class="compare-label">capture sound</span>
-    <MediaFrame file="audio-capture.wav" ratio="16/3" kind="audio" expected="A capture: wooden piece landing on wood." />
+    <MediaFrame file="audio-capture.wav" ratio="16/3" kind="audio" expected="A capture: wooden piece landing on wood." caption='prompt: "a single wooden chess piece set down hard on a wooden board, one short dry knock, close mic, no music"' />
   </div>
   <div v-click class="reserve audio-row">
     <span class="compare-label">background, one genre</span>
-    <MediaFrame file="audio-genre.wav" ratio="16/3" kind="audio" expected="Background music in one genre. MusicGen local path." />
+    <MediaFrame file="audio-genre.wav" ratio="16/3" kind="audio" expected="Background music in one genre. MusicGen local path." caption='prompt: "instrumental bachata, warm nylon guitar and soft bongos, relaxed steady tempo, background volume"' />
   </div>
   <div v-click class="reserve audio-row">
     <span class="compare-label">spoken move, optional</span>
-    <MediaFrame file="audio-move.wav" ratio="16/3" kind="audio" expected="A spoken move announcement." />
+    <MediaFrame file="audio-move.wav" ratio="16/3" kind="audio" expected="A spoken move announcement." caption='text: "Knight takes f7. Check."' />
   </div>
 </div>
 </div>
