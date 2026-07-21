@@ -1,9 +1,14 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from euro_chess_studio.actions.errors import JobInProgressError
 from euro_chess_studio.actions.jobs import run_job
+from euro_chess_studio.calculations.generation import LIVE_BENCHMARK_LOCK_KEY, single_flight_lock
 from euro_chess_studio.data.db import get_connection, init_db
+from euro_chess_studio.data.run_locks_repo import get_lock, insert_lock
+from euro_chess_studio.jobs.base import JobOutput
 from euro_chess_studio.jobs.registry import UnknownJobTypeError
 
 
@@ -96,6 +101,110 @@ def test_run_job_commits_config_and_artifact_together_or_neither(
         assert other.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0] == 0
     finally:
         other.close()
+
+
+def _live_params() -> dict:
+    return {"suite_id": "suite-x", "checkpoint": "base", "source": "live"}
+
+
+class StubRunner:
+    """Stands in for the live benchmark runner: what is under test here
+    is run_job's single-flight handling, not the provider calls."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def run(self, conn, job):
+        self.calls += 1
+        return JobOutput(modality="text", kind="benchmark_eval", cached=False, payload={"ok": True})
+
+
+def test_a_live_benchmark_refuses_to_start_while_one_is_in_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The duplicate-run guard is durable and server-side: the committed
+    in-progress row refuses a second request whatever any browser tab
+    remembers. UI state alone cannot enforce this; a reloaded panel
+    starts with empty state and would happily spend the money again."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn = make_conn(tmp_path)
+    now = datetime.now(UTC)
+    insert_lock(
+        conn,
+        LIVE_BENCHMARK_LOCK_KEY,
+        acquired_at=now.isoformat(),
+        expires_at=(now + timedelta(seconds=60)).isoformat(),
+    )
+    conn.commit()
+
+    runner = StubRunner()
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: runner)
+
+    with pytest.raises(JobInProgressError, match="already in progress"):
+        run_job(conn, "text.benchmark_eval", _live_params(), None)
+    assert runner.calls == 0
+    # The refusal must not release the in-flight run's own lock.
+    assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is not None
+
+
+def test_the_live_lock_is_released_on_success_and_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn = make_conn(tmp_path)
+    runner = StubRunner()
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: runner)
+
+    run_job(conn, "text.benchmark_eval", _live_params(), None)
+    assert runner.calls == 1
+    assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is None
+
+    class ExplodingRunner:
+        def run(self, conn, job):
+            raise RuntimeError("provider blew up mid-run")
+
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: ExplodingRunner())
+    with pytest.raises(RuntimeError, match="mid-run"):
+        run_job(conn, "text.benchmark_eval", _live_params(), None)
+    # A failed run must not leave the room locked out of live runs.
+    assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is None
+
+
+def test_an_expired_live_lock_is_replaced_not_honored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A process that died mid-run cannot release its lock. The expiry
+    (the server's maximum run deadline plus slack) is what keeps a
+    crash from locking live runs out until someone deletes a row by
+    hand."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn = make_conn(tmp_path)
+    now = datetime.now(UTC)
+    insert_lock(
+        conn,
+        LIVE_BENCHMARK_LOCK_KEY,
+        acquired_at=(now - timedelta(seconds=700)).isoformat(),
+        expires_at=(now - timedelta(seconds=10)).isoformat(),
+    )
+    conn.commit()
+
+    runner = StubRunner()
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: runner)
+    run_job(conn, "text.benchmark_eval", _live_params(), None)
+    assert runner.calls == 1
+    assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is None
+
+
+def test_only_live_benchmarks_are_single_flight():
+    """Replays are free and may run concurrently; the lock exists for
+    provider spend, nothing else."""
+    assert single_flight_lock("text.benchmark_eval", {"source": "live"}) is not None
+    assert single_flight_lock("text.benchmark_eval", {"source": "replayed"}) is None
+    assert single_flight_lock("text.benchmark_eval", {}) is None
+    assert single_flight_lock("image.show_dataset", {}) is None
 
 
 def test_run_job_rolls_back_eval_results_when_the_artifact_fails(

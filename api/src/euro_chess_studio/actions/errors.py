@@ -69,6 +69,12 @@ class ModelReplyError(RuntimeError):
     """The model answered, but not with anything usable."""
 
 
+class JobInProgressError(RuntimeError):
+    """A single-flight job was asked to start while the same job is
+    already running. The duplicate would spend provider money twice for
+    one answer, so the refusal is the correct result, not a failure."""
+
+
 class ScenarioNotFoundError(ValueError):
     pass
 

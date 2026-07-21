@@ -5,6 +5,7 @@ assemble the state the adaptation panel renders."""
 import json
 import sqlite3
 from dataclasses import asdict
+from datetime import UTC, datetime
 
 from euro_chess_studio.calculations.adaptation import (
     BASE_CHECKPOINT,
@@ -22,6 +23,7 @@ from euro_chess_studio.calculations.comparison import (
     compare_metric_rows,
 )
 from euro_chess_studio.calculations.export import SFT_PROMPT_VERSION, build_sft_rows
+from euro_chess_studio.calculations.generation import LIVE_BENCHMARK_LOCK_KEY
 from euro_chess_studio.data import llm_client
 from euro_chess_studio.data.adaptation_fixtures import (
     load_eval_suite_fixture,
@@ -44,6 +46,7 @@ from euro_chess_studio.data.eval_suites_repo import (
     list_suites,
 )
 from euro_chess_studio.data.model_attempts_repo import list_attempts
+from euro_chess_studio.data.run_locks_repo import get_lock
 from euro_chess_studio.data.scenario_repo import list_scenarios
 
 
@@ -244,6 +247,18 @@ def _build_comparison(conn: sqlite3.Connection, suite: sqlite3.Row) -> dict | No
     }
 
 
+def _live_benchmark_in_progress(conn: sqlite3.Connection) -> bool:
+    """Whether a live benchmark run is in flight right now, read from
+    the durable single-flight record run_job commits before the first
+    provider call. This is what lets a reloaded panel or a second tab
+    render the truth instead of whatever its own React state remembers.
+    A row past its expiry is a crashed run and reads as not in
+    progress, so controls never stay dead for a run nobody is
+    waiting on."""
+    row = get_lock(conn, LIVE_BENCHMARK_LOCK_KEY)
+    return row is not None and datetime.fromisoformat(row["expires_at"]) > datetime.now(UTC)
+
+
 def get_adaptation_state(conn: sqlite3.Connection) -> dict:
     """Everything the adaptation panel renders, in one response: the
     frozen datasets, the config catalog, adapters with provenance,
@@ -281,5 +296,6 @@ def get_adaptation_state(conn: sqlite3.Connection) -> dict:
         "live_benchmark": {
             "available": llm_client.is_llm_configured(),
             "model": llm_client.get_llm_model() if llm_client.is_llm_configured() else None,
+            "in_progress": _live_benchmark_in_progress(conn),
         },
     }

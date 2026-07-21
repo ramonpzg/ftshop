@@ -317,6 +317,17 @@ CREATE TABLE IF NOT EXISTS adapters (
 -- benchmark_run_id on model_attempts rows.
 CREATE TABLE IF NOT EXISTS benchmark_runs {BENCHMARK_RUNS_COLUMNS_SQL};
 
+-- Single-flight guard for jobs that spend provider money: one
+-- committed row per in-flight run, keyed by what must not run twice,
+-- visible to every request the moment the run starts (unlike UI
+-- state, which a reload forgets). expires_at bounds a crashed
+-- process: a row past it is a dead run, not an in-flight one.
+CREATE TABLE IF NOT EXISTS run_locks (
+    lock_key TEXT PRIMARY KEY,
+    acquired_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS presenter_state (
     id TEXT PRIMARY KEY,
     mode TEXT NOT NULL,

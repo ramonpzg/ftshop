@@ -28,6 +28,60 @@ def test_state_is_seeded_at_startup(client: TestClient):
     assert state["configs"][0]["config_id"] == "text-gemma-lora-v1"
     assert state["comparison"] is None
     assert state["live_benchmark"]["available"] is False
+    assert state["live_benchmark"]["in_progress"] is False
+
+
+def test_a_live_run_in_flight_is_shared_state_and_refuses_duplicates(
+    client: TestClient, tmp_path, monkeypatch
+):
+    """The in-progress identity is durable and server-side: every
+    client's poll sees it (a reloaded panel restores its waiting state
+    from here), and a duplicate live run is refused with 409 before any
+    provider call. A row past its expiry is a crashed run: invisible to
+    the panel and no obstacle to the next run."""
+    from datetime import UTC, datetime, timedelta
+
+    from euro_chess_studio.calculations.generation import LIVE_BENCHMARK_LOCK_KEY
+    from euro_chess_studio.data.db import get_connection
+    from euro_chess_studio.data.run_locks_repo import insert_lock
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    suite_id = client.get("/adaptation/state").json()["suites"][0]["id"]
+
+    conn = get_connection(tmp_path / "test.db")
+    now = datetime.now(UTC)
+    insert_lock(
+        conn,
+        LIVE_BENCHMARK_LOCK_KEY,
+        acquired_at=now.isoformat(),
+        expires_at=(now + timedelta(seconds=120)).isoformat(),
+    )
+    conn.commit()
+    conn.close()
+
+    assert client.get("/adaptation/state").json()["live_benchmark"]["in_progress"] is True
+
+    duplicate = client.post(
+        "/jobs",
+        json={
+            "job_type": "text.benchmark_eval",
+            "params": {"suite_id": suite_id, "checkpoint": "base", "source": "live"},
+        },
+        headers={"x-forwarded-for": "127.0.0.1"},
+    )
+    assert duplicate.status_code == 409
+    assert "already in progress" in duplicate.json()["detail"]
+
+    # Expire the lock: the crashed-run case. The panel unlocks and the
+    # room is not stuck.
+    conn = get_connection(tmp_path / "test.db")
+    conn.execute(
+        "UPDATE run_locks SET expires_at = ? WHERE lock_key = ?",
+        ((now - timedelta(seconds=1)).isoformat(), LIVE_BENCHMARK_LOCK_KEY),
+    )
+    conn.commit()
+    conn.close()
+    assert client.get("/adaptation/state").json()["live_benchmark"]["in_progress"] is False
 
 
 def test_freeze_snapshot_returns_409_for_an_empty_room(client: TestClient):

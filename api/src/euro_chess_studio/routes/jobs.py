@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from euro_chess_studio.actions.errors import WorkspaceNotFoundError
+from euro_chess_studio.actions.errors import JobInProgressError, WorkspaceNotFoundError
 from euro_chess_studio.actions.jobs import run_job
 from euro_chess_studio.calculations.adaptation import AdaptationError
 from euro_chess_studio.calculations.generation import (
@@ -71,6 +71,10 @@ def post_job(
         # The request names real objects but cannot be satisfied
         # honestly against current state (a cached replay asked to pose
         # as other data, a missing adapter, overlapping identities).
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except JobInProgressError as exc:
+        # A duplicate single-flight run (live benchmark) was refused;
+        # the in-flight run is the answer the caller should wait for.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (FalNotConfiguredError, AudioDepsMissingError, LlmNotConfiguredError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
