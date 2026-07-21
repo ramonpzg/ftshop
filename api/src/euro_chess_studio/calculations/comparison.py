@@ -43,7 +43,7 @@ def check_run_comparability(base_run: Row, adapted_run: Row) -> RunComparability
             f"({base_run['model']} vs {adapted_run['model']}); a "
             "fine-tuning delta needs the adapter's own base model on "
             "both sides, and a run of another configured model is its "
-            "own evidence, not a before"
+            "own evidence, not a valid baseline for this adapter"
         )
     return RunComparability(comparable=not reasons, reasons=tuple(reasons))
 
