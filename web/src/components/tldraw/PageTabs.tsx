@@ -1,6 +1,6 @@
 import { track, useEditor } from "tldraw";
 import { pageIdForSlug } from "../../lib/tldrawIds";
-import { PAGES } from "../../lib/pages";
+import { PAGE_TABS } from "../../lib/pages";
 
 export const PageTabs = track(function PageTabs() {
   const editor = useEditor();
@@ -8,7 +8,7 @@ export const PageTabs = track(function PageTabs() {
 
   return (
     <nav className="page-tabs" aria-label="Workshop pages">
-      {PAGES.map((page) => {
+      {PAGE_TABS.map((page) => {
         const pageId = pageIdForSlug(page.slug);
         const isActive = pageId === currentPageId;
         return (

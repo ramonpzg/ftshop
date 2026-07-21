@@ -47,7 +47,7 @@ export interface CanvasDocumentSnapshot {
   };
 }
 
-export const CANVAS_DOCUMENT_VERSION = 5;
+export const CANVAS_DOCUMENT_VERSION = 6;
 
 const VERSION_META_KEY = "workshopCanvasVersion";
 
@@ -306,13 +306,24 @@ const CANVAS_MIGRATIONS: CanvasMigration[] = [
           id: ADAPTATION_SHAPE_ID,
           parentId: pageId,
           index: seedIndex(92),
-          x: -1520,
+          x: -1650,
           y: 1500,
         },
         textPage.slug,
       );
       record.meta = { owner: PRESENTER_OWNER };
       store[ADAPTATION_SHAPE_ID] = record;
+    },
+  },
+  {
+    version: 6,
+    name: "separate-adaptation-panel",
+    migrate(store) {
+      const record = store[ADAPTATION_SHAPE_ID];
+      if (record?.typeName !== "shape" || record.type !== "adaptation-panel") return;
+      // Move only the exact phase-34 placement. A presenter who already
+      // repositioned the panel keeps their authored layout.
+      if (record.x === -1520 && record.y === 1500) record.x = -1650;
     },
   },
 ];

@@ -219,8 +219,11 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
 
   const attendee = await openAttendee(browser, `Ada-${Date.now()}`);
 
-  // Presenter moves to the presentation page and brings the room along.
-  await presenter.click('[data-testid="page-tab-presentation"]');
+  // The presentation page is retained as an emergency fallback but hidden
+  // from normal tabs. Enter it directly to keep its presenter behavior tested.
+  await presenter.evaluate(() => {
+    window.chessStudioEditor?.setCurrentPage("page:presentation" as never);
+  });
   await presenter.click("text=Bring everyone to presenter view");
   // Slide stepping only broadcasts while the client knows presenter
   // mode is active; wait for that state to land before using Next.

@@ -152,6 +152,7 @@ describe("migrateCanvasDocument", () => {
       "ensure-deck-panel",
       "stamp-ownership",
       "ensure-adaptation-panel",
+      "separate-adaptation-panel",
     ]);
 
     // The two missing pages appear, seeded; the three existing ones stay.
@@ -167,6 +168,7 @@ describe("migrateCanvasDocument", () => {
     // Panels appear even though the pages already have content.
     expect(snapshot.store[modalityPanelShapeId("real-world-video")]).toBeDefined();
     expect(snapshot.store[DECK_SHAPE_ID]).toBeDefined();
+    expect(snapshot.store["shape:adaptation-panel"].x).toBe(-1650);
 
     // Authored content survives in place, ownership stamped, not moved.
     const note = snapshot.store["shape:authored-note"];
@@ -174,6 +176,10 @@ describe("migrateCanvasDocument", () => {
     expect((note.meta as { owner: string }).owner).toBe("presenter");
     const workspace = snapshot.store["shape:workspace-user1-chess-machine"];
     expect((workspace.meta as { owner: string }).owner).toBe("user1");
+    const adaptation = snapshot.store["shape:adaptation-panel"];
+    expect(Number(adaptation.x) + Number((adaptation.props as { w: number }).w)).toBeLessThan(
+      Number(workspace.x),
+    );
 
     // The legacy shape type (registered, no longer seeded) is
     // untouched, byte for byte.
@@ -303,13 +309,13 @@ describe("migrateCanvasDocument", () => {
     expect(result.changed).toBe(true);
   });
 
-  test("the repository's current authored snapshot loads and remains settled", () => {
+  test("the repository's current authored snapshot loads and settles", () => {
     const raw = JSON.parse(
       readFileSync(join(import.meta.dir, "../../../data/canvas/snapshot.json"), "utf8"),
     ) as CanvasDocumentSnapshot;
-    const { snapshot, changed } = migrateCanvasDocument(raw, SEQUENCES);
-    expect(changed).toBe(false);
+    const { snapshot } = migrateCanvasDocument(raw, SEQUENCES);
     expect(snapshot.store[DECK_SHAPE_ID]).toBeDefined();
+    expect(snapshot.store["shape:adaptation-panel"].x).toBe(-1650);
     const result = SCHEMA.migrateStoreSnapshot({
       store: snapshot.store as never,
       schema: snapshot.schema as never,

@@ -1,19 +1,21 @@
 import { expect, test } from "@playwright/test";
 
 const PAGE_SLUGS = [
-  "presentation",
   "chess-machine",
   "painting-pieces",
   "board-sound",
   "real-world-video",
 ];
 
-test("all five workshop pages are reachable", async ({ page }) => {
+test("the four workshop pages are reachable and presentation stays off the tab bar", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.waitForSelector("#join-name");
   for (const slug of PAGE_SLUGS) {
     await expect(page.locator(`[data-testid="page-tab-${slug}"]`)).toBeVisible();
   }
+  await expect(page.locator('[data-testid="page-tab-presentation"]')).toHaveCount(0);
 });
 
 test("a new attendee can join and see their workspace and themselves in the attendee list", async ({
@@ -50,12 +52,13 @@ test("the room serves the document and survives a reload in a fresh session", as
   await pageB.goto("/");
   await pageB.waitForSelector("#join-name");
   // The restored document arrives from the backend, then tldraw mounts.
-  await expect(pageB.locator('[data-testid="page-tab-presentation"]')).toBeVisible({
+  await expect(pageB.locator('[data-testid="page-tab-chess-machine"]')).toBeVisible({
     timeout: 15_000,
   });
   for (const slug of PAGE_SLUGS) {
     await expect(pageB.locator(`[data-testid="page-tab-${slug}"]`)).toBeVisible();
   }
+  await expect(pageB.locator('[data-testid="page-tab-presentation"]')).toHaveCount(0);
   await expect(pageB.getByTestId("slide-controls")).toBeVisible();
   await contextB.close();
 });
