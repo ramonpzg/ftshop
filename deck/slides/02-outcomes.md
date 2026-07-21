@@ -291,51 +291,56 @@ FALLBACK: placeholders carry the structure.
 
 ---
 clicks: 1
+footer: false
 ---
 
 # Same server, different surface
-
-<p class="statement-quiet">
-The TUI is one client. The llama.cpp server behind it speaks plain HTTP, so a
-browser works too: open the laptop's address on a phone and chat with the
-same local Gemma.
-</p>
 
 <div class="webui-pair">
 <MediaFrame
   file="gemma-webui-1.jpg"
   ratio="9/19.5"
-  height="300px"
+  height="440px"
   expected="llama.cpp web UI in a phone browser, chat view."
 />
-<MediaFrame
-  file="gemma-webui-2.jpg"
-  ratio="9/19.5"
-  height="300px"
-  expected="llama.cpp web UI in a phone browser, a reply mid-stream."
-/>
-<div class="webui-side">
+<div class="webui-middle">
+  <p class="statement-quiet">
+  The TUI is one client. The llama.cpp server behind it speaks plain HTTP, so
+  a browser works too: open the laptop's address on a phone and chat with the
+  same local Gemma.
+  </p>
   <span class="provenance">just start-gemma · llama.cpp serves its own web UI on the same port</span>
   <p v-click class="reserve bridge-question">
   What if we also want to design the pieces and the boards?
   </p>
 </div>
+<MediaFrame
+  file="gemma-webui-2.jpg"
+  ratio="9/19.5"
+  height="440px"
+  expected="llama.cpp web UI in a phone browser, a reply mid-stream."
+/>
 </div>
 
 <style>
 .webui-pair {
   display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 2rem;
+  grid-template-columns: auto 1fr auto;
+  gap: 2.5rem;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
 }
-.webui-side {
-  max-width: 20rem;
+.webui-middle {
+  max-width: 24rem;
+  margin: 0 auto;
+  text-align: left;
+}
+.webui-middle .statement-quiet {
+  margin-top: 0;
 }
 .bridge-question {
-  margin-top: 1rem;
-  font-size: 1.3rem;
+  margin-top: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 </style>
@@ -412,36 +417,26 @@ FALLBACK: placeholders keep all three frames.
 -->
 
 ---
+layout: side-media
+side: left
+footer: false
+---
 
 # Chess apps already ship sound
 
-<div class="duo-sound">
+Moves click, captures knock, wins get a fanfare. Listen first; then we make
+our own.
+
+::media::
+
 <MediaFrame
   file="duo-chess-sound.mp4"
   ratio="9/19.5"
-  height="360px"
+  height="450px"
   kind="video"
   expected="Screen recording of Duolingo chess with sound: moves, captures, the win fanfare."
   source="Duolingo chess mode, screen recording from Ramon's phone."
 />
-<p class="statement-quiet">
-Moves click, captures knock, wins get a fanfare. Listen first; then we make
-our own.
-</p>
-</div>
-
-<style>
-.duo-sound {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3rem;
-  align-items: center;
-  margin-top: 0.5rem;
-}
-.duo-sound p {
-  max-width: 22rem;
-}
-</style>
 
 <!--
 TIMING: 45 seconds including playback.
