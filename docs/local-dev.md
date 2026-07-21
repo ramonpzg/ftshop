@@ -107,6 +107,7 @@ startup, never overriding the shell, never committed):
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.6-luna` |
 | `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
+| `OPPONENT_ENDPOINT_IS_LOCAL` | Set to `1` to attest the opponent endpoint is a local model on the room's own hardware; a loopback `OPENAI_BASE_URL` counts automatically. Without one of the two, non-presenter game starts are refused | unset (fail closed for attendees) |
 | `VIDEO_PROMPT_API_KEY` | Scene-writing calls when the opponent runs elsewhere | falls back to `OPENAI_API_KEY` |
 | `VIDEO_PROMPT_BASE_URL` | Scene-writing endpoint | falls back to `OPENAI_BASE_URL` |
 | `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
@@ -133,7 +134,17 @@ Model ids follow the endpoint's naming: OpenRouter wants
 `provider/model` (check the exact Gemma id in their registry),
 api.openai.com wants bare names. When OPPONENT_MODELS lists more than
 one model, Start game grows a picker; each match remembers its
-opponent, and start over keeps it.
+opponent, and start over keeps it. Every entry resolves against the
+one `OPENAI_BASE_URL` and key: a picker spanning a local llama.cpp
+and a hosted endpoint at the same time needs per-model endpoints,
+which is the phase 4b named-profile registry, not this table.
+
+The room policy fails closed on top of this. A browser that is not on
+the presenter's machine can only start games when the opponent
+endpoint is known local (loopback base URL, or the attestation
+above). Solo development on one laptop is loopback and never notices;
+a phone on your LAN pointed at the dev server will be refused until
+you attest the endpoint, which is the intended behavior, not a bug.
 
 The shared text client calls `/chat/completions`. It does not use the
 Responses API. It retries rate limits, server failures, and transport

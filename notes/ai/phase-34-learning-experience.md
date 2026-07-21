@@ -314,8 +314,12 @@ migration rebuild, cached media availability, and panel states.
   follows the current visual language and copy style only.
 - Physical deck slide reordering and rewording (phase 35); the run of
   show maps onto the v1 order in two passes.
-- The Local/API profile dropdown (phase 35b). This phase records
-  resolved model and checkpoint but adds no profile picker.
+- The Local/API profile dropdown (phase 35b) and the phase 4b
+  named-profile registry. This phase records resolved model and
+  checkpoint but adds no profile picker, and every opponent entry
+  still shares the one `OPENAI_BASE_URL` and key: per-model endpoints
+  (a local Gemma default and a hosted Luna in one picker) exist only
+  once the registry integration lands.
 - The broad architecture refactor (phase 36); new code follows
   actions/calculations/data from the start instead.
 - Live training and live adapter serving: out of scope by design, and
@@ -349,10 +353,22 @@ migration rebuild, cached media availability, and panel states.
   repo's own proxies can reach it; bind it to a LAN interface and the
   guard must be redesigned, not trusted.
 - Stopping a live benchmark from the panel stops the browser's wait,
-  not the server run; the panel locks live controls until the run
-  lands via the poll or the server's deadline ceiling passes. True
-  server-side cancellation would need the handler to check a
-  cancellation flag between gather calls; not built, deliberately.
+  not the server run. The duplicate-run guard is server-side since
+  round three: `run_job` commits a `run_locks` row before the first
+  provider call, refuses a second live run with 409 while it exists,
+  and exposes it as `live_benchmark.in_progress` so reloads and other
+  tabs restore the locked state. True server-side cancellation would
+  need the handler to check a cancellation flag between gather calls;
+  not built, deliberately.
+- Every entry in `OPPONENT_MODELS` resolves against the single
+  `OPENAI_BASE_URL` and key. The documented "local Gemma default plus
+  Luna in the picker" therefore cannot work across separate llama.cpp
+  and OpenAI endpoints yet; that is the phase 4b named-profile
+  registry, and this phase treats it as an integration dependency
+  rather than claiming it. Until it lands, the room policy fails
+  closed on endpoint locality (loopback base URL or
+  `OPPONENT_ENDPOINT_IS_LOCAL=1`) and the frontier beat is a
+  presenter-machine reconfiguration.
 
 ## What the next phase should tackle first
 
@@ -622,3 +638,61 @@ and without the media extra (numpy 2.4.6 installed for the check),
 tsc clean, api 448 passed, web 255 passed, deck 10 passed and the
 deck builds with the new proxy config, media regeneration
 byte-stable.
+
+## Review corrections, round three (2026-07-21)
+
+Four findings on the round-two build, all fixed on this branch.
+
+1. **The room policy trusted configuration (high).** Whatever
+   `OPENAI_MODEL` named was treated as attendee-safe, the default is
+   Luna on a hosted endpoint, and the policy test itself blessed LAN
+   attendees playing it. The policy now fails closed: an attendee
+   start of the default opponent requires the endpoint to be known
+   local, meaning a loopback `OPENAI_BASE_URL` (derived, zero config
+   for the one-laptop room) or an explicit
+   `OPPONENT_ENDPOINT_IS_LOCAL=1` for a local endpoint on another LAN
+   box (`is_opponent_endpoint_local` in `data/llm_client.py`, gate in
+   `routes/game.py`). Localness is never inferred from the model
+   name. A misconfigured room now refuses games instead of opening
+   forty paid call streams; the presenter machine is exempt because
+   its spend is deliberate. The second half of the finding is scoped
+   honestly rather than fixed: `OPPONENT_MODELS` only varies the
+   model string, every entry resolves against the one base URL and
+   key, so the "local default plus Luna in the picker" story is a
+   phase 4b named-profile-registry integration dependency, now
+   recorded as such here, in the client docstring, and in the demo
+   plan's prep step.
+2. **Duplicate live runs survived reloads (high).** The round-two
+   lock lived in React state; a reload or second presenter tab
+   started with `liveWait = null` and could launch the same paid run
+   again, and the learning guide claimed otherwise. The in-progress
+   identity is now durable and server-side: `run_job` commits a
+   `run_locks` row (new table, `data/run_locks_repo.py`, policy in
+   `calculations/generation.py:single_flight_lock`) before the live
+   gather's first provider call, refuses a concurrent duplicate with
+   `JobInProgressError` mapped to 409, releases it in a finally on
+   success and failure both, and honors a TTL of the server's own
+   deadline ceiling (330 s, matching the panel's `SERVER_RUN_MAX_MS`)
+   so a crashed process cannot lock the room out. The primary key is
+   the arbiter if two requests race past the read. State assembly
+   exposes it as `live_benchmark.in_progress`; the panel derives its
+   live-controls lock from `liveWait OR in_progress`, so a reloaded
+   panel restores the waiting state from server truth. The lock was
+   deliberately not folded into the phase 36 job lifecycle; it is the
+   minimal durable identity that makes the refusal enforceable today.
+3. **One failed poll blanked the evidence (medium).** `loadFailed`
+   replaced the whole panel with "Backend down?" even when shared
+   evidence was already on screen. The empty failure state now
+   renders only when no state ever loaded; after that, a failed poll
+   keeps the last good evidence visible under a stale notice
+   ("showing the last loaded evidence; retrying") that clears itself
+   on the next successful poll.
+4. **"not a before" (low).** The participant-facing comparability
+   refusal ended mid-thought. It now reads "its own evidence, not a
+   valid baseline for this adapter."
+
+Verification after this round: ruff check and biome clean, ty and tsc
+clean, api 454 passed, web 258 passed, deck 10 passed, e2e 11 passed
+(Playwright against the real stack). Route-test fixtures now model
+the full-room local-endpoint configuration explicitly; the
+fail-closed posture has its own test that removes it.

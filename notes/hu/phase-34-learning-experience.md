@@ -338,9 +338,10 @@ doing exactly that for seven minutes), belong to the presenter's
 machine, enforced with 403s. Related honesty: "Stop waiting" stopped
 the browser, not the server. The run kept spending after the button
 promised otherwise, and a refreshed panel would happily start a
-duplicate. Ask what your cancel button actually cancels. Ours now
-says it plainly and keeps live controls locked until the run lands or
-the server's own deadline passes.
+duplicate. Ask what your cancel button actually cancels. The
+round-two fix made the button say what it does and locked the
+launching tab until the run landed or timed out, which, as review
+three pointed out, guards exactly one tab. The full fix is below.
 
 Small ones, same lesson. A FEN with no black king passed suite
 validation because chess.Board parses it and politely generates moves
@@ -351,6 +352,76 @@ whoever had history; current contract now outranks seniority. And the
 panel fetched its "shared evidence" exactly once at mount, which
 makes it a screenshot, not a share; it polls now, single-flight,
 five seconds.
+
+## Round three, in which state learns where to live
+
+The third review found four things, and three of them are really one
+question wearing different hats: where does the truth live, and what
+happens when the place you put it evaporates?
+
+Start with the policy. After round two, attendees could only play the
+default opponent. Sounds safe. Now ask: who decides what the default
+is? An environment variable. And what does the variable hold on a
+fresh checkout? Luna, on a hosted endpoint, billed per token. So the
+"safe" policy was "attendees play whatever OPENAI_MODEL says", which
+is a policy the way "drive whatever speed the road feels like" is a
+speed limit. Our own test blessed it, asserting a LAN browser could
+start a Luna game because Luna was the default. Write that sentence
+out and it refutes itself. The fix is fail closed: an attendee start
+now needs evidence the endpoint is local, either a loopback base URL,
+which the backend can see for itself, or an explicit
+OPPONENT_ENDPOINT_IS_LOCAL=1 from the operator who put llama.cpp on
+another box. No evidence, no game, and the refusal names the missing
+variable. Note what the evidence is not: the model name. A string
+like "gemma" proves nothing about who serves it. Ask yourself what
+your system does when configuration is half-done. Whatever it does
+then is your actual default; the rest is decoration.
+
+The same review round made us stop claiming something adjacent. The
+demo plan described a picker with local Gemma as the default and Luna
+as the frontier pick, two different endpoints. Look at the client:
+one OPENAI_BASE_URL, one key, and OPPONENT_MODELS only swaps the
+model string in the request body. Every picker entry mails a
+different name to the same address. Per-model endpoints are the phase
+4b named-profile registry, and until that lands the two-endpoint
+picker is a plan, not a feature. The docs now say so. Claiming
+integration work is done because the UI has a dropdown is how demos
+die on stage.
+
+Now the duplicate live run, the finding that corrected this very
+document. Round two kept the live-controls lock in React state, and
+the previous version of this guide called the duplicate problem
+fixed. Think about what React state is: memory owned by one tab,
+with the lifespan of that tab. Reload and it is gone. Open a second
+presenter tab and it never existed. The guard has to live where every
+tab can see it and no tab can lose it, which means the server, which
+means a committed row. run_job now writes a run_locks row before the
+first provider call and deletes it in a finally; a second request
+reads the row and gets a 409 with the seconds remaining; the state
+response carries in_progress so a reloaded panel wakes up already
+locked. Two details are worth sitting with. Why does the row have an
+expiry? Because a process that dies mid-run cannot run its finally,
+and a lock nobody holds should not outlive anyone who could release
+it; 330 seconds is the server's own worst case plus slack, the same
+number the panel already used. And why is the insert a plain INSERT
+instead of an upsert? Because two requests can race past the read,
+and the primary key is the one referee that cannot be talked out of
+its call. Where should state live? Ask who has to agree on it. Money
+needs everyone to agree.
+
+The third hat: the panel used to replace everything with "Backend
+down?" the moment one poll failed. One dropped request and forty
+screens of evidence become forty apologies. The evidence did not
+stop being true because a fetch hiccuped. Now the empty failure
+state renders only when nothing ever loaded; after that, a failed
+poll keeps the last good state on screen under a stale notice that
+clears itself when the poll recovers. Distrust that erases evidence
+is just a second kind of lie.
+
+And the fourth finding: the refusal copy ended with "not a before",
+which is not a sentence. It now says "not a valid baseline for this
+adapter." If the refusal is the teaching material, it should at
+least survive grammar.
 
 ## Where to poke first
 

@@ -216,9 +216,15 @@ Switch to the board. Send users to their workspace. Unlock editing.
   numbers next to the cached ones (the eval rows open into
   definitions and provenance).
 - The two-game beat when OPPONENT_MODELS is set: the room plays the
-  small local model; the presenter plays the frontier model once on
+  small default model; the presenter plays the frontier model once on
   the projector (non-default opponents are presenter-only by policy).
-  Same recipe, same board, different results, seen side by side.
+  Same recipe, same board, different results, seen side by side. Both
+  entries resolve against the one configured endpoint, so this beat
+  needs a single endpoint that serves both models (OpenRouter does);
+  splitting it across local llama.cpp and a hosted API waits on the
+  phase 4b named-profile registry, and until then the frontier beat
+  on a local-endpoint day is a presenter-machine reconfiguration
+  between games.
 - Scenario beat, presenter-run: Assess position on a mid-game moment
   from the presenter's own workspace; the room reviews, accepts, or
   edits mappings that land in their own. One scenario call per beat,
