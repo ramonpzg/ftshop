@@ -52,6 +52,10 @@ export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
  * for image and video on "local or rented hardware", so the path
  * label is about ownership, not physical location. */
 export interface CostPath {
+  /** The model, checkpoint, or provider behind this path, with its
+   * source and access date once checked. "Self-hosted" versus "api"
+   * is not enough when real values arrive. */
+  identity: string;
   /** The quality result specific to this modality: legal+JSON rate for
    * text, identity/style for image, adherence/clipping for audio,
    * case adherence/continuity for video. Free text on purpose; the
@@ -65,71 +69,91 @@ export interface CostPath {
   thresholdMet: string;
 }
 
+/** The self-hosted path additionally owns its hardware facts; the API
+ * path's hardware is the provider's and has none. */
+export interface SelfHostedPath extends CostPath {
+  device: string;
+  /** Training or rental cost, stated with its amortisation basis. */
+  setupCost: string;
+}
+
 export interface CostRow {
   modality: string;
   task: string;
   target: string;
-  /** Self-hosted path only; the API path's hardware is the provider's. */
-  device: string;
-  /** Training or rental cost, stated with its amortisation basis. */
-  setupCost: string;
-  /** The request-volume assumption the amortisation uses. */
+  /** The request-volume assumption the amortisation uses; shared by
+   * both paths, since the comparison holds volume constant. */
   volume: string;
-  selfHosted: CostPath;
+  selfHosted: SelfHostedPath;
   api: CostPath;
 }
 
-const PENDING_PATH: CostPath = {
+const PENDING_FACTS = {
   outcome: "PENDING",
   latency: "[SOURCE, DATE]",
   perRequestCost: "[SOURCE, DATE]",
   thresholdMet: "PENDING",
 };
 
-/** Slide 22 economics rows. Every value is a placeholder until checked
- * close to the session; sources and access dates required. Threshold
- * attainment is tracked per path, since the point of the slide is
- * that the two paths can disagree on whether the target is met. */
+const PENDING_HARDWARE = {
+  device: "[SOURCE, DATE]",
+  setupCost: "[SOURCE, DATE]",
+};
+
+/** Slide 22 economics rows. Model identities use the accepted names
+ * where they exist; everything measured is a placeholder until checked
+ * close to the session, and every final value gets a source and access
+ * date. Threshold attainment is tracked per path, since the point of
+ * the slide is that the two paths can disagree on whether the target
+ * is met. */
 export const COST_ROWS: CostRow[] = [
   {
     modality: "Text",
     task: "legal-move JSON",
     target: "legal + JSON rate at threshold",
-    device: "[SOURCE, DATE]",
-    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    selfHosted: { ...PENDING_PATH },
-    api: { ...PENDING_PATH },
+    selfHosted: {
+      identity: "gemma-4-2b-local, adapted ckpt PENDING",
+      ...PENDING_FACTS,
+      ...PENDING_HARDWARE,
+    },
+    api: { identity: "gpt-5.6-luna [SOURCE, DATE]", ...PENDING_FACTS },
   },
   {
     modality: "Image",
     task: "themed set, same prompt",
     target: "identity + style adherence",
-    device: "[SOURCE, DATE]",
-    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    selfHosted: { ...PENDING_PATH },
-    api: { ...PENDING_PATH },
+    selfHosted: {
+      identity: "FLUX, style adapter PENDING",
+      ...PENDING_FACTS,
+      ...PENDING_HARDWARE,
+    },
+    api: { identity: "configured API image path [SOURCE, DATE]", ...PENDING_FACTS },
   },
   {
     modality: "Audio",
     task: "same prompt and duration",
     target: "adherence, no clipping",
-    device: "[SOURCE, DATE]",
-    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    selfHosted: { ...PENDING_PATH },
-    api: { ...PENDING_PATH },
+    selfHosted: {
+      identity: "MusicGen, adapter PENDING",
+      ...PENDING_FACTS,
+      ...PENDING_HARDWARE,
+    },
+    api: { identity: "configured API audio path [SOURCE, DATE]", ...PENDING_FACTS },
   },
   {
     modality: "Video",
     task: "saved Luna scene prompt",
     target: "case adherence + continuity",
-    device: "[SOURCE, DATE]",
-    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    selfHosted: { ...PENDING_PATH },
-    api: { ...PENDING_PATH },
+    selfHosted: {
+      identity: "LTX, rented GPU, ckpt PENDING",
+      ...PENDING_FACTS,
+      ...PENDING_HARDWARE,
+    },
+    api: { identity: "configured API video path [SOURCE, DATE]", ...PENDING_FACTS },
   },
 ];
 

@@ -37,16 +37,19 @@ describe("notation representations fit their panel", () => {
   }
 });
 
-describe("cost rows fit the row-card layout", () => {
+describe("cost rows fit the stepper panel", () => {
   for (const row of COST_ROWS) {
     test(`${row.modality} cells stay short enough`, () => {
       for (const cell of [row.task, row.target]) {
         expect(cell.length).toBeLessThanOrEqual(32);
       }
-      for (const cell of [row.device, row.setupCost, row.volume]) {
+      expect(row.volume.length).toBeLessThanOrEqual(20);
+      for (const cell of [row.selfHosted.device, row.selfHosted.setupCost]) {
         expect(cell.length).toBeLessThanOrEqual(20);
       }
       for (const path of [row.selfHosted, row.api]) {
+        // The identity is one mono line in a half-width path panel.
+        expect(path.identity.length).toBeLessThanOrEqual(42);
         expect(path.outcome.length).toBeLessThanOrEqual(40);
         for (const cell of [path.latency, path.perRequestCost, path.thresholdMet]) {
           expect(cell.length).toBeLessThanOrEqual(20);

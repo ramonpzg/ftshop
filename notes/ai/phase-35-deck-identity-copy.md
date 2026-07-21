@@ -73,14 +73,19 @@ restores exact frames and bun tests drive every state without a DOM.
   the phase 34 contract (model_legal_move_rate, valid_json_rate,
   explanation_rate) with the trade direction encoded: explanations
   drop on the adapted checkpoint, by design. Values are placeholders.
-- `CostAtTarget`: one card per modality, revealed by click, each with
-  device, setup cost and its amortisation basis, and the volume
-  assumption at the row level, then two path panels (self-hosted,
-  api) that each carry their own outcome, latency or generation time,
-  marginal per-request cost, and threshold-met verdict, so the two
-  paths can disagree on whether the target was reached. "Self-hosted"
-  replaces "local" because image and video run on rented hardware too;
-  the comparison is ownership, not physical location. All values
+- `CostAtTarget`: a rail stepper like DatasetShapes, one modality on
+  screen at a time so the type stays readable from the back (three
+  clicks step image, audio, video). Each panel shows the task, target,
+  and shared volume assumption, then two path panels (self-hosted,
+  api) that each name the model, checkpoint, or provider behind them
+  (gemma-4-2b-local versus gpt-5.6-luna for text) and carry their own
+  outcome, latency or generation time, per-request cost, and
+  threshold-met verdict, so the two paths can disagree on whether the
+  target was reached. Device and setup cost with its amortisation
+  basis sit inside the self-hosted panel, since the API path's
+  hardware is the provider's. "Self-hosted" rather than "local":
+  image and video run on rented hardware too, so the comparison is
+  ownership, not physical location. All measured values
   `[SOURCE, DATE]`/PENDING; real numbers slot in without redesign.
 - `RewardMeter`: presenter-pressed outcomes; environment feedback
   separated from model output; the slide states the phase 33 fallback
@@ -140,10 +145,17 @@ the SAY note routes adapter-level merging to PEFT.
   (`deck/types/slidev-client.d.ts`) because the package ships .ts
   source needing Slidev's injected build globals.
 - `bun run build` / `build:full`: both entries build.
+- `web/e2e/deck.spec.ts`: the deck's browser-level acceptance check.
+  The Playwright config boots the deck's default route as a fourth
+  webServer, and the spec walks every click state of the economics
+  stepper asserting each visible text node's computed font size stays
+  at or above the 11px type floor (0.7rem at the 16px root). String
+  budgets cannot see rendered size; this can, and it was verified to
+  fail red when a fact was deliberately set to 0.6rem.
 - `just test` already runs the deck tests; phase 36 consolidates
   lint/typecheck into the Justfile.
 
-### Web change (Ramon-directed, outside deck/)
+### Web changes (Ramon-directed, outside deck/)
 
 The attendees panel collapses to an "Attendees (N)" pill on the
 presentation page so it cannot cover the embedded deck; expanding is
@@ -151,8 +163,11 @@ an explicit override with a Hide affordance, reset on page change.
 Pure rule in `web/src/calculations/attendeePanel.ts` with unit tests;
 component test for the pill; e2e coverage in `room.spec.ts` for pill
 visibility on all clients, expand, non-overlap with the slide
-controls, hide, and the automatic full-panel return after
-send-to-workspace. `just test-e2e`: 9 passed.
+controls (via an assertNoOverlap helper that fails loudly on missing
+geometry), hide, and the automatic full-panel return after
+send-to-workspace. The e2e surface also gained `deck.spec.ts` and its
+deck webServer entry in `playwright.config.ts`, described above.
+`just test-e2e`: 10 passed.
 
 ## Polyglot: adopted and rejected
 

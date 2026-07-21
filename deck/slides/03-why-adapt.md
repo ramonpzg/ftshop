@@ -17,7 +17,7 @@ FALLBACK: static.
 -->
 
 ---
-clicks: 4
+clicks: 3
 ---
 
 # Economics at a target quality
@@ -26,11 +26,11 @@ clicks: 4
 
 <!--
 TIMING: 90 seconds.
-SAY: Four rows, one per modality. Each is one task at one target quality, not a general head-to-head. The comparison includes training or rental cost, amortisation, request volume, and whether the threshold was met. Never imply fine-tuning alone lowered a serving bill.
-CLICK: 4. One row per click: text, image, audio, video.
-SOURCE: every number is a [SOURCE, DATE] placeholder until checked close to the session.
-CUT: rows three and four if time is short.
-FALLBACK: the table structure reads without final numbers.
+SAY: One modality at a time, each one task at one target quality, not a general head-to-head. Each side names the model or provider behind it. The comparison includes training or rental cost, amortisation, request volume, and whether each path met the threshold. Never imply fine-tuning alone lowered a serving bill.
+CLICK: 3. Text is visible first; the three clicks step image, audio, video. One modality on screen at a time, readable from the back.
+SOURCE: model identities use the accepted names; every measured value is a [SOURCE, DATE] placeholder until checked close to the session.
+CUT: the audio and video steps if time is short.
+FALLBACK: the structure reads without final numbers.
 -->
 
 ---

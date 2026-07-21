@@ -277,7 +277,7 @@ included, for rehearsal (`bun run dev:full`).
 The room-join dead air (up to 90 seconds) is budgeted in the LiveRoom
 slide's note on top of its talking time. The last slide of part 4
 ("The room, live") is the deck's hard stop for the default 90-minute
-run of show: its FALLBACK note names it as the handoff to the
+run of show: its CUT note names it as the handoff to the
 whiteboard, and PLAN_V2 treats part 5 as optional continuation
 covered on the whiteboard or in the notebook instead. If time runs
 short mid-deck, the cut order is: the optional slides above, then the
@@ -293,7 +293,7 @@ phase 35 screenshot pass (slide number: clicks).
 1:0   2:1   3:1   4:1   5:4   6:0   7:3   8:1
 9:4   10:1  11:1  12:1  13:1  14:3  15:3  16:2
 17:0  18:0  19:0  20:0  21:4
-22:0  23:4  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
+22:0  23:3  24:1  25:4  26:5  27:0  28:0  29:0  30:0  31:0
 32:0  33:3  34:3  35:2  36:0
 37:0  38:5  39:5  40:0  41:2  42:2  43:2  44:0  45:0  46:2  47:1
 ```

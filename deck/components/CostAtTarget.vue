@@ -1,69 +1,76 @@
 <template>
   <div class="cost-at-target">
-    <div
-      v-for="(row, index) in rows"
-      :key="row.modality"
-      class="row-card"
-      :class="{ shown: index < shownRows }"
-    >
-      <div class="row-head">
-        <span class="modality">{{ row.modality }}</span>
-        <span class="task">{{ row.task }} · target: {{ row.target }}</span>
-        <span class="setup">
-          device {{ row.device }} · setup {{ row.setupCost }} · volume {{ row.volume }}
-        </span>
+    <div class="rail">
+      <div
+        v-for="(row, index) in rows"
+        :key="row.modality"
+        class="rail-item"
+        :class="{ active: index === active, seen: index < active }"
+      >
+        <span class="rail-index">{{ index + 1 }}</span>
+        <span class="rail-name">{{ row.modality }}</span>
+      </div>
+      <p class="footnote">
+        Self-hosted: laptop or rented GPU you control, not physical location.
+        Placeholders until checked close to the session; every number gets a
+        source and access date.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="task">{{ current.task }}</span>
+        <span class="target">target: {{ current.target }}</span>
+        <span class="volume">volume assumption: {{ current.volume }}</span>
       </div>
 
       <div class="paths">
         <div class="path">
           <span class="compare-label">self-hosted</span>
-          <div class="path-facts">
-            <span class="outcome">{{ row.selfHosted.outcome }}</span>
-            <div class="fact-row">
-              <span class="fact">latency {{ row.selfHosted.latency }}</span>
-              <span class="fact">/req {{ row.selfHosted.perRequestCost }}</span>
-              <span class="fact threshold" :class="thresholdClass(row.selfHosted.thresholdMet)">
-                met: {{ row.selfHosted.thresholdMet }}
-              </span>
-            </div>
+          <span class="identity">{{ current.selfHosted.identity }}</span>
+          <span class="outcome">{{ current.selfHosted.outcome }}</span>
+          <div class="facts">
+            <span class="fact">device {{ current.selfHosted.device }}</span>
+            <span class="fact">setup, amortised {{ current.selfHosted.setupCost }}</span>
+            <span class="fact">latency {{ current.selfHosted.latency }}</span>
+            <span class="fact">per request {{ current.selfHosted.perRequestCost }}</span>
+            <span class="fact threshold" :class="thresholdClass(current.selfHosted.thresholdMet)">
+              target met: {{ current.selfHosted.thresholdMet }}
+            </span>
           </div>
         </div>
         <div class="path compare-col adapted">
           <span class="compare-label">api</span>
-          <div class="path-facts">
-            <span class="outcome">{{ row.api.outcome }}</span>
-            <div class="fact-row">
-              <span class="fact">latency {{ row.api.latency }}</span>
-              <span class="fact">/req {{ row.api.perRequestCost }}</span>
-              <span class="fact threshold" :class="thresholdClass(row.api.thresholdMet)">
-                met: {{ row.api.thresholdMet }}
-              </span>
-            </div>
+          <span class="identity">{{ current.api.identity }}</span>
+          <span class="outcome">{{ current.api.outcome }}</span>
+          <div class="facts">
+            <span class="fact">latency {{ current.api.latency }}</span>
+            <span class="fact">per request {{ current.api.perRequestCost }}</span>
+            <span class="fact threshold" :class="thresholdClass(current.api.thresholdMet)">
+              target met: {{ current.api.thresholdMet }}
+            </span>
           </div>
         </div>
       </div>
     </div>
-
-    <p class="footnote">
-      Self-hosted: laptop or rented GPU you control, not physical location.
-      Placeholders until checked close to the session; every number gets a
-      source and access date.
-    </p>
   </div>
 </template>
 
 <script setup>
 import { computed } from "vue";
-import { revealedRows } from "../lib/clicks";
+import { stepIndex } from "../lib/clicks";
 import { COST_ROWS } from "../lib/fixtures";
 
 const props = defineProps({
-  /** Slide click count; one row per click, in the fixed modality order. */
+  /** Slide click count; three clicks step text, image, audio, video.
+   * One modality at a time, full size, instead of four rows shrunk
+   * to fit one frame. */
   clicks: { type: Number, default: 0 },
 });
 
 const rows = COST_ROWS;
-const shownRows = computed(() => revealedRows(props.clicks, rows.length));
+const active = computed(() => stepIndex(props.clicks, rows.length));
+const current = computed(() => rows[active.value]);
 
 function thresholdClass(value) {
   if (value === "yes") return "delta-good";
@@ -74,97 +81,126 @@ function thresholdClass(value) {
 
 <style scoped>
 .cost-at-target {
-  max-width: 46rem;
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 2rem;
+  max-width: 52rem;
   margin: 0 auto;
   text-align: left;
 }
 
-.row-card {
-  border-top: 1px solid var(--rule);
-  padding: 0.22rem 0;
-  opacity: 0;
-  transition: opacity 250ms var(--ease);
-}
-
-.row-card.shown {
-  opacity: 1;
-}
-
-.row-card:first-child {
-  border-top: none;
-}
-
-.row-head {
+.rail-item {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
   gap: 0.6rem;
-  margin-bottom: 0.12rem;
-  line-height: 1.15;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  color: var(--ink-faint);
 }
 
-.modality {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--ink);
-}
-
-.task {
-  font-size: 0.7rem;
+.rail-item.seen {
   color: var(--ink-soft);
 }
 
-.setup {
-  margin-left: auto;
+.rail-item.active {
+  color: var(--ink);
+}
+
+.rail-index {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 0.58rem;
+  font-size: 0.7rem;
+  width: 1rem;
+}
+
+.rail-item.active .rail-index {
+  color: var(--accent);
+}
+
+.rail-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.footnote {
+  margin-top: 1.2rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* Fixed-height panel: stepping modalities never reflows. */
+.panel {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper-raised);
+  padding: 1rem 1.2rem;
+  min-height: 17rem;
+}
+
+.panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.task {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.target {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.volume {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
   color: var(--ink-faint);
 }
 
 .paths {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 1.4rem;
 }
 
 .path {
-  border-top: 2px solid var(--rule);
-  padding-top: 0.12rem;
-  line-height: 1.15;
-}
-
-.path-facts {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
-  margin-top: 0.08rem;
+  gap: 0.3rem;
+  border-top: 2px solid var(--rule);
+  padding-top: 0.5rem;
 }
 
-.outcome {
-  font-size: 0.72rem;
+.identity {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
   color: var(--ink);
 }
 
-.fact-row {
+.outcome {
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.facts {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.2rem;
 }
 
 .fact {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 0.6rem;
+  font-size: 0.78rem;
   color: var(--ink-soft);
 }
 
 .fact.threshold {
   font-weight: 600;
-}
-
-.footnote {
-  margin-top: 0.25rem;
-  font-size: 0.56rem;
-  line-height: 1.25;
-  color: var(--ink-faint);
 }
 </style>

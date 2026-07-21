@@ -62,6 +62,16 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 30_000,
     },
+    {
+      // The Slidev deck's default route, for the deck acceptance
+      // checks in deck.spec.ts. The first compile is slow, hence the
+      // long timeout.
+      command: "bun run dev",
+      cwd: "../deck",
+      url: "http://localhost:3030",
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
   ],
   use: {
     baseURL: "http://localhost:5173",
