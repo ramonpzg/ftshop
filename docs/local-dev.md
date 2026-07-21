@@ -69,9 +69,12 @@ startup.
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
 | `just load-test` | Simulate a room of attendees against a running backend |
 
-`just reset-db` followed by `just seed` is the fastest way back to a
-clean demo state without restarting the backend. It never touches the
-canvas: workshop state and authored slides reset independently.
+`just reset-db` followed by `just seed` recreates SQLite without restarting
+the backend. It never touches the canvas. That separation also means it is
+not the right last-minute cleanup once real workspace shapes exist: those
+shapes would keep user ids the new database no longer knows. Use the
+presenter panel's page reset for game data. Pair `reset-db` with an intentional
+canvas reset only when rebuilding the room from scratch.
 
 ## The shared room and canvas persistence
 
