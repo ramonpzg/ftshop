@@ -13,17 +13,19 @@ minutes and may demand a captive-portal login. Everything the session
 depends on runs on the presenter's machine from reviewed local
 fixtures. No attendee needs a provider account or API key.
 
-The room model policy, enforced by the backend with 403s rather than
-by hiding buttons: attendees play the room's default opponent
-(configure a local Gemma endpoint as the default for the full room);
-non-default opponent picks, position assessments (each one a
-scenario-model call), and every generation job (image, video, audio
-including local synthesis, live benchmarks) run only from the
-presenter's machine. Scenario generation is also manual now, never
-fired automatically per model turn, so one exchange costs the room
-zero scenario calls instead of forty. The trustworthy client address
-is the last X-Forwarded-For hop; the proxies overwrite anything a
-client supplies.
+The room model policy, enforced by the backend with 403s (the UI also
+hides controls it knows would be refused, which is courtesy, not
+enforcement): attendee timed games and model replies are open only
+when the opponent endpoint is known local AND ROOM_MODEL_PLAY=1 was
+set after the recorded real-endpoint load test; otherwise attendees
+free-play and model inference is presenter-led. Non-default opponent
+picks, position assessments (each one a scenario-model call), and
+every generation job (image, video, audio including local synthesis,
+live benchmarks) run only from the presenter's machine. Scenario
+generation is also manual, never fired automatically per model turn,
+so one exchange costs the room zero scenario calls instead of forty.
+The trustworthy client address is the last X-Forwarded-For hop; the
+proxies overwrite anything a client supplies.
 
 ## Before the room fills up
 
@@ -115,14 +117,17 @@ whole run of show once for real. First `just mock-llm` with the
 backend pointed at it and `just load-test 40`: proves the backend
 itself (moves, dataset writes, polling) holds under the room. Then
 the one that decides segment 5's mode: point the backend at the real
-llama.cpp Gemma endpoint and run `just load-test 40` again. Read the
-"POST model-move" row of the latency report. If p95 sits inside
-MODEL_TURN_DEADLINE_SECONDS (30 s default) with the error column at
-zero, record the numbers and set ROOM_MODEL_PLAY=1 for the workshop:
-the room plays Gemma directly. If it does not, leave the flag unset
-and run segment 5 in its free-play mode; do not shorten the deadline
-or thin the room to force a pass. The mock run says nothing about
-inference capacity; only the real run does.
+llama.cpp Gemma endpoint and run `just load-test 40` again, from the
+same shell environment as the backend. The sim prints an explicit
+verdict. PASS (model-move p95 inside the turn deadline, no errors,
+no unavailable or stale turns) means record the numbers and set
+ROOM_MODEL_PLAY=1 for the workshop: the room plays Gemma directly.
+FAIL or NO MODEL TRAFFIC means leave the flag unset and run segment
+5 in its free-play mode; do not shorten the deadline or thin the
+room to force a pass. Fallback moves do not fail the verdict; they
+are the model answering badly, not the server failing to answer. The
+mock run says nothing about inference capacity; only the real run
+does.
 
 ## Run of show
 

@@ -203,13 +203,20 @@ just load-test 40 60          # 40 attendees for 60 seconds
 ```
 
 Each simulated attendee behaves like the real UI: joins, starts a
-timed match, plays legal moves with think time, triggers the model
-reply and the per-exchange assessment, and polls presenter state
-every three seconds. The report at the end shows per-endpoint latency
-percentiles and error counts. On a 4-core container, 40 attendees run
-error free: board moves at ~20ms p50, model-bound calls at the mock's
-latency plus about a second of queueing. Numbers on a real laptop
-should be better.
+timed match, plays legal moves with think time, asks the model for
+black's replies (retrying an open model turn the way the UI's retry
+button does), and polls presenter state every three seconds.
+Assessments are not part of the workload: since the room model policy
+they are manual, presenter-only, one per beat, so simulating one per
+exchange would double model traffic the real room never produces. The
+report at the end shows per-endpoint latency percentiles, error
+counts (every non-2xx response and every transport failure), the
+model-turn outcome tally, and an explicit PASS/FAIL verdict on
+whether the run certifies ROOM_MODEL_PLAY; docs/demo-plan.md has the
+workflow. On a 4-core container, 40 attendees run error free: board
+moves at ~20ms p50, model-bound calls at the mock's latency plus
+about a second of queueing. Numbers on a real laptop should be
+better.
 
 Two notes on what makes this hold up: SQLite runs in WAL mode with a
 busy timeout (readers do not block on writers, and colliding writers
