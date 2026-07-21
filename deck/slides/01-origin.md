@@ -94,7 +94,8 @@ FALLBACK: placeholders render with final geometry until the photos land.
   file="duolingo-launch.png"
   ratio="16/9"
   expected="The Duolingo chess launch post."
-  source="Duolingo, launch post. Record exact URL and access date."
+  height="400px"
+  source="Duolingo, launch post. https://blog.duolingo.com/chess-course/"
 />
 <div v-click class="reserve overlay">
 <MediaFrame
