@@ -155,6 +155,6 @@ TIMING: 90 seconds, plus up to 90 seconds of dead air while the room joins.
 SAY: Say the board URL out loud, twice. Every match, every clock, every sample; this panel calls the same API the workspaces use.
 CLICK: none; the panel is live data, not staged reveals.
 SOURCE: GET /presenter/games through the deck's /api proxy, polled every 3 seconds. LIVE chip when connected.
-CUT: never on the default route; this is the handoff to the whiteboard.
+CUT: never on the default route; this is the handoff to the whiteboard. HARD STOP: the 20-25 minute opening (PLAN_V2) ends here. Part 5 continues in this same file for a presenter who chooses to keep going instead of moving to the board.
 FALLBACK: backend down shows a terse offline hint; a mid-talk drop keeps the last numbers visible with a reconnecting note.
 -->

@@ -47,71 +47,89 @@ export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
   provenance: "PENDING PHASE 34 INTEGRATION",
 };
 
+/** One deployment path's measured facts. "Self-hosted" covers both a
+ * presenter laptop and rented GPU hardware you control; PLAN_V2 asks
+ * for image and video on "local or rented hardware", so the path
+ * label is about ownership, not physical location. */
+export interface CostPath {
+  /** The quality result specific to this modality: legal+JSON rate for
+   * text, identity/style for image, adherence/clipping for audio,
+   * case adherence/continuity for video. Free text on purpose; the
+   * four modalities do not share one metric shape. */
+  outcome: string;
+  /** Latency for text/audio, generation time for image/video. */
+  latency: string;
+  /** Marginal cost for one more request on this path. */
+  perRequestCost: string;
+  /** Whether this path reaches the stated quality threshold. */
+  thresholdMet: string;
+}
+
 export interface CostRow {
   modality: string;
   task: string;
   target: string;
+  /** Self-hosted path only; the API path's hardware is the provider's. */
+  device: string;
   /** Training or rental cost, stated with its amortisation basis. */
-  localSetup: string;
-  /** Marginal per-request cost on the local path. */
-  localPerRequest: string;
-  /** Marginal per-request cost on the API reference. */
-  apiPerRequest: string;
+  setupCost: string;
   /** The request-volume assumption the amortisation uses. */
   volume: string;
-  /** Whether the target quality is met, and by which checkpoint. */
-  thresholdMet: string;
+  selfHosted: CostPath;
+  api: CostPath;
 }
 
-/** Identity of the compared paths, one line under the table instead
- * of a column per row. */
-export const COST_PATHS =
-  "Local: Gemma / FLUX / MusicGen / LTX, base and adapted. API: the configured provider path for the same task.";
+const PENDING_PATH: CostPath = {
+  outcome: "PENDING",
+  latency: "[SOURCE, DATE]",
+  perRequestCost: "[SOURCE, DATE]",
+  thresholdMet: "PENDING",
+};
 
 /** Slide 22 economics rows. Every value is a placeholder until checked
- * close to the session; sources and access dates required. The shape
- * carries what the comparison claims: setup cost with amortisation,
- * marginal cost per side, volume, and threshold attainment. */
+ * close to the session; sources and access dates required. Threshold
+ * attainment is tracked per path, since the point of the slide is
+ * that the two paths can disagree on whether the target is met. */
 export const COST_ROWS: CostRow[] = [
   {
     modality: "Text",
     task: "legal-move JSON",
     target: "legal + JSON rate at threshold",
-    localSetup: "[SOURCE, DATE]",
-    localPerRequest: "[SOURCE, DATE]",
-    apiPerRequest: "[SOURCE, DATE]",
+    device: "[SOURCE, DATE]",
+    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    thresholdMet: "PENDING",
+    selfHosted: { ...PENDING_PATH },
+    api: { ...PENDING_PATH },
   },
   {
     modality: "Image",
     task: "themed set, same prompt",
     target: "identity + style adherence",
-    localSetup: "[SOURCE, DATE]",
-    localPerRequest: "[SOURCE, DATE]",
-    apiPerRequest: "[SOURCE, DATE]",
+    device: "[SOURCE, DATE]",
+    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    thresholdMet: "PENDING",
+    selfHosted: { ...PENDING_PATH },
+    api: { ...PENDING_PATH },
   },
   {
     modality: "Audio",
     task: "same prompt and duration",
     target: "adherence, no clipping",
-    localSetup: "[SOURCE, DATE]",
-    localPerRequest: "[SOURCE, DATE]",
-    apiPerRequest: "[SOURCE, DATE]",
+    device: "[SOURCE, DATE]",
+    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    thresholdMet: "PENDING",
+    selfHosted: { ...PENDING_PATH },
+    api: { ...PENDING_PATH },
   },
   {
     modality: "Video",
     task: "saved Luna scene prompt",
     target: "case adherence + continuity",
-    localSetup: "[SOURCE, DATE]",
-    localPerRequest: "[SOURCE, DATE]",
-    apiPerRequest: "[SOURCE, DATE]",
+    device: "[SOURCE, DATE]",
+    setupCost: "[SOURCE, DATE]",
     volume: "PENDING",
-    thresholdMet: "PENDING",
+    selfHosted: { ...PENDING_PATH },
+    api: { ...PENDING_PATH },
   },
 ];
 

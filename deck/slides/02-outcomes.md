@@ -501,7 +501,7 @@ adapted/reference pair, not a before/after experiment.</p>
 <!--
 TIMING: 30 seconds.
 SAY: Which is base and which is adapted?
-CLICK: none. The Answer disclosure opens by mouse only, so the clicker cannot leak it; default is to hold answers for the combined reveal. If the room is quiet, open it and keep moving.
+CLICK: none. The Answer disclosure sits outside the Slidev click sequence, so a presenter clicker (ArrowRight/PageDown) advances past it without opening it; default is to hold answers for the combined reveal. If the room is quiet, open it directly (click, or Enter when focused) and keep moving.
 SOURCE: only an actual adapted/reference pair fills this slide; provenance pending.
 CUT: any of the four A/B slides can be skipped independently.
 FALLBACK: placeholders keep the frames.
@@ -548,7 +548,7 @@ FALLBACK: placeholders keep the frames.
 <!--
 TIMING: 30 seconds.
 SAY: Same prompt, two sets of pieces.
-CLICK: none. Answer opens by mouse only, same policy as the text pair.
+CLICK: none. Answer sits outside the click sequence, same policy as the text pair.
 SOURCE: pair provenance pending.
 CUT: skippable.
 FALLBACK: placeholders keep the frames.
@@ -596,7 +596,7 @@ FALLBACK: placeholders keep the frames.
 <!--
 TIMING: 30 seconds, both clips play once.
 SAY: Two clips, one text prompt.
-CLICK: none. Answer opens by mouse only, same policy.
+CLICK: none. Answer sits outside the click sequence, same policy.
 SOURCE: pair provenance pending. No autoplay.
 CUT: skippable.
 FALLBACK: placeholders keep the rows.
@@ -642,7 +642,7 @@ FALLBACK: placeholders keep the rows.
 <!--
 TIMING: 30 seconds; play the clips only if the room is engaged.
 SAY: Same saved scene prompt, two clips.
-CLICK: none. Answer opens by mouse only, same policy.
+CLICK: none. Answer sits outside the click sequence, same policy.
 SOURCE: pair provenance pending.
 CUT: skippable.
 FALLBACK: posters and placeholders keep the frames.

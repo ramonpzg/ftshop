@@ -273,11 +273,10 @@ clicks: 2
 
 ```yaml
 merge_method: slerp
+models:
+  - model: gemma-4-chess-moves
+  - model: gemma-4-chess-commentary
 base_model: gemma-4-chess-moves
-slices:
-  - sources:
-      - model: gemma-4-chess-moves
-      - model: gemma-4-chess-commentary
 parameters:
   t: 0.5
 dtype: bfloat16
@@ -294,7 +293,7 @@ same as everywhere else in this session: eval before you believe.
 TIMING: 90 seconds.
 SAY: Two fine-tuned checkpoints, one merged model, a YAML file. mergekit slerp works on full checkpoints; merging at the adapter level goes through PEFT instead. Merging can also damage both skills, which is why the frozen suite runs again after every merge.
 CLICK: 2. The mergekit config, then the caution.
-SOURCE: valid mergekit slerp config over the two merged workshop checkpoints; slerp requires base_model and full checkpoints per the mergekit docs.
+SOURCE: valid mergekit slerp config over the two merged workshop checkpoints, matching mergekit's official gradient-slerp.yml example. The top-level `models:` form lists both full checkpoints and needs no per-source layer_range; `slices:` is the form for partial or layer-by-layer merges, and every source under it requires layer_range (mergekit/config.py InputSliceDefinition).
 CUT: skippable.
 FALLBACK: static.
 -->

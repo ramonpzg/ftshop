@@ -253,13 +253,16 @@ in the root Justfile; phase 36 wires them in.
 
 ## Default route and timing
 
-PLAN_V2 budgets 20 to 25 minutes for the opening deck. The default
-route is encoded, not aspirational: `deck/slides.md` imports each
-section with a range that excludes the OPTIONAL slides, so ordinary
-linear navigation is the 24:50 route. `deck/slides-full.md` imports
-every slide for rehearsal (`bun run dev:full`). `tests/route.test.ts`
-asserts the ranges exclude exactly the slides whose TIMING notes say
-OPTIONAL. Hard stops are in the notes.
+PLAN_V2 budgets 20 to 25 minutes for the opening deck (parts 1-4, up
+to the point the room moves to the whiteboard). `deck/slides.md` is
+the single default deck, all five parts, 43 slides after its `src`
+ranges exclude exactly the OPTIONAL slides named in the speaker
+notes; `tests/route.test.ts` asserts those ranges stay exact. It is
+**not** itself a 20-25 minute file: parts 1-4 hit that budget, and
+part 5 (technical reference) continues in the same file for a
+presenter who wants to keep going rather than move to the whiteboard
+immediately. `deck/slides-full.md` imports every slide, optional ones
+included, for rehearsal (`bun run dev:full`).
 
 | part | default | slides skipped by default |
 | --- | --- | --- |
@@ -267,15 +270,18 @@ OPTIONAL. Hard stops are in the notes.
 | 2 outcomes | 8:00 | mappings two and three (1:30) |
 | 3 why adapt | 6:20 | the model tree (0:45) |
 | 4 chess primer | 4:55 | none |
-| total | 24:50 | optional adds up to 2:45 |
+| **opening (1-4)** | **24:50** | optional adds up to 2:45 |
+| 5 technical reference | 14:55 | modular, see below |
+| **slides.md total** | **39:45** | |
 
 The room-join dead air (up to 90 seconds) is budgeted in the LiveRoom
-slide's note on top of its talking time. Part 5 is modular reference
-outside the opening budget: about 11 minutes if run in full, and the
-default workshop path covers most of it on the whiteboard or in the
-notebook instead. If time runs short mid-deck, the cut order is: the
-optional slides above, then the A/B clip playback, then part 5
-entirely.
+slide's note on top of its talking time. The last slide of part 4
+("The room, live") is the deck's hard stop for the default 90-minute
+run of show: its FALLBACK note names it as the handoff to the
+whiteboard, and PLAN_V2 treats part 5 as optional continuation
+covered on the whiteboard or in the notebook instead. If time runs
+short mid-deck, the cut order is: the optional slides above, then the
+A/B clip playback, then all of part 5.
 
 ## Click-count expectations
 
@@ -294,7 +300,9 @@ phase 35 screenshot pass (slide number: clicks).
 
 47 slides, numbered on the full route; the default route drops slides
 4, 12, 13, and 29. The A/B slides (17 to 20) have zero clicker clicks:
-their answers are mouse-only disclosures held for the combined reveal.
+their answers are `<details>` disclosures outside the Slidev click
+sequence, opened with a direct click or Enter on the focused summary,
+held for the combined reveal by default.
 The two Magic Move code slides morph whole frames with no inner
 line-highlight steps, so they cost two clicks each; the ladder summary
 is its own zero-click slide.

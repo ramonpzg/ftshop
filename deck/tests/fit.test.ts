@@ -37,20 +37,20 @@ describe("notation representations fit their panel", () => {
   }
 });
 
-describe("cost rows fit the seven-column table", () => {
+describe("cost rows fit the row-card layout", () => {
   for (const row of COST_ROWS) {
     test(`${row.modality} cells stay short enough`, () => {
       for (const cell of [row.task, row.target]) {
         expect(cell.length).toBeLessThanOrEqual(32);
       }
-      for (const cell of [
-        row.localSetup,
-        row.localPerRequest,
-        row.apiPerRequest,
-        row.volume,
-        row.thresholdMet,
-      ]) {
+      for (const cell of [row.device, row.setupCost, row.volume]) {
         expect(cell.length).toBeLessThanOrEqual(20);
+      }
+      for (const path of [row.selfHosted, row.api]) {
+        expect(path.outcome.length).toBeLessThanOrEqual(40);
+        for (const cell of [path.latency, path.perRequestCost, path.thresholdMet]) {
+          expect(cell.length).toBeLessThanOrEqual(20);
+        }
       }
     });
   }

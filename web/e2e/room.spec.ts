@@ -24,6 +24,30 @@ declare global {
   }
 }
 
+/**
+ * Both elements must be visible with real geometry before the overlap
+ * math means anything; a null bounding box (element absent or
+ * display:none) fails loudly here instead of letting the caller's
+ * `if (a && b)` skip the assertion silently.
+ */
+async function assertNoOverlap(page: Page, selectorA: string, selectorB: string): Promise<void> {
+  const a = page.locator(selectorA);
+  const b = page.locator(selectorB);
+  await expect(a).toBeVisible();
+  await expect(b).toBeVisible();
+  const boxA = await a.boundingBox();
+  const boxB = await b.boundingBox();
+  expect(boxA, `${selectorA} has no bounding box`).not.toBeNull();
+  expect(boxB, `${selectorB} has no bounding box`).not.toBeNull();
+  if (!boxA || !boxB) return; // unreachable after the assertions above; narrows for TS
+  const overlaps =
+    boxA.x < boxB.x + boxB.width &&
+    boxB.x < boxA.x + boxA.width &&
+    boxA.y < boxB.y + boxB.height &&
+    boxB.y < boxA.y + boxA.height;
+  expect(overlaps).toBe(false);
+}
+
 async function joinAs(page: Page, name: string): Promise<void> {
   await page.goto("/");
   await page.waitForSelector("#join-name");
@@ -265,16 +289,7 @@ test("presenter navigation moves an existing attendee and a late joiner to the s
   // Expanding is an explicit override: the full panel appears, does
   // not overlap the slide controls, and Hide collapses it again.
   await presenter.getByTestId("attendee-panel-pill").click();
-  const attendees = await presenter.locator(".attendee-panel").boundingBox();
-  const controls = await presenter.locator('[data-testid="slide-controls"]').boundingBox();
-  if (attendees && controls) {
-    const overlaps =
-      attendees.x < controls.x + controls.width &&
-      controls.x < attendees.x + attendees.width &&
-      attendees.y < controls.y + controls.height &&
-      controls.y < attendees.y + attendees.height;
-    expect(overlaps).toBe(false);
-  }
+  await assertNoOverlap(presenter, ".attendee-panel", '[data-testid="slide-controls"]');
   await presenter.getByTestId("attendee-panel-hide").click();
   await expect(presenter.getByTestId("attendee-panel-pill")).toBeVisible();
   await expect(presenter.locator(".attendee-panel")).toHaveCount(0);
@@ -304,15 +319,6 @@ test("a narrow laptop viewport keeps the panels apart after remote navigation", 
   const page = await context.newPage();
   await joinAs(page, `Narrow-${Date.now()}`);
 
-  const attendees = await page.locator(".attendee-panel").boundingBox();
-  const controls = await page.locator('[data-testid="slide-controls"]').boundingBox();
-  if (attendees && controls) {
-    const overlaps =
-      attendees.x < controls.x + controls.width &&
-      controls.x < attendees.x + attendees.width &&
-      attendees.y < controls.y + controls.height &&
-      controls.y < attendees.y + attendees.height;
-    expect(overlaps).toBe(false);
-  }
+  await assertNoOverlap(page, ".attendee-panel", '[data-testid="slide-controls"]');
   await context.close();
 });

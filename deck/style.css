@@ -269,8 +269,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A/B answers are presenter-mouse disclosures, deliberately outside
- * the click flow so the clicker cannot leak them. */
+/* A/B answers are native <details> disclosures, deliberately outside
+ * the Slidev click sequence so a presenter clicker (ArrowRight,
+ * PageDown) cannot leak them; opening one takes a direct click or
+ * Enter on the focused summary, which is standard <details> behavior. */
 details.ab-answer summary {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.7rem;

@@ -34,17 +34,22 @@ The TUI outcome deliberately precedes the chess recap.
 
 Two entry files encode the two routes:
 
-- `slides.md` is the default route: its `src` ranges exclude exactly
+- `slides.md` is the default deck: its `src` ranges exclude exactly
   the four OPTIONAL slides (Oscar, mappings two and three, the model
-  tree), giving 43 slides and a 24:50 opening measured from the notes.
-- `slides-full.md` imports everything for rehearsal
-  (`bun run dev:full`, `bun run build:full`).
+  tree), giving 43 slides. It is not itself a 20-25 minute file: parts
+  1-4 (the PLAN_V2 "opening") measure 24:50 and end at the LiveRoom
+  slide, which is the deck's hard stop for the default run of show and
+  says so in its own CUT note; part 5 (technical reference) continues
+  in the same file for 14:55 more, 39:45 total, for a presenter who
+  wants to keep going instead of moving to the whiteboard.
+- `slides-full.md` imports everything, optional slides included, for
+  rehearsal (`bun run dev:full`, `bun run build:full`).
 - `tests/route.test.ts` keeps the ranges honest against the OPTIONAL
   markers in the speaker notes, so the routes cannot drift.
 
 Every slide carries the TIMING/SAY/CLICK/SOURCE/CUT/FALLBACK note
-contract, enforced by test. The default-route budget, optional adds,
-and mid-deck cut order live in `docs/deck-plan.md`.
+contract, enforced by test. The full timing table, the hard-stop
+rationale, and the mid-deck cut order live in `docs/deck-plan.md`.
 
 ### Components (deck/components, deck/lib)
 
@@ -68,12 +73,15 @@ restores exact frames and bun tests drive every state without a DOM.
   the phase 34 contract (model_legal_move_rate, valid_json_rate,
   explanation_rate) with the trade direction encoded: explanations
   drop on the adapted checkpoint, by design. Values are placeholders.
-- `CostAtTarget`: seven columns matching the claimed comparison:
-  modality, task and target, local setup with amortisation basis,
-  local and API marginal per-request cost, volume assumption, and
-  threshold attainment, plus a path-identity line under the table.
-  All values `[SOURCE, DATE]`/PENDING; real numbers slot in without
-  redesign.
+- `CostAtTarget`: one card per modality, revealed by click, each with
+  device, setup cost and its amortisation basis, and the volume
+  assumption at the row level, then two path panels (self-hosted,
+  api) that each carry their own outcome, latency or generation time,
+  marginal per-request cost, and threshold-met verdict, so the two
+  paths can disagree on whether the target was reached. "Self-hosted"
+  replaces "local" because image and video run on rented hardware too;
+  the comparison is ownership, not physical location. All values
+  `[SOURCE, DATE]`/PENDING; real numbers slot in without redesign.
 - `RewardMeter`: presenter-pressed outcomes; environment feedback
   separated from model output; the slide states the phase 33 fallback
   semantics for illegal model replies.
@@ -89,8 +97,11 @@ restores exact frames and bun tests drive every state without a DOM.
   unavailable). All four states verified against a running backend.
 
 The A/B answer on each which-was-adapted slide is a `<details>`
-disclosure opened by mouse only: the clicker cannot leak it, and the
-default is to hold answers for the combined reveal table.
+disclosure outside the Slidev click sequence: a presenter clicker
+(ArrowRight/PageDown) advances past it without opening it. It is
+still keyboard-accessible on its own terms (Enter on the focused
+summary opens it, matching native `<details>` behavior); the default
+is to hold answers for the combined reveal table.
 
 ### Copy
 
@@ -106,9 +117,11 @@ model "learns how to choose"; the Gemma 4 chat-template slide renders
 through `AutoProcessor.apply_chat_template` and shows `<bos>` plus the
 `<|turn>`/`<turn|>` markers rather than handwritten syntax; the
 training-ladder frames are labelled abbreviated implementation shapes;
-the merge slide shows a valid mergekit slerp config (base_model,
-slices, dtype) over two full checkpoints and the SAY note routes
-adapter-level merging to PEFT.
+the merge slide shows a valid mergekit slerp config matching the
+official gradient-slerp.yml example (top-level `models:` listing both
+full checkpoints, `base_model` naming one of them, `dtype`, no
+per-source `layer_range`, which only `slices:` sources require) and
+the SAY note routes adapter-level merging to PEFT.
 
 ### Checks (deck/tests, deck-local commands)
 
