@@ -134,6 +134,7 @@ def test_a_live_benchmark_refuses_to_start_while_one_is_in_flight(
     insert_lock(
         conn,
         LIVE_BENCHMARK_LOCK_KEY,
+        owner="other-request",
         acquired_at=now.isoformat(),
         expires_at=(now + timedelta(seconds=60)).isoformat(),
     )
@@ -187,6 +188,7 @@ def test_an_expired_live_lock_is_replaced_not_honored(
     insert_lock(
         conn,
         LIVE_BENCHMARK_LOCK_KEY,
+        owner="dead-run",
         acquired_at=(now - timedelta(seconds=700)).isoformat(),
         expires_at=(now - timedelta(seconds=10)).isoformat(),
     )
@@ -254,6 +256,106 @@ def test_the_live_lock_excludes_a_second_connection_while_a_run_is_mid_flight(
     assert get_lock(second_conn, LIVE_BENCHMARK_LOCK_KEY) is None
     run_job(second_conn, "text.benchmark_eval", _live_params(), None)
     assert runner_runs == ["started", "started"]
+
+
+def test_two_requests_racing_one_expired_lock_admit_exactly_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Reproduces the reported interleaving: one expired row, two
+    connections. Before acquisition ran inside one IMMEDIATE
+    transaction, both requests could read the expired row, the first
+    would replace it, and the second would then delete the first's
+    fresh lock and insert its own: two live runs, both reporting
+    successful acquisition. The write lock now precedes the read, so
+    the acquires serialize and the loser's read sees the winner's
+    fresh row. On the broken code this test fails with both runners
+    running (surfaced as the runner's own wait timing out)."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn_a = make_conn(tmp_path)
+    conn_b = get_connection(tmp_path / "test.db")
+    now = datetime.now(UTC)
+    insert_lock(
+        conn_a,
+        LIVE_BENCHMARK_LOCK_KEY,
+        owner="dead-run",
+        acquired_at=(now - timedelta(seconds=700)).isoformat(),
+        expires_at=(now - timedelta(seconds=10)).isoformat(),
+    )
+    conn_a.commit()
+
+    start_together = threading.Barrier(2)
+    release_runner = threading.Event()
+    ran: list[str] = []
+    refused: list[str] = []
+    unexpected: list[BaseException] = []
+
+    class BlockingRunner:
+        def run(self, conn, job):
+            ran.append(threading.current_thread().name)
+            assert release_runner.wait(timeout=10)
+            return JobOutput(
+                modality="text", kind="benchmark_eval", cached=False, payload={"ok": True}
+            )
+
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: BlockingRunner())
+
+    def request(conn: object) -> None:
+        start_together.wait(timeout=10)
+        try:
+            run_job(conn, "text.benchmark_eval", _live_params(), None)
+        except JobInProgressError:
+            refused.append(threading.current_thread().name)
+            # The loser's refusal is the proof; let the winner finish.
+            release_runner.set()
+        except BaseException as exc:
+            unexpected.append(exc)
+            release_runner.set()
+
+    thread_a = threading.Thread(target=request, args=(conn_a,), name="request-a")
+    thread_b = threading.Thread(target=request, args=(conn_b,), name="request-b")
+    thread_a.start()
+    thread_b.start()
+    thread_a.join(timeout=15)
+    thread_b.join(timeout=15)
+    assert not thread_a.is_alive() and not thread_b.is_alive()
+    assert unexpected == []
+    assert len(ran) == 1
+    assert len(refused) == 1
+    # The winner finished and released; the dead run's row is gone too.
+    assert get_lock(conn_a, LIVE_BENCHMARK_LOCK_KEY) is None
+
+
+def test_a_late_finishing_run_cannot_release_its_successors_lock(tmp_path: Path):
+    """The owner token's job: a run that hangs past its TTL, gets
+    replaced, and then finally reaches its release must delete nothing,
+    or the successor's lock would vanish mid-run and open the door to
+    a third concurrent spend."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    conn = make_conn(tmp_path)
+    lock = single_flight_lock("text.benchmark_eval", _live_params())
+    assert lock is not None
+
+    hung_owner = jobs_action._acquire_single_flight(conn, lock)
+    # The hung run overstays its TTL; time passes.
+    conn.execute(
+        "UPDATE run_locks SET expires_at = ? WHERE lock_key = ?",
+        ((datetime.now(UTC) - timedelta(seconds=1)).isoformat(), lock.key),
+    )
+    conn.commit()
+
+    successor_owner = jobs_action._acquire_single_flight(conn, lock)
+    assert successor_owner != hung_owner
+
+    # The hung run wakes up and runs its finally.
+    jobs_action._release_single_flight(conn, lock, hung_owner)
+    survivor = get_lock(conn, LIVE_BENCHMARK_LOCK_KEY)
+    assert survivor is not None
+    assert survivor["owner"] == successor_owner
+
+    jobs_action._release_single_flight(conn, lock, successor_owner)
+    assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is None
 
 
 def test_two_acquires_that_both_read_an_empty_table_hit_the_primary_key(

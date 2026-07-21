@@ -21,28 +21,41 @@ class RunJobResult:
     artifact: sqlite3.Row
 
 
-def _acquire_single_flight(conn: sqlite3.Connection, lock: SingleFlightLock) -> None:
+def _acquire_single_flight(conn: sqlite3.Connection, lock: SingleFlightLock) -> str:
     """Commits the in-progress row before any work happens, so a second
     request -- another tab, a reloaded panel -- sees it immediately and
-    is refused instead of trusted to remember. A row past its expiry is
-    a crashed run's leftovers and is replaced, not honored. The primary
-    key stays the arbiter if two requests race past the read."""
+    is refused instead of trusted to remember. Returns the owner token
+    the caller must present to release.
+
+    The whole read-decide-delete-insert sequence runs inside one
+    BEGIN IMMEDIATE transaction: the write lock is taken before the
+    read, so two acquires racing an expired row serialize here and the
+    loser's read sees the winner's fresh row instead of the expired row
+    both would otherwise replace (the loser's delete used to remove the
+    winner's brand-new lock, admitting two live runs). Four fast local
+    statements; nothing slow ever happens inside it. A row past its
+    expiry is a crashed or hung run's leftovers and is replaced, not
+    honored. The primary key stays a last-resort arbiter should any
+    future path insert outside this transaction."""
+    owner = generate_id("lockowner")
     now = datetime.now(UTC)
-    existing = get_lock(conn, lock.key)
-    if existing is not None:
-        expires_at = datetime.fromisoformat(existing["expires_at"])
-        if expires_at > now:
-            remaining = (expires_at - now).total_seconds()
-            raise JobInProgressError(
-                f"a run of {lock.key.split(':')[0]} is already in progress; "
-                "it lands in the run list or times out within "
-                f"{remaining:.0f} seconds"
-            )
-        delete_lock(conn, lock.key)
+    conn.execute("BEGIN IMMEDIATE")
     try:
+        existing = get_lock(conn, lock.key)
+        if existing is not None:
+            expires_at = datetime.fromisoformat(existing["expires_at"])
+            if expires_at > now:
+                remaining = (expires_at - now).total_seconds()
+                raise JobInProgressError(
+                    f"a run of {lock.key.split(':')[0]} is already in progress; "
+                    "it lands in the run list or times out within "
+                    f"{remaining:.0f} seconds"
+                )
+            delete_lock(conn, lock.key)
         insert_lock(
             conn,
             lock.key,
+            owner=owner,
             acquired_at=now.isoformat(),
             expires_at=(now + timedelta(seconds=lock.ttl_seconds)).isoformat(),
         )
@@ -53,10 +66,16 @@ def _acquire_single_flight(conn: sqlite3.Connection, lock: SingleFlightLock) -> 
             f"a run of {lock.key.split(':')[0]} is already in progress; "
             "another request started it just now"
         ) from exc
+    except BaseException:
+        conn.rollback()
+        raise
+    return owner
 
 
-def _release_single_flight(conn: sqlite3.Connection, lock: SingleFlightLock) -> None:
-    delete_lock(conn, lock.key)
+def _release_single_flight(conn: sqlite3.Connection, lock: SingleFlightLock, owner: str) -> None:
+    """Owner-scoped: a hung run releasing after its lock expired and
+    was replaced must not delete its successor's row."""
+    delete_lock(conn, lock.key, owner=owner)
     conn.commit()
 
 
@@ -80,8 +99,9 @@ def run_job(
     # only a durable, committed record can refuse it across reloads and
     # tabs. React state cannot; it dies with the tab.
     lock = single_flight_lock(job_type, params)
+    lock_owner: str | None = None
     if lock is not None:
-        _acquire_single_flight(conn, lock)
+        lock_owner = _acquire_single_flight(conn, lock)
 
     # Run first, persist after: a failed generation (missing API key,
     # provider error) must not leave an orphaned config row behind, and
@@ -127,7 +147,8 @@ def run_job(
     finally:
         # The lock row was committed separately, so it survives the
         # rollback above and must be released on both paths. A process
-        # that dies here leaves the row to expire on its own.
-        if lock is not None:
-            _release_single_flight(conn, lock)
+        # that dies here leaves the row to expire on its own (or to be
+        # cleared by the next startup).
+        if lock is not None and lock_owner is not None:
+            _release_single_flight(conn, lock, lock_owner)
     return RunJobResult(job_config=job_config_row, artifact=artifact_row)

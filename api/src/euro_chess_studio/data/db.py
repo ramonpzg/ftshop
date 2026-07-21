@@ -321,9 +321,12 @@ CREATE TABLE IF NOT EXISTS benchmark_runs {BENCHMARK_RUNS_COLUMNS_SQL};
 -- committed row per in-flight run, keyed by what must not run twice,
 -- visible to every request the moment the run starts (unlike UI
 -- state, which a reload forgets). expires_at bounds a crashed
--- process: a row past it is a dead run, not an in-flight one.
+-- process: a row past it is a dead run, not an in-flight one. owner
+-- scopes release: a hung run finishing after its lock was replaced
+-- must not delete its successor's row.
 CREATE TABLE IF NOT EXISTS run_locks (
     lock_key TEXT PRIMARY KEY,
+    owner TEXT NOT NULL,
     acquired_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
 );
@@ -491,4 +494,10 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE presenter_state ADD COLUMN target_frame_id TEXT")
     if "target_bounds_json" not in presenter_columns:
         conn.execute("ALTER TABLE presenter_state ADD COLUMN target_bounds_json TEXT")
+    run_lock_columns = {row[1] for row in conn.execute("PRAGMA table_info(run_locks)")}
+    if "owner" not in run_lock_columns:
+        # Databases from before release was owner-scoped. Startup
+        # clears the table right after init anyway, so the default
+        # never meets a release check.
+        conn.execute("ALTER TABLE run_locks ADD COLUMN owner TEXT NOT NULL DEFAULT ''")
     conn.commit()

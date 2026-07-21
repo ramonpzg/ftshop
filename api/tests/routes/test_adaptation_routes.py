@@ -53,6 +53,7 @@ def test_a_live_run_in_flight_is_shared_state_and_refuses_duplicates(
     insert_lock(
         conn,
         LIVE_BENCHMARK_LOCK_KEY,
+        owner="in-flight-run",
         acquired_at=now.isoformat(),
         expires_at=(now + timedelta(seconds=120)).isoformat(),
     )
@@ -105,6 +106,7 @@ def test_a_backend_restart_clears_orphaned_live_run_locks(tmp_path, monkeypatch)
         insert_lock(
             conn,
             LIVE_BENCHMARK_LOCK_KEY,
+            owner="run-that-died-with-the-process",
             acquired_at=now.isoformat(),
             expires_at=(now + timedelta(seconds=330)).isoformat(),
         )
