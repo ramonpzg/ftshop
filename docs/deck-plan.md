@@ -1,4 +1,4 @@
-# Deck plan
+# Deck plan (v1 build record)
 
 The Slidev deck is one of the workshop's three assets: the board is
 where the room works, the deck is where the narrative lives, the
@@ -7,6 +7,19 @@ take-home. This plan follows the
 polyglot workflow: every slide gets its content, layout, and
 animation noted before it gets built; images get a prompt for an
 image model; components get built alongside their slides in bouts.
+
+The authoritative forward plan for the deck is
+[../deck/PLAN_V2.md](../deck/PLAN_V2.md). This file records the v1
+deck as built and stays accurate as a build record, but where the two
+disagree, PLAN_V2 wins and phase 35 rebuilds to it. The known
+conflicts, so nobody inherits them: v2 puts the TUI recording before
+the chess recap (v1 opens chess-first); v2's origin numbers are 5,
+then 20 games a day, then 500 in the first month, with no invented
+Elo or total-game figure (v1's slide 2 counter does not survive); v2
+replaces "fine-tuning is moulding intelligence" (slide 6) with the
+four-interventions decision (prompt, retrieve, tools, fine-tune); v2
+makes the technical material a modular reference section rather than
+a scheduled mid-session return.
 
 Working agreements, carried over from polyglot and this repo:
 
@@ -21,11 +34,13 @@ Working agreements, carried over from polyglot and this repo:
   graceful offline states. Where a component can talk to the running
   FastAPI backend, it should, with a clean fallback when the backend
   is down.
-- The session plan is the narrative source of truth. The accepted phase
-  34 direction is motivation and chess grounding, outcome-first demos,
-  then technical decomposition. The existing slide order below records
-  v1 and will be reorganized only after the engineering fixes are
-  reviewed.
+- The session plan is the narrative source of truth and follows
+  PLAN_V2: the run of show (docs/demo-plan.md) opens with deck parts
+  1-4 (about 25 minutes including the TUI recording), moves to the
+  board and notebook, and never schedules a return to the deck; the
+  technical-reference material is part 5, modular and unscheduled.
+  The slide order below records v1's sequence only. Restructuring the
+  deck to PLAN_V2's five-part layout is phase 35's job.
 
 Build in bouts of five slides. v1 status is tracked per slide.
 
@@ -63,7 +78,7 @@ sit near the tldraw aesthetic:
 ## The slides
 
 Timing target: the deck carries about 25 minutes of talking total,
-interleaved with app time. 90 minutes overall.
+now all up front per PLAN_V2. 90 minutes overall.
 
 ### Bout 1: opening (slides 1-6)
 

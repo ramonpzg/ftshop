@@ -15,12 +15,17 @@ def test_list_job_types_includes_all_job_types():
     assert set(types) == {
         "text.prompt_eval",
         "text.reward_eval",
+        "text.train_adapter",
+        "text.benchmark_eval",
         "image.show_dataset",
         "image.generate",
+        "image.adaptation_evidence",
         "audio.make_spectrogram",
         "audio.generate",
+        "audio.adaptation_evidence",
         "video.sample_frames",
         "video.generate",
+        "video.adaptation_evidence",
         "artifact.reveal_cached",
     }
 

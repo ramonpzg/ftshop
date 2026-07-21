@@ -9,14 +9,17 @@ export const JOBS_BY_MODALITY: Record<string, JobButtonDef[]> = {
   image: [
     { jobType: "image.show_dataset", label: "Show dataset" },
     { jobType: "artifact.reveal_cached", label: "Reveal cached artifact" },
+    { jobType: "image.adaptation_evidence", label: "Show adaptation evidence" },
   ],
   audio: [
     { jobType: "audio.make_spectrogram", label: "Make spectrogram" },
     { jobType: "artifact.reveal_cached", label: "Reveal cached artifact" },
+    { jobType: "audio.adaptation_evidence", label: "Show adaptation evidence" },
   ],
   video: [
     { jobType: "video.sample_frames", label: "Sample frames" },
     { jobType: "artifact.reveal_cached", label: "Reveal cached artifact" },
+    { jobType: "video.adaptation_evidence", label: "Show adaptation evidence" },
   ],
 };
 

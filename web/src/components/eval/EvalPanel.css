@@ -16,12 +16,18 @@
 
 .eval-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
   background: #f8f9fa;
   border-radius: 4px;
   padding: 3px 6px;
+}
+
+.eval-row-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .eval-metric {
@@ -66,4 +72,32 @@
   font-size: 10px;
   line-height: 1.4;
   color: var(--text-muted, #777);
+}
+
+.eval-details summary {
+  cursor: pointer;
+  font-size: 9px;
+  color: var(--text-muted, #777);
+}
+
+.eval-details dl {
+  margin: 3px 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.eval-details dl > div {
+  display: flex;
+  gap: 6px;
+}
+
+.eval-details dt {
+  flex: 0 0 76px;
+  color: var(--text-muted, #777);
+}
+
+.eval-details dd {
+  margin: 0;
+  word-break: break-word;
 }

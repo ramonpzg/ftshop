@@ -5,6 +5,8 @@ a raw provider model id, so a client cannot point the backend at an
 arbitrary endpoint.
 """
 
+from dataclasses import dataclass
+
 IMAGE_MODELS: dict[str, dict] = {
     "flux-2-klein": {"label": "FLUX.2 Klein 4B", "fal_id": "fal-ai/flux-2/klein/4b"},
     "flux-schnell": {"label": "FLUX.1 schnell", "fal_id": "fal-ai/flux/schnell"},
@@ -87,3 +89,46 @@ def file_extension_for(url: str, kind: str) -> str:
         if ext.isalnum() and len(ext) <= 5:
             return ext
     return {"image": "png", "video": "mp4", "audio": "wav"}.get(kind, "bin")
+
+
+def requests_presenter_generation(job_type: str, params: dict) -> bool:
+    """Whether this job spends a resource only the presenter may spend:
+    provider money (fal generation, a live benchmark) or the presenter
+    machine's own compute (local audio synthesis loads multi-GB models
+    onto the CPU/GPU serving the whole room). Replays and small local
+    calculations are free and stay open to every attendee."""
+    if job_type in ("image.generate", "video.generate", "audio.generate"):
+        return True
+    if job_type == "text.benchmark_eval":
+        return params.get("source") == "live"
+    return False
+
+
+LIVE_BENCHMARK_LOCK_KEY = "text.benchmark_eval:live"
+# The lock outlives any legitimate run by construction: the run's own
+# server deadline clamps to 300 s, plus slack. Matches the panel's
+# SERVER_RUN_MAX_MS, so both sides agree on when a silent run is dead.
+# The TTL is for a process that is alive but hung; a process that DIED
+# does not make anyone wait it out, because startup clears the table
+# (see main.lifespan).
+LIVE_BENCHMARK_LOCK_TTL_SECONDS = 330.0
+
+
+@dataclass(frozen=True)
+class SingleFlightLock:
+    key: str
+    ttl_seconds: float
+
+
+def single_flight_lock(job_type: str, params: dict) -> SingleFlightLock | None:
+    """The durable in-progress identity for jobs that must never run
+    twice concurrently. A live benchmark spends provider money per
+    example, and the browser state that used to guard it evaporates on
+    reload; the identity has to live server-side, one per app, since
+    one presenter machine has one budget and one screen. Everything
+    else can run concurrently and needs no lock."""
+    if job_type == "text.benchmark_eval" and params.get("source") == "live":
+        return SingleFlightLock(
+            key=LIVE_BENCHMARK_LOCK_KEY, ttl_seconds=LIVE_BENCHMARK_LOCK_TTL_SECONDS
+        )
+    return None

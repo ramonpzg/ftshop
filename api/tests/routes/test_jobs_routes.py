@@ -16,7 +16,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def test_get_job_types_lists_all_job_types(client: TestClient):
     response = client.get("/jobs/types")
     assert response.status_code == 200
-    assert len(response.json()) == 9
+    assert len(response.json()) == 14
 
 
 def test_post_job_runs_a_local_job(client: TestClient):
@@ -39,6 +39,18 @@ def test_post_job_runs_a_replay_job(client: TestClient):
 def test_post_job_with_unknown_job_type_is_unprocessable(client: TestClient):
     response = client.post("/jobs", json={"job_type": "not.a.job", "params": {}})
     assert response.status_code == 422
+
+
+def test_post_job_with_an_unknown_workspace_is_404_before_any_work(client: TestClient):
+    """Identity is validated with a read before the runner runs; a bad
+    workspace id must never trigger provider work or file output first
+    and fail on the config's foreign key after."""
+    response = client.post(
+        "/jobs",
+        json={"job_type": "image.show_dataset", "params": {}, "workspace_id": "nope"},
+    )
+    assert response.status_code == 404
+    assert "unknown workspace" in response.json()["detail"]
 
 
 def test_post_job_text_eval_against_a_real_workspace(client: TestClient):

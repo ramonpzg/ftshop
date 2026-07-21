@@ -14,6 +14,13 @@ install:
 install-audio:
     cd api && uv sync --extra audio
 
+# Regenerate the committed workshop media under artifacts/cached/media
+# (piece renders, synthesized audio, the storyboard clips). Deterministic;
+# provenance lives in the tool's docstring and docs/licenses.md.
+make-media:
+    cd api && uv sync --extra media
+    cd api && uv run python -m euro_chess_studio.tools.make_media
+
 # Download every model used locally and verify it before the session.
 # Stable Audio is gated: accept its license and set HF_TOKEN first.
 download-models:

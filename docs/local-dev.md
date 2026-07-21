@@ -22,10 +22,12 @@ proxies `/api` and `/sync` to the local backend and room, so nothing
 else needs to be reachable from other machines.
 
 On backend startup the app initializes `euro_chess_studio.db` at the
-repo root, seeds the five pages, and seeds the cached illustrative eval
+repo root, seeds the five pages, seeds the cached illustrative eval
 numbers (Stockfish-dependent metrics, image/audio/video quality scores)
-that don't have a live computation path in v0. This happens every
-startup and is idempotent.
+that don't have a live computation path in v0, and seeds the adaptation
+fixtures: the reference training snapshot and the frozen held-out
+evaluation suite, idempotent by content hash. This happens every
+startup.
 
 ## Commands
 
@@ -44,6 +46,7 @@ startup and is idempotent.
 | `just reset-canvas` | Delete the authored canvas snapshot (slides, shapes). Keeps uploaded assets |
 | `just seed` | Re-populate pages and cached eval fixtures |
 | `just install-audio` | Optional: local text-to-audio models (torch, transformers; several GB) |
+| `just make-media` | Regenerate the committed workshop media fixtures (deterministic; installs the small `media` extra) |
 | `just deck` | The Slidev deck on port 3030 |
 | `just session-notebook` | Open the standalone Jupyter notebook in JupyterLab |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
@@ -104,11 +107,14 @@ startup, never overriding the shell, never committed):
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.6-luna` |
 | `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
+| `OPPONENT_ENDPOINT_IS_LOCAL` | Set to `1` to attest the opponent endpoint is a local model on the room's own hardware; a loopback `OPENAI_BASE_URL` counts automatically. The budget half of the attendee gate | unset (fail closed for attendees) |
+| `ROOM_MODEL_PLAY` | Set to `1` to open attendee timed games and model replies, after `just load-test 40` against the real endpoint showed model-move p95 inside the turn deadline. The capacity half of the attendee gate; locality alone never opens the room | unset (attendees free-play; inference is presenter-led) |
 | `VIDEO_PROMPT_API_KEY` | Scene-writing calls when the opponent runs elsewhere | falls back to `OPENAI_API_KEY` |
 | `VIDEO_PROMPT_BASE_URL` | Scene-writing endpoint | falls back to `OPENAI_BASE_URL` |
 | `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
 | `MODEL_TURN_MAX_ATTEMPTS` | Model-turn retries before the deterministic fallback | 2 (clamped 1-5) |
 | `MODEL_TURN_DEADLINE_SECONDS` | Overall wall-clock budget for one model turn, regardless of attempt count | 30 (clamped 5-120) |
+| `BENCHMARK_RUN_DEADLINE_SECONDS` | Overall wall-clock budget for one live benchmark run; unreached examples are recorded as failures | 60 (clamped 10-300) |
 | `OPENAI_RECENT_KEY_401_RETRY` | Set to `1` right after creating or rotating a key: allows one or two retries of the exact generic-permissions 401 seen during key propagation | unset (401 fails immediately) |
 | `FAL_KEY` | Image and video generation on fal.ai | unset (generate disabled) |
 | `HF_TOKEN` | Gated model downloads (stable-audio-open) | unset |
@@ -129,7 +135,21 @@ Model ids follow the endpoint's naming: OpenRouter wants
 `provider/model` (check the exact Gemma id in their registry),
 api.openai.com wants bare names. When OPPONENT_MODELS lists more than
 one model, Start game grows a picker; each match remembers its
-opponent, and start over keeps it.
+opponent, and start over keeps it. Every entry resolves against the
+one `OPENAI_BASE_URL` and key: a picker spanning a local llama.cpp
+and a hosted endpoint at the same time needs per-model endpoints,
+which is the phase 4b named-profile registry, not this table.
+
+The room policy fails closed on top of this. A browser that is not on
+the presenter's machine can only start timed games or trigger model
+replies when the opponent endpoint is known local (loopback base URL,
+or the attestation above) and `ROOM_MODEL_PLAY=1` is set after the
+real-endpoint load test. Solo development on one laptop is loopback
+and never notices; a phone on your LAN pointed at the dev server gets
+free play until you set both, which is the intended behavior, not a
+bug. Locality and capacity are separate gates because they fail
+differently: a hosted endpoint burns money, a local one queues forty
+requests behind one server until every turn deadline expires.
 
 The shared text client calls `/chat/completions`. It does not use the
 Responses API. It retries rate limits, server failures, and transport
@@ -183,13 +203,20 @@ just load-test 40 60          # 40 attendees for 60 seconds
 ```
 
 Each simulated attendee behaves like the real UI: joins, starts a
-timed match, plays legal moves with think time, triggers the model
-reply and the per-exchange assessment, and polls presenter state
-every three seconds. The report at the end shows per-endpoint latency
-percentiles and error counts. On a 4-core container, 40 attendees run
-error free: board moves at ~20ms p50, model-bound calls at the mock's
-latency plus about a second of queueing. Numbers on a real laptop
-should be better.
+timed match, plays legal moves with think time, asks the model for
+black's replies (retrying an open model turn the way the UI's retry
+button does), and polls presenter state every three seconds.
+Assessments are not part of the workload: since the room model policy
+they are manual, presenter-only, one per beat, so simulating one per
+exchange would double model traffic the real room never produces. The
+report at the end shows per-endpoint latency percentiles, error
+counts (every non-2xx response and every transport failure), the
+model-turn outcome tally, and an explicit PASS/FAIL verdict on
+whether the run certifies ROOM_MODEL_PLAY; docs/demo-plan.md has the
+workflow. On a 4-core container, 40 attendees run error free: board
+moves at ~20ms p50, model-bound calls at the mock's latency plus
+about a second of queueing. Numbers on a real laptop should be
+better.
 
 Two notes on what makes this hold up: SQLite runs in WAL mode with a
 busy timeout (readers do not block on writers, and colliding writers
@@ -307,6 +334,13 @@ how the tldraw canvas and backend state relate. In short:
   `smoke.spec.ts` covers the single-client basics, including the
   custom-shape double-click-to-edit interaction (see "Interacting with
   workspace shapes" below).
+- The e2e stacks pin `OPENAI_API_KEY`, `VIDEO_PROMPT_API_KEY`,
+  `FAL_KEY`, and `OPPONENT_MODELS` to empty strings, so whatever
+  credentials your shell or a repo-root `.env` carries cannot leak in
+  and change what the app under test offers (a live-benchmark button
+  appearing because your personal key was inherited, for example).
+  Tests that need credential-dependent behavior must set their own
+  values explicitly.
 - Playwright discovers its browser from its own cache by default. Set
   `CHESS_STUDIO_CHROMIUM` to point at a specific executable (the old
   hardcoded `/opt/pw-browsers/chromium` machine sets exactly that).
@@ -331,7 +365,16 @@ double-click would.
   in every normal client and unidentified sessions are read-only at
   the socket, but a hand-rolled WebSocket client could bypass the
   per-shape rules. That is an accepted boundary for a room of workshop
-  attendees, not a security model.
+  attendees, not a security model. The one server-enforced line: the
+  room model policy. All generation (image, video, audio including
+  local synthesis, live benchmarks), position assessments, and
+  non-default opponent picks are refused with a 403 for any client
+  that is not on the presenter's machine, so presenter rights on the
+  canvas never include spending the provider budget or the
+  presenter's GPU from an attendee laptop. The check trusts only the
+  last X-Forwarded-For hop, and the dev proxies overwrite the header
+  with the peer address, so a client-supplied "127.0.0.1" prefix does
+  not spoof it.
 - One room. The sync server hosts a single workshop document; there is
   no room routing and no need for it.
 - The sync server's in-memory clock resets on restart; clients
@@ -340,9 +383,15 @@ double-click would.
 - Several eval metrics (centipawn loss, image/audio/video quality
   scores) are seeded from cached fixtures, not computed live, because
   they need infrastructure (Stockfish, a trained judge model) that's
-  out of scope for v0. The UI marks these rows with a `cached` badge.
-  Each fixture file also carries a `note` explaining why it's
-  illustrative; the note stays in the fixture and is not shown in the
-  UI yet.
+  out of scope for v0. The UI marks these rows with a `cached` badge
+  and renders each fixture's `note` under the value, so a cached
+  number can never pose as live.
+- Adapter training is a cached replay bound to the reference snapshot
+  by content hash; there is no live training path, and the panel's
+  banner says it plainly: scripted illustration, no model was trained.
+  The 409 refusals enforce the same honesty. The adapted checkpoint
+  has no live serving path either (serving it would need a merge and
+  GGUF conversion), so its benchmark runs are always replayed and
+  labelled "replayed (scripted)".
 - `CloudRunner` is a stub (`NotImplementedError`), no cloud job
   execution exists yet.

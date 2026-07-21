@@ -15,6 +15,13 @@ class FixtureNotFoundError(ValueError):
 def _fixture_path(job: JobConfig) -> str:
     if job.job_type == "image.show_dataset":
         return "image/show_dataset.json"
+    if job.job_type in (
+        "image.adaptation_evidence",
+        "audio.adaptation_evidence",
+        "video.adaptation_evidence",
+    ):
+        modality = job.job_type.split(".", 1)[0]
+        return f"{modality}/adaptation_evidence.json"
     if job.job_type == "artifact.reveal_cached":
         modality = job.params.get("modality")
         key = job.params.get("key")

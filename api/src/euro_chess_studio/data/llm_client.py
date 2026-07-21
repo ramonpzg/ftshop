@@ -13,7 +13,30 @@ Hugging Face router, vLLM, llama.cpp) later without touching code:
     OPENAI_MODEL      default gpt-5.6-luna; the default opponent
     OPPONENT_MODELS   optional comma-separated list of extra opponents
                       to offer in the Start game picker, e.g.
-                      google/gemma-4-E2B-it-qat-q4_0-gguf,gpt-5.6-luna
+                      google/gemma-4-E2B-it-qat-q4_0-gguf,gpt-5.6-luna.
+                      Every entry resolves against the one
+                      OPENAI_BASE_URL and key above: offering a local
+                      Gemma and a hosted Luna at the same time needs
+                      per-model endpoints, which is the phase 4b
+                      named-profile registry. Until that integration
+                      lands, the picker is one endpoint's model list.
+    OPPONENT_ENDPOINT_IS_LOCAL
+                      set to 1 to attest that the opponent endpoint is
+                      a local model on the room's own hardware (a
+                      loopback OPENAI_BASE_URL counts automatically).
+                      Protects the budget; says nothing about capacity.
+    ROOM_MODEL_PLAY   set to 1 to open attendee model play (timed games
+                      and model replies) after the room-scale load test
+                      has been run against the real endpoint on the
+                      venue machine (just load-test 40, watch the
+                      model-move p95 against MODEL_TURN_DEADLINE_
+                      SECONDS). Locality alone does not open the room:
+                      forty simultaneous requests still queue behind
+                      one llama.cpp server, so capacity is attested
+                      separately from budget. The room policy in
+                      routes/game.py fails closed without both,
+                      whatever OPENAI_MODEL names; attendees free-play
+                      and model inference stays presenter-led.
 
 The video-scene prompt can use a separate compatible endpoint. Each
 VIDEO_PROMPT_* setting falls back to its OPENAI_* counterpart:
@@ -41,6 +64,7 @@ import os
 import random
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import httpx
 
@@ -140,6 +164,27 @@ def get_opponent_models() -> list[str]:
 
 def is_llm_configured() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY"))
+
+
+def is_opponent_endpoint_local() -> bool:
+    """Whether the default opponent is known to run on local hardware:
+    the base URL targets loopback, or the operator attested a local
+    endpoint elsewhere on the LAN with OPPONENT_ENDPOINT_IS_LOCAL=1.
+    Never inferred from the model name; a name is just a string the
+    endpoint may or may not honor."""
+    if os.environ.get("OPPONENT_ENDPOINT_IS_LOCAL") == "1":
+        return True
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    return urlparse(base_url).hostname in ("127.0.0.1", "::1", "localhost")
+
+
+def is_room_model_play_open() -> bool:
+    """Whether attendee model play is open: the endpoint is local (the
+    budget gate) AND the operator set ROOM_MODEL_PLAY=1 after the
+    room-scale load test (the capacity gate). Locality alone is not
+    capacity: a local server that answers one request in two seconds
+    still collapses under forty at once."""
+    return is_opponent_endpoint_local() and os.environ.get("ROOM_MODEL_PLAY") == "1"
 
 
 def opponent_settings(model: str | None = None) -> LlmSettings:

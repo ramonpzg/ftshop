@@ -4,12 +4,20 @@
   "payload": {
     "event": "rushed_release_incident",
     "source_game": "fools-mate",
-    "description": "Cached example: two routine safeguards are removed before a rushed release fails.",
+    "description": "Two routine safeguards are removed before a rushed release fails.",
     "real_world": "A small release team disables two routine safeguards to ship before a deadline. The shortcuts expose one direct path from an ordinary mistake to a production incident.",
     "video_prompt": "A medium-wide documentary shot opens inside a small software operations room late in the afternoon. A release manager in a grey overshirt stands between two plain consoles as one amber warning light activates on each side of the room. She enters a final command on an unlabelled keyboard, the cooling fans rise, and both lights turn red while a colleague wheels across the floor to disconnect a cable cabinet. The camera makes a slow dolly from the doorway to her side profile, keeping her and both consoles in frame as the failed response unfolds. Cool fluorescent ceiling light mixes with muted monitor light on the desks; there are no readable interfaces or logos. The audio is restrained: ventilation, keyboard taps, chair wheels, two warning tones, and a final relay click.",
     "duration_seconds": 8.0,
-    "fps": 24,
-    "frame_count": 192,
-    "note": "Illustrative fixture for the real-world scene Luna derives from the game. It is not a generated clip."
+    "fps": 12,
+    "frame_count": 96,
+    "file_url": "/artifacts/media/video/scene_clip.mp4",
+    "poster_url": "/artifacts/media/video/scene_poster.png",
+    "frames_url": "/artifacts/media/video/scene_frames.png",
+    "provenance": {
+      "method": "Storyboard animatic rendered locally by tools/make_media.py (just make-media): Pillow-drawn frames encoded to H.264 with PyAV. Deterministic seed.",
+      "model": null,
+      "license": "Generated in-repo; no third-party material."
+    },
+    "note": "A playable, deliberately lightweight local animatic staging the scene: no chessboard, no chess pieces, no readable text. It is a storyboard, not an LTX or Veo generation; live generation stays presenter-controlled and optional."
   }
 }

@@ -19,7 +19,8 @@ Position (FEN): {fen}
 Legal moves (UCI): {legal_moves}
 
 Return exactly one move from the legal moves list, in UCI format.
-Respond with JSON: {{"move": "<uci>"}}
+You may add a one-sentence reason in the optional why field.
+Respond with JSON: {{"move": "<uci>", "why": "<optional short reason>"}}
 """
 
 

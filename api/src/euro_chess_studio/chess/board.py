@@ -22,6 +22,20 @@ def get_legal_moves(fen: str) -> list[str]:
     return [move.uci() for move in board.legal_moves]
 
 
+def get_playable_legal_moves(fen: str) -> list[str]:
+    """Legal moves for a position that must be playable, not merely
+    parseable. chess.Board() accepts FENs with a missing king, both
+    sides in check, or pawns on the back rank, and happily generates
+    moves for them; board.is_valid() is the gate that rejects those.
+    Gameplay never needs this (its positions come from applying legal
+    moves to the start position), but anything freezing external
+    positions as evaluation data does. Raises ValueError either way."""
+    board = chess.Board(fen)
+    if not board.is_valid():
+        raise ValueError(f"position is not playable: {board.status()!r}")
+    return [move.uci() for move in board.legal_moves]
+
+
 def apply_move(fen: str, uci: str) -> MoveResult:
     board = chess.Board(fen)
 

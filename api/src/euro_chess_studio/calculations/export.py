@@ -7,13 +7,27 @@ the same template the prompt_template snippet teaches.
 
 import json
 
+# The "why" field is explicitly optional: including it is invited, not
+# required, so a bare {"move": ...} reply still satisfies the contract.
+# That is what lets explanation_rate measure a real trade-off instead
+# of rewarding contract violations -- a model that explains inside the
+# JSON is doing something the prompt asked for, and a model that stopped
+# explaining after bare-completion training regressed on an invited
+# behavior, not on politeness.
 PROMPT_TEMPLATE = (
     "You are a chess engine assistant.\n\n"
     "Position (FEN): {fen}\n"
     "Legal moves (UCI): {legal_moves}\n\n"
     "Return exactly one move from the legal moves list, in UCI format.\n"
-    'Respond with JSON: {{"move": "<uci>"}}'
+    "You may add a one-sentence reason in the optional why field.\n"
+    'Respond with JSON: {{"move": "<uci>", "why": "<optional short reason>"}}'
 )
+
+# Versions the prompt contract above. Training snapshots and evaluation
+# suites both record it; a benchmark comparison refuses to produce a
+# delta across two different contracts. Bump when PROMPT_TEMPLATE
+# changes meaningfully. v2 added the optional why field.
+SFT_PROMPT_VERSION = "sft-v2"
 
 # Fallback moves are a deterministic placeholder played specifically
 # because the model produced no usable reply (see actions/model_turn.py);

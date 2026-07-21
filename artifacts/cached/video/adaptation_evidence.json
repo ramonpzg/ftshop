@@ -1,0 +1,69 @@
+{
+  "modality": "video",
+  "kind": "adaptation_evidence",
+  "payload": {
+    "result_source": "cached",
+    "chain": {
+      "pairs": {
+        "label": "100 (scene prompt, clip) pairs",
+        "detail": "Luna's real-world scene prompts paired with generated clips of those scenes."
+      },
+      "adapter": {
+        "label": "scenario-staging LoRA (illustrative)",
+        "base_model": "LTX 2.3",
+        "method": "LoRA",
+        "status": "No video adapter was trained for this workshop. The takes below are locally rendered animatics of the same scene."
+      },
+      "evaluation": {
+        "label": "6 held-out scene prompts",
+        "status": "Cached illustrative values below; scenario adherence needs a vision judge."
+      }
+    },
+    "before": {
+      "label": "Base take (illustrative)",
+      "file_url": "/artifacts/media/video/scene_clip_base.mp4",
+      "caption": "the same scene with per-frame flicker: positions, tones, and progress wobble",
+      "duration_seconds": 8.0
+    },
+    "after": {
+      "label": "Adapted take (illustrative)",
+      "file_url": "/artifacts/media/video/scene_clip.mp4",
+      "poster_url": "/artifacts/media/video/scene_poster.png",
+      "frames_url": "/artifacts/media/video/scene_frames.png",
+      "caption": "the scene staged steadily: one push-in, coherent motion",
+      "duration_seconds": 8.0
+    },
+    "metrics": [
+      {
+        "metric": "temporal_flicker",
+        "base": 0.31,
+        "adapted": 0.09,
+        "delta": -0.22,
+        "unit": "ratio",
+        "direction": "lower_is_better",
+        "verdict": "improved"
+      },
+      {
+        "metric": "scenario_adherence",
+        "base": 0.44,
+        "adapted": 0.71,
+        "delta": 0.27,
+        "unit": "ratio",
+        "direction": "higher_is_better",
+        "verdict": "improved"
+      },
+      {
+        "metric": "frame_detail",
+        "base": 0.82,
+        "adapted": 0.7,
+        "delta": -0.12,
+        "unit": "ratio",
+        "direction": "higher_is_better",
+        "verdict": "regressed"
+      }
+    ],
+    "metrics_note": "Illustrative cached values. Stabilizing motion on a small clip set usually softens per-frame detail; the flickery base take is also the larger file, because flicker defeats the encoder.",
+    "media_provenance": "Both takes rendered locally by tools/make_media.py; the base take adds per-frame jitter. Neither is an LTX or Veo generation.",
+    "note": "The same conceptual chain the text page runs for real: pairs in, adapter out, eval always. Here every element is a reviewed cached illustration, because live video training is impractical in the room; the card says which parts are real files and which are illustrative numbers."
+  }
+}

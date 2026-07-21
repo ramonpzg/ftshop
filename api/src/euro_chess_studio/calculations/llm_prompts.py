@@ -80,6 +80,20 @@ def extract_json_object(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def has_explanation_field(text: str) -> bool:
+    """Whether a reply's JSON object carries a non-empty "why" string,
+    the optional explanation the sft-v2 prompt contract invites. Prose
+    outside the JSON deliberately does not count: the contract asks for
+    JSON, so rewarding stray prose would score contract violations as a
+    virtue. The definition of the explanation_rate metric, so the
+    metric and this helper can never disagree."""
+    parsed = extract_json_object(text)
+    if parsed is None:
+        return False
+    why = parsed.get("why")
+    return isinstance(why, str) and bool(why.strip())
+
+
 @dataclass(frozen=True)
 class MoveReplyAnalysis:
     """How far a raw move reply got: was a JSON object with a "move"

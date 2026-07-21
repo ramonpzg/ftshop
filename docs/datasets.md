@@ -113,3 +113,24 @@ participant's accepted or edited text separate. Exports carry both plus
 model, provider alias, and prompt version. `approved` is null until a
 participant reviewed the record, so raw model output and vetted
 examples are never conflated.
+
+## Frozen training snapshots (dataset_snapshots)
+
+A snapshot is the durable, hashed form of the SFT export: the
+`fen_legal_moves_to_move` rows converted through the same
+`build_sft_rows` as `chess_sft.jsonl` (`{"prompt", "completion"}` per
+row, schema `sft-prompt-completion-v1`, prompt contract `sft-v2`:
+the prompt invites an optional in-JSON `why` explanation, while the
+completions stay bare moves, which is exactly why an adapter trained
+on them stops filling the field),
+frozen at a moment in time with the rows stored inline. The
+eligibility rule above applies at freeze time and the snapshot records
+what it excluded rather than hiding it. Scenario mappings ride along
+as separate raw and approved counts. `content_hash` is order-
+independent and duplicate-preserving, the same recipe as
+`position_set_id`; it is the identity an adapter's provenance points
+at, which is why an adapter without a dataset hash is not
+reproducible. Held-out evaluation suites (`eval_suites`) carry their
+own hash over examples plus prompt contract; training refuses any
+snapshot whose positions overlap a suite, because a model scored on
+its own training examples is not being evaluated.

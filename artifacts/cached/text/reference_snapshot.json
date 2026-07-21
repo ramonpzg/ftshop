@@ -1,0 +1,105 @@
+{
+  "label": "reference-sft-v1",
+  "modality": "text",
+  "schema_version": "sft-prompt-completion-v1",
+  "source_game_count": 2,
+  "note": "Reviewed reference training set: 24 fen_legal_moves_to_move rows from two scripted games (an Italian Game line and a Scandinavian Defense line), converted with the same build_sft_rows the export uses. Authored for the workshop so the cached training replay has a real, hashed dataset to point at; not collected from a live room.",
+  "rows": [
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d2d3, d2d4, e2e3, e2e4, f2f3, f2f4, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e2e4\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\nLegal moves (UCI): a7a5, a7a6, b7b5, b7b6, b8a6, b8c6, c7c5, c7c6, d7d5, d7d6, e7e5, e7e6, f7f5, f7f6, g7g5, g7g6, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e7e5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d1e2, d1f3, d1g4, d1h5, d2d3, d2d4, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f2f3, f2f4, g1e2, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"g1f3\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2\nLegal moves (UCI): a7a5, a7a6, b7b5, b7b6, b8a6, b8c6, c7c5, c7c6, d7d5, d7d6, d8e7, d8f6, d8g5, d8h4, e8e7, f7f5, f7f6, f8a3, f8b4, f8c5, f8d6, f8e7, g7g5, g7g6, g8e7, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"b8c6\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d1e2, d2d3, d2d4, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f3d4, f3e5, f3g1, f3g5, f3h4, g2g3, g2g4, h1g1, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"f1c4\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3\nLegal moves (UCI): a7a5, a7a6, a8b8, b7b5, b7b6, c6a5, c6b4, c6b8, c6d4, c6e7, d7d5, d7d6, d8e7, d8f6, d8g5, d8h4, e8e7, f7f5, f7f6, f8a3, f8b4, f8c5, f8d6, f8e7, g7g5, g7g6, g8e7, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"f8c5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c4a6, c4b3, c4b5, c4d3, c4d5, c4e2, c4e6, c4f1, c4f7, d1e2, d2d3, d2d4, e1e2, e1f1, e1g1, f3d4, f3e5, f3g1, f3g5, f3h4, g2g3, g2g4, h1f1, h1g1, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"c2c3\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R b KQkq - 0 4\nLegal moves (UCI): a7a5, a7a6, a8b8, b7b5, b7b6, c5a3, c5b4, c5b6, c5d4, c5d6, c5e3, c5e7, c5f2, c5f8, c6a5, c6b4, c6b8, c6d4, c6e7, d7d5, d7d6, d8e7, d8f6, d8g5, d8h4, e8e7, e8f8, f7f5, f7f6, g7g5, g7g6, g8e7, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"g8f6\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R w KQkq - 1 5\nLegal moves (UCI): a2a3, a2a4, b1a3, b2b3, b2b4, c4a6, c4b3, c4b5, c4d3, c4d5, c4e2, c4e6, c4f1, c4f7, d1a4, d1b3, d1c2, d1e2, d2d3, d2d4, e1e2, e1f1, e1g1, f3d4, f3e5, f3g1, f3g5, f3h4, g2g3, g2g4, h1f1, h1g1, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d2d3\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQK2R b KQkq - 0 5\nLegal moves (UCI): a7a5, a7a6, a8b8, b7b5, b7b6, c5a3, c5b4, c5b6, c5d4, c5d6, c5e3, c5e7, c5f2, c5f8, c6a5, c6b4, c6b8, c6d4, c6e7, d7d5, d7d6, d8e7, e8e7, e8f8, e8g8, f6d5, f6e4, f6g4, f6g8, f6h5, g7g5, g7g6, h7h5, h7h6, h8f8, h8g8\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d7d6\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6\nLegal moves (UCI): a2a3, a2a4, b1a3, b1d2, b2b3, b2b4, c1d2, c1e3, c1f4, c1g5, c1h6, c4a6, c4b3, c4b5, c4d5, c4e6, c4f7, d1a4, d1b3, d1c2, d1d2, d1e2, d3d4, e1d2, e1e2, e1f1, e1g1, f3d2, f3d4, f3e5, f3g1, f3g5, f3h4, g2g3, g2g4, h1f1, h1g1, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e1g1\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQ1RK1 b kq - 1 6\nLegal moves (UCI): a7a5, a7a6, a8b8, b7b5, b7b6, c5a3, c5b4, c5b6, c5d4, c5e3, c5f2, c6a5, c6b4, c6b8, c6d4, c6e7, c8d7, c8e6, c8f5, c8g4, c8h3, d6d5, d8d7, d8e7, e8d7, e8e7, e8f8, e8g8, f6d5, f6d7, f6e4, f6g4, f6g8, f6h5, g7g5, g7g6, h7h5, h7h6, h8f8, h8g8\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e8g8\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d2d3, d2d4, e2e3, e2e4, f2f3, f2f4, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e2e4\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1\nLegal moves (UCI): a7a5, a7a6, b7b5, b7b6, b8a6, b8c6, c7c5, c7c6, d7d5, d7d6, e7e5, e7e6, f7f5, f7f6, g7g5, g7g6, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d7d5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d1e2, d1f3, d1g4, d1h5, d2d3, d2d4, e1e2, e4d5, e4e5, f1a6, f1b5, f1c4, f1d3, f1e2, f2f3, f2f4, g1e2, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"e4d5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2\nLegal moves (UCI): a7a5, a7a6, b7b5, b7b6, b8a6, b8c6, b8d7, c7c5, c7c6, c8d7, c8e6, c8f5, c8g4, c8h3, d8d5, d8d6, d8d7, e7e5, e7e6, e8d7, f7f5, f7f6, g7g5, g7g6, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d8d5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kbnr/ppp1pppp/8/3q4/8/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3\nLegal moves (UCI): a2a3, a2a4, b1a3, b1c3, b2b3, b2b4, c2c3, c2c4, d1e2, d1f3, d1g4, d1h5, d2d3, d2d4, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f2f3, f2f4, g1e2, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"b1c3\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kbnr/ppp1pppp/8/3q4/8/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 3\nLegal moves (UCI): a7a5, a7a6, b7b5, b7b6, b8a6, b8c6, b8d7, c7c5, c7c6, c8d7, c8e6, c8f5, c8g4, c8h3, d5a2, d5a5, d5b3, d5b5, d5c4, d5c5, d5c6, d5d2, d5d3, d5d4, d5d6, d5d7, d5d8, d5e4, d5e5, d5e6, d5f3, d5f5, d5g2, d5g5, d5h5, e7e5, e7e6, e8d7, e8d8, f7f5, f7f6, g7g5, g7g6, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d5a5\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kbnr/ppp1pppp/8/q7/8/2N5/PPPP1PPP/R1BQKBNR w KQkq - 2 4\nLegal moves (UCI): a1b1, a2a3, a2a4, b2b3, b2b4, c3a4, c3b1, c3b5, c3d5, c3e2, c3e4, d1e2, d1f3, d1g4, d1h5, d2d3, d2d4, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f2f3, f2f4, g1e2, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"d2d4\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kbnr/ppp1pppp/8/q7/3P4/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 4\nLegal moves (UCI): a5a2, a5a3, a5a4, a5a6, a5b4, a5b5, a5b6, a5c3, a5c5, a5d5, a5e5, a5f5, a5g5, a5h5, a7a6, b7b5, b7b6, b8a6, b8c6, b8d7, c7c5, c7c6, c8d7, c8e6, c8f5, c8g4, c8h3, e7e5, e7e6, e8d7, e8d8, f7f5, f7f6, g7g5, g7g6, g8f6, g8h6, h7h5, h7h6\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"g8f6\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kb1r/ppp1pppp/5n2/q7/3P4/2N5/PPP2PPP/R1BQKBNR w KQkq - 1 5\nLegal moves (UCI): a1b1, a2a3, a2a4, b2b3, b2b4, c1d2, c1e3, c1f4, c1g5, c1h6, d1d2, d1d3, d1e2, d1f3, d1g4, d1h5, d4d5, e1d2, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f2f3, f2f4, g1e2, g1f3, g1h3, g2g3, g2g4, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"g1f3\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kb1r/ppp1pppp/5n2/q7/3P4/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 2 5\nLegal moves (UCI): a5a2, a5a3, a5a4, a5a6, a5b4, a5b5, a5b6, a5c3, a5c5, a5d5, a5e5, a5f5, a5g5, a5h5, a7a6, b7b5, b7b6, b8a6, b8c6, b8d7, c7c5, c7c6, c8d7, c8e6, c8f5, c8g4, c8h3, e7e5, e7e6, e8d7, e8d8, f6d5, f6d7, f6e4, f6g4, f6g8, f6h5, g7g5, g7g6, h7h5, h7h6, h8g8\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"c7c6\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kb1r/pp2pppp/2p2n2/q7/3P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 6\nLegal moves (UCI): a1b1, a2a3, a2a4, b2b3, b2b4, c1d2, c1e3, c1f4, c1g5, c1h6, d1d2, d1d3, d1e2, d4d5, e1d2, e1e2, f1a6, f1b5, f1c4, f1d3, f1e2, f3d2, f3e5, f3g1, f3g5, f3h4, g2g3, g2g4, h1g1, h2h3, h2h4\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"f1c4\"}"
+    },
+    {
+      "prompt": "You are a chess engine assistant.\n\nPosition (FEN): rnb1kb1r/pp2pppp/2p2n2/q7/2BP4/2N2N2/PPP2PPP/R1BQK2R b KQkq - 1 6\nLegal moves (UCI): a5a2, a5a3, a5a4, a5a6, a5b4, a5b5, a5b6, a5c3, a5c5, a5c7, a5d5, a5d8, a5e5, a5f5, a5g5, a5h5, a7a6, b7b5, b7b6, b8a6, b8d7, c6c5, c8d7, c8e6, c8f5, c8g4, c8h3, e7e5, e7e6, e8d7, e8d8, f6d5, f6d7, f6e4, f6g4, f6g8, f6h5, g7g5, g7g6, h7h5, h7h6, h8g8\n\nReturn exactly one move from the legal moves list, in UCI format.\nYou may add a one-sentence reason in the optional why field.\nRespond with JSON: {\"move\": \"<uci>\", \"why\": \"<optional short reason>\"}",
+      "completion": "{\"move\": \"c8f5\"}"
+    }
+  ]
+}

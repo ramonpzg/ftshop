@@ -119,7 +119,7 @@ function Section({ id, title, tip, icon, isEditing, children }: SectionProps) {
 
 export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const currentUser = useCurrentUser();
-  const { locked, resetToken } = usePresenterState();
+  const { locked, resetToken, isPresenter } = usePresenterState();
   const isOwnWorkspace = currentUser?.id === shape.props.userId;
   const { workspaceId } = shape.props;
 
@@ -146,9 +146,6 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [banter, setBanter] = useState<string | null>(null);
   const banterIndex = useRef(0);
   const [modelThinking, setModelThinking] = useState(false);
-  // Incremented after each applied model turn so the scenario section
-  // asks for a fresh read.
-  const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
   // Set when the model's turn ended without a move (provider
   // unreachable). The retry button is the manual recovery.
   const [modelUnavailable, setModelUnavailable] = useState(false);
@@ -178,7 +175,12 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       .then((status) => {
         if (cancelled) return;
         setLlm(status);
-        setOpponentModel((current) => current ?? status.opponent_models[0] ?? null);
+        // Attendees always play the room's default opponent (the room
+        // model policy; the backend 403s anything else). The presenter
+        // gets the picker's first offering.
+        setOpponentModel(
+          (current) => current ?? (isPresenter ? status.opponent_models[0] : status.model) ?? null,
+        );
       })
       .catch(() => {
         if (!cancelled) setLlm(null);
@@ -319,7 +321,6 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     if (response.outcome === "fallback_move" && response.detail) {
       setGameNotice(response.detail);
     }
-    setScenarioRefreshKey((key) => key + 1);
   }
 
   async function refreshGameStatus() {
@@ -468,6 +469,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const boardInteractive =
     isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking && participantTurn;
   const llmReady = llm?.configured === true;
+  // Timed model games are open to this client when it is the presenter
+  // (the presenter machine passes the backend's gates) or the operator
+  // opened room model play after the load test. Otherwise the board is
+  // free play and model inference is presenter-led; the backend
+  // enforces the same policy with 403s, this just avoids offering a
+  // button every click of which would be refused.
+  const modelPlayOpen = llmReady && (isPresenter || llm?.room_model_play === true);
   const llmHint = llmReady
     ? `A timed match against ${llm?.model} from the starting position. It answers every move.`
     : "Set OPENAI_API_KEY on the backend to enable the model opponent.";
@@ -529,7 +537,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       </button>
                     </>
                   )
-                ) : (
+                ) : !llmReady || modelPlayOpen ? (
                   <>
                     <select
                       value={timeLimit}
@@ -543,7 +551,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                         </option>
                       ))}
                     </select>
-                    {llmReady && (llm?.opponent_models.length ?? 0) > 1 && (
+                    {llmReady && isPresenter && (llm?.opponent_models.length ?? 0) > 1 && (
+                      // Presenter only: the room model policy sends every
+                      // attendee against the default opponent, and the
+                      // backend refuses non-default picks from other
+                      // machines anyway.
                       <select
                         value={opponentModel ?? ""}
                         onChange={(event) => setOpponentModel(event.target.value)}
@@ -567,6 +579,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       Start game
                     </button>
                   </>
+                ) : (
+                  <span className="workspace-freeplay-note" data-testid="freeplay-note">
+                    Free play today. Timed model games run on the
+                    presenter's machine.
+                  </span>
                 )}
                 {modelThinking && (
                   <span className="workspace-model-thinking">
@@ -679,7 +696,6 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
               workspaceId={workspaceId}
               llmReady={llmReady}
               canAct={isOwnWorkspace && isEditing && !locked}
-              refreshKey={scenarioRefreshKey}
             />
           </Section>
           <Section

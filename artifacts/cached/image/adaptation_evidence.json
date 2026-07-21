@@ -1,0 +1,56 @@
+{
+  "modality": "image",
+  "kind": "adaptation_evidence",
+  "payload": {
+    "result_source": "cached",
+    "chain": {
+      "pairs": {
+        "label": "24 (image, caption) pairs",
+        "detail": "Piece renders captioned with the trigger word wtrclrchess; drawings from the room join the same shape when persisted."
+      },
+      "adapter": {
+        "label": "wtrclrchess LoRA (illustrative)",
+        "base_model": "FLUX.2 Klein 4B",
+        "method": "LoRA r=16",
+        "status": "No image adapter was trained for this workshop. This card shows the provenance a real one carries: base model, dataset hash, config hash, runner."
+      },
+      "evaluation": {
+        "label": "12 held-out captions",
+        "status": "Cached illustrative values below; a real run needs a vision judge."
+      }
+    },
+    "before": {
+      "label": "Base output (illustrative)",
+      "file_url": "/artifacts/media/image/style_before.png",
+      "caption": "the prompt without the trigger word: a clean, unstylized bishop"
+    },
+    "after": {
+      "label": "Adapted output (illustrative)",
+      "file_url": "/artifacts/media/image/style_after.png",
+      "caption": "a wtrclrchess style white bishop, soft watercolor edges, plain background"
+    },
+    "metrics": [
+      {
+        "metric": "style_consistency",
+        "base": 0.41,
+        "adapted": 0.79,
+        "delta": 0.38,
+        "unit": "ratio",
+        "direction": "higher_is_better",
+        "verdict": "improved"
+      },
+      {
+        "metric": "piece_identity",
+        "base": 0.93,
+        "adapted": 0.88,
+        "delta": -0.05,
+        "unit": "ratio",
+        "direction": "higher_is_better",
+        "verdict": "regressed"
+      }
+    ],
+    "metrics_note": "Illustrative cached values. The trade-off is the honest part: pushing style hard usually costs a little identity.",
+    "media_provenance": "Both images composed locally by tools/make_media.py from the CC BY-SA 3.0 Cburnett bishop; no diffusion model produced them.",
+    "note": "The same conceptual chain the text page runs for real: pairs in, adapter out, eval always. Here every element is a reviewed cached illustration, because live image training is impractical in the room; the card says which parts are real files and which are illustrative numbers."
+  }
+}

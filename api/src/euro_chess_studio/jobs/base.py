@@ -12,6 +12,12 @@ class JobConfig:
     job_type: str
     params: dict
     workspace_id: str | None = field(default=None)
+    # The job_configs row id this execution will be persisted under.
+    # run_job generates it before invoking the runner and inserts the
+    # row after the runner returns, inside the same transaction, so a
+    # handler can link durable records to the configuration without the
+    # config insert holding the write lock while the handler works.
+    job_config_id: str | None = field(default=None)
 
 
 @dataclass(frozen=True)

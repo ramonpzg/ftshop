@@ -195,7 +195,15 @@ transaction too; every repository on this path (`job_configs_repo`,
 so a failure between them (a provider error while building the
 artifact, say) rolls back a job_config that would otherwise have no
 matching artifact, and eval numbers computed by a run whose artifact
-never landed.
+never landed. Order matters inside that transaction: identity first
+(a job naming a workspace is validated with a plain read before the
+runner is invoked, so a bad id fails in microseconds instead of after
+provider work), then the handler, then the config row, with the
+config id generated up front so handlers can reference it. A handler
+that talks to the network (the live benchmark) therefore gathers
+every reply before any write begins, and SQLite's single write lock
+is never held across a network wait -- attendees keep making moves
+while the presenter's benchmark waits on a provider.
 
 ### Turn ownership
 
@@ -360,6 +368,24 @@ Three runner implementations behind one interface (`jobs/base.py`):
 Callers, the `run_job` action and the frontend, only ever say "run
 job type X"; they never know or care which runner answered.
 
+The jobs route adds one policy on top: generation (image, video, all
+audio including local synthesis, live benchmarks; the classification
+is the pure `requests_presenter_generation` calculation) is refused
+with a 403 unless the request comes from the presenter's own machine.
+Local audio is included deliberately: it spends no provider money but
+loads multi-GB models onto the CPU/GPU serving the whole room. The
+same check (`routes/client_host.py`) guards the scenario-assessment
+route and non-default opponent picks on game start; together with
+scenario generation being manual (never auto-fired per model turn),
+this is the room model policy: attendees play the default local
+opponent, and everything that spends provider budget or presenter
+compute is one presenter's deliberate act. The backend binds
+localhost; the dev proxies overwrite any client-supplied
+X-Forwarded-For with the peer address they actually accepted and the
+backend trusts only the LAST hop, because a proxy that merely appends
+lets a client spoof "127.0.0.1, lan-ip" past a first-hop check. Free
+jobs (replayed fixtures, local evals) stay open to the room.
+
 ## Why some eval numbers are cached and some are computed
 
 `GET /evals` returns rows with a `source` of either `computed` or
@@ -416,11 +442,10 @@ repeat structure claim to be the identical evaluation. Two eval results
 with matching `position_set_id` were measured over the identical
 positions in the identical proportions and are honestly comparable; a
 mismatch means they were not, regardless of how similar their scope
-otherwise looks. This does not make the app capable of forcing two
-different models to play through identical positions -- there is no
-benchmark-runner here, only organic gameplay -- but it does make
-comparability provable after the fact instead of
-assumed from matching `model`/`checkpoint` alone.
+otherwise looks. Organic gameplay can never guarantee two models see
+the same positions; the benchmark runner (below) exists to force
+exactly that, and this hash is how a comparison proves it happened
+instead of assuming it from matching `model`/`checkpoint` alone.
 
 `eval_results`' storage identity is `(modality, metric, workspace,
 source, model, checkpoint, position_set_id)`: a base and an adapted
@@ -461,6 +486,128 @@ that note survives seeding, storage, the API, and rendering: the panel
 shows it under the value, so a cached number can never pose as live.
 The eval panel renders whatever the API returns; no component
 hardcodes a metric value.
+
+## The adaptation evidence chain
+
+Phase 34's teaching loop is four durable identities and one
+comparison, all owned by the backend:
+
+- `dataset_snapshots`: a frozen training set. Freezing
+  (`POST /adaptation/snapshots`, `actions/adaptation.py`) converts the
+  room's `fen_legal_moves_to_move` rows through the same
+  `build_sft_rows` the export uses, applies the phase-33 eligibility
+  rule (fallback and unknown actors are counted as excluded, never
+  included), carries scenario mappings as separate raw and
+  participant-approved counts, and stores the rows themselves
+  (`rows_json`) so a later page reset cannot hollow the snapshot out.
+  `content_hash` uses the position-set recipe: sorted, duplicates
+  preserved.
+- `eval_suites`: a frozen held-out benchmark. Durable example ids, the
+  exact FEN, legal move list, and rendered prompt per example, a
+  schema version, the prompt-contract version (`sft-v2`, the same
+  template training pairs use, whose optional `why` field invites an
+  in-JSON explanation), a content hash covering all of it, and
+  the suite's own `position_set_id`. The seeded suite repeats one
+  position on purpose: multiplicity is data. Validation is semantic,
+  not just structural: every FEN must be a *playable* python-chess
+  position (`board.is_valid()`, not merely parseable -- chess.Board
+  happily parses a kingless FEN and generates moves for it), the
+  stored legal-move list must equal the list derived from that FEN,
+  and the stored prompt must render exactly from the contract's
+  template, so a suite cannot smuggle in an impossible position, a
+  wrong move list, or an off-contract prompt and still freeze. State
+  assembly orders suites current-contract-first and flags the rest
+  (`current_contract`): an upgraded database keeps its old sft-v1
+  suite forever, and the panel's primary suite -- the one whose
+  comparison renders -- is always one this build actually verifies.
+- `adapters`: durable adapter provenance. Checkpoint label, base model
+  (always the unquantized training start, never the GGUF inference
+  repo; the serving alias is a third thing and the config keeps all
+  three distinct), method and parameters, seed, output task, config
+  id/hash/full json, dataset snapshot id and content hash, runner,
+  cached-versus-live `result_source`, limitations.
+- `benchmark_runs`: one row per benchmark execution, keyed by the same
+  id that lands as `run_id` on its eval rows and `benchmark_run_id` on
+  its attempts. Records the suite identity it ran against, checkpoint,
+  resolved model, live/replayed source, reply and failure counts, the
+  position set actually measured, and the `job_config_id` of the job
+  that produced it (a plain TEXT reference, not a foreign key: the
+  config row is written after the handler inside the same `run_job`
+  transaction, so an FK would point forward in insertion order).
+
+Two job types run the chain through the ordinary registry.
+`text.train_adapter` replays the reviewed cached training fixture and
+refuses to lie: the fixture is bound to the reference snapshot by
+content hash, so selecting any other snapshot is a 409, and a snapshot
+sharing any FEN with a held-out suite cannot train at all
+(training-data identity and evaluation-suite identity stay separate).
+A rerun over the same identity returns the existing adapter.
+`text.benchmark_eval` forces one checkpoint through one frozen suite.
+Replayed runs load reviewed replies and mark every attempt
+`reply_source='replayed'` with no provider request ids; live runs
+(base checkpoint only; the adapter has no live serving path and the
+error says so) call the opponent profile per example and record real
+request ids and transport provenance. The whole chain labels itself:
+the fixtures' notes, the artifact payloads, and the panel all say
+scripted illustration, no model was trained, so the replayed evidence
+teaches the shape of the loop without posing as a run that happened.
+A live run is bounded three ways: a per-call timeout, a whole-run
+deadline (60s default, `BENCHMARK_RUN_DEADLINE_SECONDS`, clamped
+10-300), and an abort after three consecutive transport failures;
+examples the run never reached are recorded as failures with the
+reason, so a hung provider costs the presenter a bounded wait, not
+the segment. Every attempt is a
+`model_attempts` row with `task='benchmark_move'`, a non-null
+checkpoint, the resolved model, and a null `workspace_id` (benchmark
+evidence belongs to the room, which is why that column went nullable
+in phase 34). A transport failure keeps its example out of every
+denominator, which honestly shrinks that run's position set.
+
+Metrics reuse the phase-33 calculations over those attempts --
+`compute_model_legal_move_rate` with a task parameter,
+`compute_valid_json_rate`, and the phase-34 `compute_explanation_rate`
+(the trade-off metric: the contract's optional `why` field, filled in
+the scripted base replies and absent from the scripted adapted ones,
+illustrating the trade bare-completion training would buy) --
+but their persistence differs from organic evals: benchmark metric
+rows are insert-only per run (`record_benchmark_metric`), keyed by
+their `run_id`, and are never replaced. Rerunning a benchmark adds a
+new run with new rows; the prior run's evidence is immutable history.
+Organic gameplay evals keep the `persist_metric` replace-per-identity
+rules described above, because there the newest measurement over a
+scope supersedes the older one instead of standing beside it as a
+separate run.
+
+The comparison (`calculations/comparison.py`, assembled by
+`GET /adaptation/state`) produces a signed delta with an
+improved/regressed/unchanged verdict only when the runs share a suite
+content hash, prompt contract, and model lineage -- the base run must
+record the same model the adapted run serves, because a live run of
+whatever the room has configured (Luna standing in for Gemma) is its
+own evidence, not the "before" of a fine-tuning pair -- and both
+metric rows carry the same non-null `position_set_id` and definition
+version. Selection honors lineage too: the latest lineage-matching
+base run is preferred, so a newer cross-model live run never
+displaces an honest pair, and when only a cross-model base exists the
+panel renders the refusal rather than nothing. Anything else is an
+explicit "not comparable" with the reason and both values still
+visible. The frontend's adaptation panel (a presenter-owned canvas
+shape on the text page) renders all of this and adds nothing to it;
+it polls the state on a short single-flight cadence, because tldraw
+sync carries none of it and "the room's shared evidence" is only
+shared if attendees actually receive updates. The panel also treats
+"Stop waiting" honestly: aborting the browser request cancels nothing
+server-side, so live controls stay locked until the run lands through
+the poll or the server's own deadline ceiling passes.
+
+The non-text modalities show the same conceptual chain as reviewed
+`{modality}.adaptation_evidence` replay fixtures: pairs, an
+illustrative adapter card, a real local before/after media pair, and
+cached metric rows that each include one regression. The committed
+media lives under `artifacts/cached/media/` (generated in-repo by
+`just make-media`, provenance in docs/licenses.md) and is served
+read-only by `GET /artifacts/media/{modality}/{name}`, so an expired
+provider URL or dead venue network can never break a reveal.
 
 ## Presenter navigation
 

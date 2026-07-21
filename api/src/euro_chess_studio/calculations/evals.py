@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from euro_chess_studio.calculations.llm_prompts import extract_json_object
+from euro_chess_studio.calculations.llm_prompts import extract_json_object, has_explanation_field
 
 # Each row is a dict or sqlite3.Row -- anything indexable by column name.
 Row = Any
@@ -28,6 +28,9 @@ Row = Any
 LEGAL_MOVE_RATE_VERSION = "2"
 MODEL_LEGAL_MOVE_RATE_VERSION = "1"
 VALID_JSON_RATE_VERSION = "2"
+# v2: counts the contract's optional "why" field instead of prose
+# outside the JSON, which the contract forbids and v1 wrongly rewarded.
+EXPLANATION_RATE_VERSION = "2"
 
 
 @dataclass(frozen=True)
@@ -120,20 +123,27 @@ def compute_model_legal_move_rate(
     model: str | None = None,
     game_id: str | None = None,
     checkpoint: str | None = None,
+    task: str = "move",
 ) -> MetricResult:
     """Share of received model replies that contained a legal move.
 
-    The sample is move-task attempts by actor 'model' that produced a
+    The sample is one task's attempts by actor 'model' that produced a
     reply at all; transport failures are not the model's answer and stay
     out of the denominator. Every retry counts as its own attempt.
     Fallback moves have actor 'fallback' and never enter this metric.
+
+    The task defaults to organic game moves; the benchmark runner passes
+    'benchmark_move' so the same calculation scores frozen-suite replies
+    without ever pooling them with live gameplay.
 
     model and checkpoint scope the sample to one version so a base and
     an adapted model's results can be computed, stored, and compared
     side by side instead of one overwriting the other.
     """
-    definition = "attempts whose reply parsed to a legal move / model replies received (task=move)"
-    scope: dict = {"task": "move", "actor": "model"}
+    definition = (
+        f"attempts whose reply parsed to a legal move / model replies received (task={task})"
+    )
+    scope: dict = {"task": task, "actor": "model"}
     if model is not None:
         scope["model"] = model
     if game_id is not None:
@@ -144,7 +154,7 @@ def compute_model_legal_move_rate(
     sample = [
         attempt
         for attempt in attempts
-        if attempt["task"] == "move"
+        if attempt["task"] == task
         and attempt["actor"] == "model"
         and attempt["raw_response"] is not None
         and (model is None or attempt["model"] == model)
@@ -217,6 +227,58 @@ def compute_valid_json_rate(
         denominator=len(sample),
         definition=definition,
         version=VALID_JSON_RATE_VERSION,
+        scope=scope,
+        sample_ids=tuple(attempt["id"] for attempt in sample),
+        positions=tuple(attempt["fen"] for attempt in sample),
+    )
+
+
+def compute_explanation_rate(
+    attempts: Sequence[Row],
+    *,
+    task: str | None = None,
+    model: str | None = None,
+    checkpoint: str | None = None,
+) -> MetricResult:
+    """Share of received replies whose JSON carries the optional "why"
+    explanation the sft-v2 contract invites.
+
+    Higher is better for a model meant to teach, and legitimately so:
+    the explanation lives inside the JSON the prompt asks for, so a
+    reply cannot score here by breaking the format. This is the
+    workshop's honest trade-off metric -- an adapter trained on
+    bare-completion pairs gets better at legality and format while this
+    number falls, because nothing in the training data filled the why
+    field.
+    """
+    definition = 'replies whose JSON includes a non-empty "why" field / replies received'
+    scope: dict = {}
+    if task is not None:
+        scope["task"] = task
+    if model is not None:
+        scope["model"] = model
+    if checkpoint is not None:
+        scope["checkpoint"] = checkpoint
+
+    sample = [
+        attempt
+        for attempt in attempts
+        if attempt["raw_response"] is not None
+        and (task is None or attempt["task"] == task)
+        and (model is None or attempt["model"] == model)
+        and (checkpoint is None or attempt["checkpoint"] == checkpoint)
+    ]
+    if not sample:
+        return _unavailable("explanation_rate", definition, EXPLANATION_RATE_VERSION, scope)
+    explained = sum(1 for attempt in sample if has_explanation_field(attempt["raw_response"]))
+    return MetricResult(
+        metric="explanation_rate",
+        available=True,
+        value=explained / len(sample),
+        numerator=explained,
+        denominator=len(sample),
+        definition=definition,
+        version=EXPLANATION_RATE_VERSION,
         scope=scope,
         sample_ids=tuple(attempt["id"] for attempt in sample),
         positions=tuple(attempt["fen"] for attempt in sample),

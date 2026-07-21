@@ -1,0 +1,53 @@
+{
+  "modality": "text",
+  "kind": "adapter_training",
+  "result_source": "cached",
+  "dataset_content_hash": "d03be7acc35d1b96",
+  "config_id": "text-gemma-lora-v1",
+  "config_hash": "0aa29351f8085e56",
+  "training": {
+    "steps": 9,
+    "epochs": 3,
+    "duration_seconds": 312.4,
+    "loss_curve": [
+      {
+        "step": 1,
+        "loss": 2.84
+      },
+      {
+        "step": 2,
+        "loss": 2.31
+      },
+      {
+        "step": 3,
+        "loss": 1.92
+      },
+      {
+        "step": 4,
+        "loss": 1.44
+      },
+      {
+        "step": 5,
+        "loss": 1.08
+      },
+      {
+        "step": 6,
+        "loss": 0.83
+      },
+      {
+        "step": 7,
+        "loss": 0.66
+      },
+      {
+        "step": 8,
+        "loss": 0.58
+      },
+      {
+        "step": 9,
+        "loss": 0.54
+      }
+    ],
+    "trainer": "Scripted illustration of a TRL SFTTrainer run over the unquantized checkpoint"
+  },
+  "note": "Scripted illustration: no model was trained. This fixture is a scripted stand-in for a training run, bound to the reference-sft-v1 snapshot by content hash so it can never pose as training on other data. The loss curve is an authored illustrative trace, not a measurement."
+}

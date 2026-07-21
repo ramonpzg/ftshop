@@ -14,8 +14,12 @@ def insert_job_config(
     workspace_id: str | None,
     job_type: str,
     params: dict,
+    job_config_id: str | None = None,
 ) -> sqlite3.Row:
-    job_config_id = generate_id("job")
+    """job_config_id lets run_job hand the id to a handler before this
+    row exists (the row lands later in the same transaction); omitted,
+    one is generated here."""
+    job_config_id = job_config_id or generate_id("job")
     created_at = datetime.now(UTC).isoformat()
     conn.execute(
         """

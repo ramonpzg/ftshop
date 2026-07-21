@@ -117,6 +117,10 @@ export function buildDeckPanelRecord(base: ShapeBase, url: string): CanvasRecord
   return shapeRecord(base, "deck-panel", { w: 1440, h: 850, url });
 }
 
+export function buildAdaptationPanelRecord(base: ShapeBase, pageSlug: string): CanvasRecord {
+  return shapeRecord(base, "adaptation-panel", { w: 1400, h: 1040, pageSlug });
+}
+
 export function buildDocumentRecord(): CanvasRecord {
   return {
     id: "document:document",
