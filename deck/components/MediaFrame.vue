@@ -1,5 +1,5 @@
 <template>
-  <figure class="media-frame" :style="{ maxWidth: width }">
+  <figure class="media-frame" :class="{ centered }" :style="{ maxWidth: width }">
     <div
       class="stage"
       :class="{ dark, audio: kind === 'audio', capped: !!height && kind !== 'audio' }"
@@ -59,6 +59,8 @@ const props = defineProps({
    * Portrait media must set this or it overflows the 16:9 canvas. */
   height: { type: String, default: "" },
   dark: { type: Boolean, default: false },
+  /** Float the complete frame in the center of the slide. */
+  centered: { type: Boolean, default: false },
 });
 
 const failed = ref(false);
@@ -80,6 +82,14 @@ watch(
 .media-frame {
   margin: 0;
   width: 100%;
+}
+
+.media-frame.centered {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  height: max-content;
+  margin: auto;
 }
 
 .stage {
