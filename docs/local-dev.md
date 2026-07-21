@@ -107,7 +107,8 @@ startup, never overriding the shell, never committed):
 | `OPENAI_BASE_URL` | Any OpenAI-compatible endpoint | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | Analysis and the default opponent | `gpt-5.6-luna` |
 | `OPPONENT_MODELS` | Extra opponents in the Start game picker, comma-separated | unset (default model only) |
-| `OPPONENT_ENDPOINT_IS_LOCAL` | Set to `1` to attest the opponent endpoint is a local model on the room's own hardware; a loopback `OPENAI_BASE_URL` counts automatically. Without one of the two, non-presenter game starts are refused | unset (fail closed for attendees) |
+| `OPPONENT_ENDPOINT_IS_LOCAL` | Set to `1` to attest the opponent endpoint is a local model on the room's own hardware; a loopback `OPENAI_BASE_URL` counts automatically. The budget half of the attendee gate | unset (fail closed for attendees) |
+| `ROOM_MODEL_PLAY` | Set to `1` to open attendee timed games and model replies, after `just load-test 40` against the real endpoint showed model-move p95 inside the turn deadline. The capacity half of the attendee gate; locality alone never opens the room | unset (attendees free-play; inference is presenter-led) |
 | `VIDEO_PROMPT_API_KEY` | Scene-writing calls when the opponent runs elsewhere | falls back to `OPENAI_API_KEY` |
 | `VIDEO_PROMPT_BASE_URL` | Scene-writing endpoint | falls back to `OPENAI_BASE_URL` |
 | `VIDEO_PROMPT_MODEL` | Scene-writing model | `gpt-5.6-luna` |
@@ -140,11 +141,15 @@ and a hosted endpoint at the same time needs per-model endpoints,
 which is the phase 4b named-profile registry, not this table.
 
 The room policy fails closed on top of this. A browser that is not on
-the presenter's machine can only start games when the opponent
-endpoint is known local (loopback base URL, or the attestation
-above). Solo development on one laptop is loopback and never notices;
-a phone on your LAN pointed at the dev server will be refused until
-you attest the endpoint, which is the intended behavior, not a bug.
+the presenter's machine can only start timed games or trigger model
+replies when the opponent endpoint is known local (loopback base URL,
+or the attestation above) and `ROOM_MODEL_PLAY=1` is set after the
+real-endpoint load test. Solo development on one laptop is loopback
+and never notices; a phone on your LAN pointed at the dev server gets
+free play until you set both, which is the intended behavior, not a
+bug. Locality and capacity are separate gates because they fail
+differently: a hosted endpoint burns money, a local one queues forty
+requests behind one server until every turn deadline expires.
 
 The shared text client calls `/chat/completions`. It does not use the
 Responses API. It retries rate limits, server failures, and transport

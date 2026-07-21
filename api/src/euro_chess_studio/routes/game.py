@@ -43,7 +43,7 @@ from euro_chess_studio.data.llm_client import (
     get_llm_model,
     get_opponent_models,
     is_llm_configured,
-    is_opponent_endpoint_local,
+    is_room_model_play_open,
 )
 from euro_chess_studio.deps import get_db
 from euro_chess_studio.routes.client_host import require_presenter_machine
@@ -97,6 +97,19 @@ class StartGameRequest(BaseModel):
     opponent_model: str | None = None
 
 
+def _room_model_play_closed_detail(activity: str) -> str:
+    """The teaching refusal for a closed room: names both gates and the
+    workflow that opens them, so the operator reading the 403 knows
+    exactly what to run and set."""
+    return (
+        f"{activity} while room model play is closed (opening it to "
+        "attendees takes a known-local endpoint, loopback "
+        "OPENAI_BASE_URL or OPPONENT_ENDPOINT_IS_LOCAL=1, plus "
+        "ROOM_MODEL_PLAY=1 set after the room-scale load test against "
+        "the real endpoint)"
+    )
+
+
 def _game_status_out(status: GameStatus) -> GameStatusOut:
     game = None
     if status.game is not None:
@@ -136,21 +149,18 @@ def post_start_game(
     # -- the frontier beat -- is a presenter move, because forty
     # attendees on a metered model is a budget burst and forty on a
     # second local model is a second way to sink the presenter's GPU.
-    # The default itself is only open to the room when the endpoint
-    # serving it is known local (loopback OPENAI_BASE_URL, or the
-    # operator's OPPONENT_ENDPOINT_IS_LOCAL=1 for a local endpoint on
-    # another LAN box). Out of the box the default is Luna on a hosted
-    # endpoint, and a policy that trusts configuration to be perfect is
-    # how forty browsers each open a paid call stream.
+    # The default itself is only open to the room when both gates hold:
+    # the endpoint is known local (loopback OPENAI_BASE_URL or
+    # OPPONENT_ENDPOINT_IS_LOCAL=1; protects the budget) and the
+    # operator set ROOM_MODEL_PLAY=1 after the room-scale load test
+    # (protects capacity: forty simultaneous requests queue behind one
+    # llama.cpp server and exhaust the model-turn deadlines whether or
+    # not the endpoint is free). Without both, attendees free-play and
+    # model inference stays presenter-led.
     if body.opponent_model is not None and body.opponent_model != get_llm_model():
         require_presenter_machine(request, "starting a game against a non-default model")
-    elif not is_opponent_endpoint_local():
-        require_presenter_machine(
-            request,
-            "starting a game against the default opponent, which is not "
-            "on a known-local endpoint (set OPPONENT_ENDPOINT_IS_LOCAL=1 "
-            "when a local model serves the room)",
-        )
+    elif not is_room_model_play_open():
+        require_presenter_machine(request, _room_model_play_closed_detail("a timed model game"))
     try:
         return _game_status_out(
             start_game(conn, workspace_id, body.time_limit_seconds, body.opponent_model)
@@ -189,6 +199,11 @@ class LlmStatusOut(BaseModel):
     configured: bool
     model: str
     opponent_models: list[str]
+    # Whether attendee model play is open (local endpoint plus the
+    # operator's post-load-test ROOM_MODEL_PLAY=1). Attendee clients
+    # use this to offer free play instead of a Start button whose
+    # every click would 403.
+    room_model_play: bool
 
 
 @router.get("/llm/status")
@@ -197,6 +212,7 @@ def llm_status() -> LlmStatusOut:
         configured=is_llm_configured(),
         model=get_llm_model(),
         opponent_models=get_opponent_models(),
+        room_model_play=is_room_model_play_open(),
     )
 
 
@@ -321,7 +337,17 @@ def _map_llm_errors(exc: Exception) -> HTTPException:
 
 
 @router.post("/workspaces/{workspace_id}/model-move")
-def post_model_move(workspace_id: str, conn: sqlite3.Connection = Depends(get_db)) -> ModelTurnOut:
+def post_model_move(
+    workspace_id: str, request: Request, conn: sqlite3.Connection = Depends(get_db)
+) -> ModelTurnOut:
+    # The same two gates as starting a timed model game: a model turn
+    # is one inference request, model_turn works on free-play boards
+    # too (no active game required), and forty attendees triggering
+    # replies saturate a local server exactly as well as forty timed
+    # games do. The UI never requests replies outside a game, but the
+    # policy cannot live in the UI.
+    if not is_room_model_play_open():
+        require_presenter_machine(request, _room_model_play_closed_detail("a model reply"))
     try:
         result = model_turn(conn, workspace_id)
     except (GameClockExpiredError, NotYourTurnError) as exc:

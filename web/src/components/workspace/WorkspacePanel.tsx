@@ -469,6 +469,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const boardInteractive =
     isEditing && isOwnWorkspace && !locked && !movePending && !modelThinking && participantTurn;
   const llmReady = llm?.configured === true;
+  // Timed model games are open to this client when it is the presenter
+  // (the presenter machine passes the backend's gates) or the operator
+  // opened room model play after the load test. Otherwise the board is
+  // free play and model inference is presenter-led; the backend
+  // enforces the same policy with 403s, this just avoids offering a
+  // button every click of which would be refused.
+  const modelPlayOpen = llmReady && (isPresenter || llm?.room_model_play === true);
   const llmHint = llmReady
     ? `A timed match against ${llm?.model} from the starting position. It answers every move.`
     : "Set OPENAI_API_KEY on the backend to enable the model opponent.";
@@ -530,7 +537,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       </button>
                     </>
                   )
-                ) : (
+                ) : !llmReady || modelPlayOpen ? (
                   <>
                     <select
                       value={timeLimit}
@@ -572,6 +579,11 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                       Start game
                     </button>
                   </>
+                ) : (
+                  <span className="workspace-freeplay-note" data-testid="freeplay-note">
+                    Free play today. Timed model games run on the
+                    presenter's machine.
+                  </span>
                 )}
                 {modelThinking && (
                   <span className="workspace-model-thinking">

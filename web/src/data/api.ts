@@ -208,6 +208,10 @@ export interface LlmStatus {
   configured: boolean;
   model: string;
   opponent_models: string[];
+  // Whether attendee model play is open: local endpoint plus the
+  // operator's post-load-test ROOM_MODEL_PLAY=1. Attendee clients
+  // offer free play instead of a Start button that would only 403.
+  room_model_play: boolean;
 }
 
 export function fetchLlmStatus(): Promise<LlmStatus> {

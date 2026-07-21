@@ -14,6 +14,16 @@ latency percentiles and error counts.
 Without an LLM configured on the backend the sim plays both sides
 itself, which still exercises moves, dataset writes, and polling, just
 not the thread-holding upstream calls.
+
+The mock run proves the backend, not inference. The run that decides
+whether the room may play the model is the same command with the
+backend pointed at the real local endpoint (llama.cpp serving Gemma)
+on the venue machine: the "POST model-move" row then measures actual
+inference under room-scale concurrency. ROOM_MODEL_PLAY=1 is set only
+when that row's p95 sits inside MODEL_TURN_DEADLINE_SECONDS with no
+errors; docs/demo-plan.md has the workflow. The sim connects from
+loopback, so it passes the room policy's presenter-machine gates
+without any flags: it can always measure a closed room.
 """
 
 import argparse

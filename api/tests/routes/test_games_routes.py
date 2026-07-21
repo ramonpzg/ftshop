@@ -11,12 +11,13 @@ from euro_chess_studio.main import app
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CHESS_STUDIO_DB_PATH", str(tmp_path / "test.db"))
-    # The room model policy fails closed: attendees may only play the
-    # default opponent when its endpoint is known local. These tests
-    # model the full-room configuration (a local model serving the
-    # room); the fail-closed test removes this to prove the closed
+    # The room model policy fails closed: attendee model play needs a
+    # known-local endpoint (budget) AND the operator's post-load-test
+    # ROOM_MODEL_PLAY=1 (capacity). These tests model the fully opened
+    # room; the fail-closed tests remove the gates to prove the closed
     # posture.
     monkeypatch.setenv("OPPONENT_ENDPOINT_IS_LOCAL", "1")
+    monkeypatch.setenv("ROOM_MODEL_PLAY", "1")
     with TestClient(app) as test_client:
         yield test_client
 
@@ -336,12 +337,16 @@ def test_the_room_model_policy_fails_closed_without_a_local_endpoint(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
     """Whatever OPENAI_MODEL names, an attendee start is refused unless
-    the opponent endpoint is known local: a loopback OPENAI_BASE_URL or
-    an explicit OPPONENT_ENDPOINT_IS_LOCAL=1. The out-of-the-box
-    default is Luna on a hosted endpoint, and forty attendees playing
-    it is forty paid call streams, so imperfect configuration must
-    refuse instead of spend."""
+    both gates hold: a known-local endpoint (loopback OPENAI_BASE_URL
+    or OPPONENT_ENDPOINT_IS_LOCAL=1; the budget gate) and the
+    operator's post-load-test ROOM_MODEL_PLAY=1 (the capacity gate).
+    The out-of-the-box default is Luna on a hosted endpoint, forty
+    attendees playing it is forty paid call streams, and forty against
+    one local llama.cpp is a queue that exhausts the model-turn
+    deadlines, so imperfect configuration must refuse instead of
+    degrade."""
     monkeypatch.delenv("OPPONENT_ENDPOINT_IS_LOCAL", raising=False)
+    monkeypatch.delenv("ROOM_MODEL_PLAY", raising=False)
     workspace_id = make_workspace(client)
     lan = {"x-forwarded-for": "192.168.1.23"}
 
@@ -349,6 +354,7 @@ def test_the_room_model_policy_fails_closed_without_a_local_endpoint(
     assert implied_default.status_code == 403
     assert "presenter" in implied_default.json()["detail"]
     assert "OPPONENT_ENDPOINT_IS_LOCAL" in implied_default.json()["detail"]
+    assert "ROOM_MODEL_PLAY" in implied_default.json()["detail"]
 
     named_default = client.post(
         f"/workspaces/{workspace_id}/game/start",
@@ -357,17 +363,48 @@ def test_the_room_model_policy_fails_closed_without_a_local_endpoint(
     )
     assert named_default.status_code == 403
 
-    # The presenter's machine spends its own budget knowingly; the
-    # closed posture does not apply to it.
+    # Locality alone does not open the room: a loopback llama.cpp still
+    # queues forty simultaneous requests. Capacity is attested
+    # separately, after the real load test.
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:8080/v1")
+    local_only = client.post(f"/workspaces/{workspace_id}/game/start", json={}, headers=lan)
+    assert local_only.status_code == 403
+
+    # The presenter's machine spends its own budget and compute
+    # knowingly; the closed posture does not apply to it.
     presenter = client.post(f"/workspaces/{workspace_id}/game/start", json={}, headers=PRESENTER)
     assert presenter.status_code == 200
 
-    # A loopback base URL is itself evidence of a local endpoint; no
-    # attestation needed for the common one-laptop setup.
-    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:8080/v1")
+    # Both gates: loopback base URL (locality derived) plus the
+    # capacity attestation opens attendee play.
+    monkeypatch.setenv("ROOM_MODEL_PLAY", "1")
     other_workspace = make_workspace(client, "Grace")
-    loopback = client.post(f"/workspaces/{other_workspace}/game/start", json={}, headers=lan)
-    assert loopback.status_code == 200
+    opened = client.post(f"/workspaces/{other_workspace}/game/start", json={}, headers=lan)
+    assert opened.status_code == 200
+
+
+def test_model_replies_are_gated_by_room_model_play(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """A model reply is one inference request and model_turn works on
+    free-play boards too, so the capacity gate must hold at /model-move
+    itself, not only at game start: the UI never asks for replies
+    outside a game, but the policy cannot live in the UI."""
+    monkeypatch.delenv("ROOM_MODEL_PLAY", raising=False)
+    workspace_id = make_workspace(client)
+    lan = {"x-forwarded-for": "192.168.1.23"}
+
+    refused = client.post(f"/workspaces/{workspace_id}/model-move", headers=lan)
+    assert refused.status_code == 403
+    assert "presenter" in refused.json()["detail"]
+
+    # With the room opened, the same request passes the policy and
+    # fails only on the unconfigured client: proof the gate, not the
+    # key, was what refused above.
+    monkeypatch.setenv("ROOM_MODEL_PLAY", "1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    opened = client.post(f"/workspaces/{workspace_id}/model-move", headers=lan)
+    assert opened.status_code == 503
 
 
 def test_assessment_is_refused_for_lan_clients(client: TestClient):

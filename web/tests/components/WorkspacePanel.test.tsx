@@ -76,6 +76,7 @@ function routedFetch(
     expiredAway?: boolean;
     checkOnMove?: boolean;
     opponentModels?: string[];
+    roomModelPlay?: boolean;
     scenario?: Record<string, unknown> | null;
     // Overrides the seeded latest_success independently of `scenario`,
     // for a workspace whose most recent attempt failed but an earlier
@@ -250,6 +251,9 @@ function routedFetch(
           configured: true,
           model: "gpt-5.6-luna",
           opponent_models: opts.opponentModels ?? ["gpt-5.6-luna"],
+          // Most tests model the opened room (the load-tested local
+          // endpoint); the closed-room test overrides this.
+          room_model_play: opts.roomModelPlay ?? true,
         }),
       );
     }
@@ -678,6 +682,34 @@ describe("WorkspacePanel", () => {
     expect(JSON.parse(String((startCall?.[1] as RequestInit).body)).opponent_model).toBe(
       "gpt-5.6-luna",
     );
+  });
+
+  test("a closed room offers attendees free play, not a Start button that 403s", async () => {
+    globalThis.fetch = routedFetch({ roomModelPlay: false }) as unknown as typeof fetch;
+    render(
+      <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
+        <WorkspacePanel shape={makeShape()} isEditing={true} />
+      </CurrentUserContext.Provider>,
+    );
+
+    await waitFor(() => screen.getByTestId("freeplay-note"));
+    expect(screen.getByTestId("freeplay-note").textContent).toContain("Free play");
+    expect(screen.queryByTestId("start-game")).toBeNull();
+    // The board itself stays fully interactive: free play is the room
+    // workflow, not a lockout.
+    fireEvent.click(screen.getByTestId("square-e2"));
+    fireEvent.click(screen.getByTestId("square-e4"));
+    await waitFor(() => expect(screen.getByText("FEN -> move")).toBeTruthy());
+  });
+
+  test("the presenter client keeps timed games when the room is closed", async () => {
+    globalThis.fetch = routedFetch({ roomModelPlay: false }) as unknown as typeof fetch;
+    renderAsPresenter(<WorkspacePanel shape={makeShape()} isEditing={true} />);
+
+    // Gemma inference stays presenter-led: the presenter machine
+    // passes the backend's gates, so the controls stay.
+    await waitFor(() => screen.getByTestId("start-game"));
+    expect(screen.queryByTestId("freeplay-note")).toBeNull();
   });
 
   test("a checking move earns a pun", async () => {

@@ -72,11 +72,16 @@ Prep checklist, in order, on the actual laptop:
    the model answer; if not, the fallback plan below covers it. For
    the full room, point OPENAI_BASE_URL at the llama.cpp endpoint
    serving the local Gemma: the default is what every attendee plays.
-   The backend fails closed on this. Attendee game starts are refused
-   unless the opponent endpoint is known local (a loopback
-   OPENAI_BASE_URL, or OPPONENT_ENDPOINT_IS_LOCAL=1 when the local
-   endpoint runs on another LAN box), so a half-configured room
-   refuses games instead of routing forty browsers to a hosted model.
+   The backend fails closed on this, twice over. Attendee game starts
+   and model replies are refused unless the opponent endpoint is known
+   local (a loopback OPENAI_BASE_URL, or OPPONENT_ENDPOINT_IS_LOCAL=1
+   when the local endpoint runs on another LAN box) AND
+   ROOM_MODEL_PLAY=1 is set. Set that flag only after the real load
+   test below passed on this laptop: locality protects the budget,
+   not capacity, and a half-configured room refuses games instead of
+   routing forty browsers to a hosted model or piling them onto one
+   llama.cpp queue. Without the flag the room free-plays and Gemma is
+   presenter-led (segment 5 has both modes).
    Know the limit: every picker entry resolves against that one base
    URL and key. Offering the local Gemma default and a hosted Luna in
    the same picker needs per-model endpoints, which is the phase 4b
@@ -105,9 +110,19 @@ SFT dataset, Download all shapes). Presenter actions reach attendee
 browsers within a few seconds. Adaptation-panel controls render only
 for the presenter client; attendees see the evidence read-only.
 
-The week before: run the load test once on the actual laptop
-(`just mock-llm`, backend pointed at it, `just load-test 40`), and time
-this whole run of show once for real.
+The week before: two load tests on the actual laptop, and time this
+whole run of show once for real. First `just mock-llm` with the
+backend pointed at it and `just load-test 40`: proves the backend
+itself (moves, dataset writes, polling) holds under the room. Then
+the one that decides segment 5's mode: point the backend at the real
+llama.cpp Gemma endpoint and run `just load-test 40` again. Read the
+"POST model-move" row of the latency report. If p95 sits inside
+MODEL_TURN_DEADLINE_SECONDS (30 s default) with the error column at
+zero, record the numbers and set ROOM_MODEL_PLAY=1 for the workshop:
+the room plays Gemma directly. If it does not, leave the flag unset
+and run segment 5 in its free-play mode; do not shorten the deadline
+or thin the room to force a pass. The mock run says nothing about
+inference capacity; only the real run does.
 
 ## Run of show
 
@@ -202,12 +217,29 @@ late, and the fallback when something fails.
 
 Switch to the board. Send users to their workspace. Unlock editing.
 
+This segment has two room modes, decided the week before by the real
+load test, never on the day. Locality is not capacity: forty
+simultaneous requests queue behind one llama.cpp server and exhaust
+the 30-second model-turn deadlines even though every call is free.
+The backend enforces the choice: attendee timed games and model
+replies are refused unless ROOM_MODEL_PLAY=1 is set, and that flag is
+set only after the recorded load test passed. Attendee panels show
+"Free play today" instead of a Start button when the room is closed.
+
 - Predict: whether the small local model will beat them; whether their
   own moves are all legal.
-- Participants: hands-on. Double-click their workspace, Start game
-  (five minutes), play the configured model. Open one dataset tab
-  before moving and leave it open: the newest row replaces the old one
-  in place. That is the aha; do not rush it.
+- Participants, opened room (load test passed, ROOM_MODEL_PLAY=1):
+  hands-on. Double-click their workspace, Start game (five minutes),
+  play the configured model. Open one dataset tab before moving and
+  leave it open: the newest row replaces the old one in place. That is
+  the aha; do not rush it.
+- Participants, closed room (the default): free play. Pair with a
+  neighbor on one board or play both sides; every legal and illegal
+  move lands in the same dataset tab with the same replace-in-place
+  aha and the same reward -1 lesson. Model inference happens once,
+  presenter-led on the projector: the presenter starts the timed game
+  and the room watches Gemma answer, then everyone reads their own
+  rows. The data story is identical; only who the opponent is changes.
 - Artifact: their own dataset rows, plus one illegal-move attempt on
   purpose: board unchanged, reward -1. If the model answers garbage,
   celebrate: the failed attempt lands in model_attempts, the turn
