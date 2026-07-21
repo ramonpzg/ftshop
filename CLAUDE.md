@@ -16,10 +16,11 @@ assume `main` is already the release build.
 Everything goes through the Justfile. Do not add one-off scripts.
 
 ```
-just install      # bun install + uv sync
+just install      # all core surfaces; use --whiteboard, --deck, --nb, etc. to limit it
 just start        # backend :8000 + sync room :8010 + frontend :5173
 just deck         # Slidev :3030
 just session-notebook # standalone JupyterLab notebook
+just room-url     # print the LAN URL attendees use
 just test         # pytest + bun test
 just test-e2e     # Playwright; uses its own browser discovery, override with CHESS_STUDIO_CHROMIUM
 just lint         # ruff + biome

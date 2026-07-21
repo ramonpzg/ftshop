@@ -42,6 +42,18 @@ just install
 just start
 ```
 
+The default install covers the whiteboard, backend, deck, and standalone
+notebook. On a weak connection, install only the surface you need:
+
+```bash
+just install --whiteboard  # web, sync room, and API
+just install --deck
+just install --nb          # locked root .venv used by Zed and Jupyter
+```
+
+These core installs do not download model weights or the optional multi-GB
+audio stack.
+
 Open <http://localhost:5173>. The API runs at <http://localhost:8000>.
 The deck and Jupyter notebook are separate processes:
 
@@ -59,12 +71,12 @@ The local Gemma baseline is
 `google/gemma-4-E2B-it-qat-q4_0-gguf`. For llama.cpp, start it with:
 
 ```bash
-just download-models  # Gemma, MusicGen, Stable Audio; download and verify
+just download-models  # Gemma and MusicGen; download and verify
 just start-gemma      # OpenAI-compatible API on http://127.0.0.1:8080/v1
 ```
 
-Stable Audio is gated. Accept its Hugging Face license and set `HF_TOKEN`
-before running `just download-models`.
+Stable Audio remains an optional, commented model in the download recipe. It
+is not part of the workshop's required path.
 
 That repository is a deployment-ready QAT GGUF. Trainer examples use the
 matching `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights, then convert the
@@ -83,9 +95,10 @@ Run `just` to list the full command surface. The regular development commands
 are:
 
 ```text
-just install          Install web, API, deck, and Jupyter dependencies
+just install          Install all core surfaces; flags select individual ones
 just download-models  Download and verify all local models
 just start            Run API :8000, the canvas sync room :8010, and web :5173
+just room-url         Print the board URL for devices on the same network
 just start-gemma      Run Gemma 4 through llama.cpp on :8080
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook

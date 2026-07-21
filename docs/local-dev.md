@@ -14,10 +14,26 @@ just install
 just start
 ```
 
+`just install` installs all four core surfaces. It deliberately excludes
+model downloads and optional audio dependencies. Limit it when bandwidth or
+time matters:
+
+```
+just install --whiteboard  # web + sync room + API
+just install --web
+just install --api
+just install --deck
+just install --nb          # root .venv for Zed and Jupyter
+```
+
+Flags can be combined. `just install --api --deck` installs only those two
+surfaces. The Python and JavaScript installers use their committed locks.
+
 `just start` runs the backend (`uvicorn`, port 8000), the canvas sync
 room (Bun, port 8010), and the frontend (`vite`, port 5173) together
 and stops all three on Ctrl-C. Open http://localhost:5173. Attendees
-on the venue network use the Network URL Vite prints; the dev server
+on the venue network use `just room-url` (the same Network URL Vite
+prints); the dev server
 proxies `/api` and `/sync` to the local backend and room, so nothing
 else needs to be reachable from other machines.
 
@@ -33,8 +49,9 @@ startup.
 
 | Command | What it does |
 |---|---|
-| `just install` | Install frontend and backend dependencies |
+| `just install [flags]` | Install all core surfaces, or selected surfaces with `--whiteboard`, `--web`, `--api`, `--deck`, or `--nb` |
 | `just start` | Run backend + sync room + frontend together |
+| `just room-url` | Print the single LAN URL attendees open |
 | `just start-backend` / `just start-frontend` / `just start-sync` | Run just one piece |
 | `just test` | Backend `pytest` + web and deck `bun test` (fast, no real browser) |
 | `just test-backend` / `just test-frontend` | Run just one suite |
@@ -95,6 +112,10 @@ then exits nonzero and says so.
 `just reset-canvas` deletes the snapshot files. Run it with the stack
 stopped: the room holds the document in memory and would immediately
 persist it right back.
+
+The Presentation page remains in the canvas as an emergency embedded-deck
+fallback, but it is intentionally absent from the normal page tabs. The deck
+and notebook are the primary presentation surfaces.
 
 ## Environment variables
 

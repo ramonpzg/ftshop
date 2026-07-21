@@ -1,0 +1,21 @@
+[project]
+name = "ftshop-notebook"
+version = "0.1.0"
+description = "Standalone notebook environment for the EuroSciPy fine-tuning workshop"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28",
+    "ipykernel>=7.0",
+    "jax>=0.8",
+    "jupyterlab>=4.4",
+    "jupytext>=1.17",
+    "matplotlib>=3.10",
+    "numpy>=2.2",
+    "pandas>=2.2",
+    "pillow>=11",
+    "python-chess>=1.999",
+    "scipy>=1.14",
+]
+
+[tool.uv]
+package = false

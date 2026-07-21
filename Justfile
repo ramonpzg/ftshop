@@ -5,10 +5,83 @@ gemma_model := "google/gemma-4-E2B-it-qat-q4_0-gguf"
 default:
     just --list
 
-install:
-    cd web && bun install
-    cd api && uv sync
-    cd deck && bun install
+# Install all core workshop surfaces, or only the requested ones. Models and
+# optional audio dependencies stay explicit because they are several GB.
+# Examples: `just install --nb`, `just install --deck`,
+# `just install --whiteboard`, `just install --api --web`.
+install *targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    requested="{{ targets }}"
+    install_web=0
+    install_api=0
+    install_deck=0
+    install_nb=0
+
+    if [[ -z "${requested}" ]]; then
+        install_web=1
+        install_api=1
+        install_deck=1
+        install_nb=1
+    fi
+
+    for target in ${requested}; do
+        case "${target}" in
+            --all)
+                install_web=1
+                install_api=1
+                install_deck=1
+                install_nb=1
+                ;;
+            --whiteboard)
+                install_web=1
+                install_api=1
+                ;;
+            --web)
+                install_web=1
+                ;;
+            --api)
+                install_api=1
+                ;;
+            --deck)
+                install_deck=1
+                ;;
+            --nb|--notebook)
+                install_nb=1
+                ;;
+            --help)
+                printf '%s\n' \
+                    'Usage: just install [--all|--whiteboard|--web|--api|--deck|--nb] ...' \
+                    '' \
+                    'No flags installs every core surface. Models and optional audio are separate.'
+                exit 0
+                ;;
+            *)
+                echo "Unknown install target: ${target}" >&2
+                exit 2
+                ;;
+        esac
+    done
+
+    if (( install_web )); then
+        echo "Installing whiteboard frontend and sync room"
+        (cd web && bun install --frozen-lockfile)
+    fi
+    if (( install_api )); then
+        echo "Installing FastAPI backend"
+        (cd api && uv sync --locked)
+    fi
+    if (( install_deck )); then
+        echo "Installing Slidev deck"
+        (cd deck && bun install --frozen-lockfile)
+    fi
+    if (( install_nb )); then
+        echo "Installing standalone notebook environment"
+        # Keep optional packages Ramon has installed locally (notably
+        # MusicGen) while enforcing the locked notebook baseline.
+        uv sync --locked --inexact
+    fi
 
 # Local text-to-audio models (musicgen, stable audio). Several GB.
 install-audio:
@@ -74,8 +147,8 @@ deck style="paper":
 
 # The whole session as a standalone Jupyter notebook. It is not embedded
 # in tldraw and does not depend on the web app.
-session-notebook:
-    cd api && uv run jupyter lab --ServerApp.root_dir=.. ../notebooks/full-session.ipynb
+session-notebook notebook="notebooks/full-session.ipynb":
+    uv run jupyter lab --ServerApp.root_dir=. {{ notebook }}
 
 start:
     #!/usr/bin/env bash
@@ -109,6 +182,26 @@ load-test attendees="20" duration="60":
 
 start-frontend:
     cd web && bun run dev
+
+# Print the single URL attendees need on the presenter's local network.
+room-url:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    address=""
+    if command -v ip >/dev/null 2>&1; then
+        address="$(ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "src") {print $(i+1); exit}}')"
+    fi
+    if [[ -z "${address}" ]] && command -v ipconfig >/dev/null 2>&1; then
+        address="$(ipconfig getifaddr en0 2>/dev/null || true)"
+    fi
+    if [[ -z "${address}" ]] && command -v hostname >/dev/null 2>&1; then
+        address="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    fi
+    if [[ -z "${address}" ]]; then
+        echo "Could not determine a LAN address. Use the Network URL printed by Vite." >&2
+        exit 1
+    fi
+    echo "http://${address}:5173"
 
 test:
     cd api && uv run pytest
