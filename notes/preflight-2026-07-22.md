@@ -13,9 +13,12 @@ and media paths do not get to delay the room.
   `just install --whiteboard`, `just install --deck`, and `just install --nb`.
 - [ ] Start the room with `just start`. Start the deck and notebook separately
   with `just deck` and `just session-notebook`.
-- [ ] Stop the room, run `just reset-db && just seed`, restart, and join once as
-  `ramon`. Confirm the `phase35-check` attendees are gone. This reset keeps the
-  authored canvas.
+- [ ] Confirm the attendee list contains only `ramon`. The four
+  `phase35-check` rows were removed directly after verifying that they owned no
+  games, moves, dataset rows, attempts, scenarios, or evals.
+- [ ] Use the presenter panel's page reset if the game state needs clearing.
+  Do not run `just reset-db` immediately before the session: SQLite would lose
+  the user identity while the preserved canvas kept its workspace shape.
 - [ ] Confirm the Presentation tab is absent and the adaptation panel no longer
   overlaps the first workspace after the sync-room migration runs.
 - [ ] Commit the final `data/canvas/snapshot.json` only after the room badge says
