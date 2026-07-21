@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import json
+import os
 import shutil
 import subprocess
 from datetime import UTC, datetime
@@ -206,7 +207,7 @@ def push_adapter(
             f"{min_legal_rate:.3f}; inspect the run before changing --min-legal-rate"
         )
     repo_id = repository_for(repo_prefix, method)
-    api = HfApi()
+    api = HfApi(token=os.environ.get("HF_ACCESS_TOKEN"))
     api.create_repo(repo_id, repo_type="model", private=private, exist_ok=True)
     api.upload_folder(
         repo_id=repo_id,

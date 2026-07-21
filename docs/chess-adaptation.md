@@ -83,6 +83,11 @@ also have accepted access to
 The run pins model revision `6befbaca7398925921802abd1f277b495b78b738`;
 the manifest records it again beside the adapter.
 
+Publishing uses `HF_ACCESS_TOKEN` when it is set, otherwise the normal
+Hugging Face authentication chain applies. The token needs model-repository
+write permission; inference-endpoint permission alone cannot create the
+adapter repository.
+
 Luna uses the existing Chat Completions profile:
 
 ```bash
