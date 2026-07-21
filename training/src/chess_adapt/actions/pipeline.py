@@ -21,6 +21,7 @@ from chess_adapt.data.lichess import open_source
 from chess_adapt.data.store import PipelinePaths, read_json, read_jsonl, write_json, write_jsonl
 
 EnrichOne = Callable[[list[dict[str, str]]], dict[str, Any]]
+EnrichmentProgress = Callable[[int, int, str], None]
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,7 @@ def enrich_sample(
     split_seed: int,
     limit: int | None = None,
     max_consecutive_failures: int = 3,
+    progress: EnrichmentProgress | None = None,
 ) -> EnrichmentSummary:
     games = read_jsonl(paths.games)
     if not games:
@@ -143,6 +145,12 @@ def enrich_sample(
             # or interrupted terminal loses at most the in-flight request.
             ordered = [existing[game["game_id"]] for game in games if game["game_id"] in existing]
             write_jsonl(paths.enrichments, ordered)
+            if progress is not None:
+                progress(
+                    already_succeeded + attempted,
+                    len(games),
+                    existing[game["game_id"]]["status"],
+                )
 
         if consecutive_failures >= max_consecutive_failures:
             stopped = True

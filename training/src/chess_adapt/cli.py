@@ -144,6 +144,7 @@ def _run(args: argparse.Namespace, paths: PipelinePaths) -> None:
             _enrich_one,
             split_seed=args.split_seed,
             limit=args.enrich_limit,
+            progress=_print_enrichment_progress,
         )
         print(
             f"Enrichment: {summary.succeeded} succeeded, {summary.failed} failed, "
@@ -205,6 +206,10 @@ def _enrich_one(messages: list[dict[str, str]]) -> dict:
         "json_mode_dropped": outcome.json_mode_dropped,
         "reasoning_effort_dropped": outcome.reasoning_effort_dropped,
     }
+
+
+def _print_enrichment_progress(attempted: int, total: int, status: str) -> None:
+    print(f"Enrichment {attempted}/{total}: {status}", flush=True)
 
 
 if __name__ == "__main__":
