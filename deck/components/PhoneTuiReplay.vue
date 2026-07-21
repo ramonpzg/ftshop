@@ -1,6 +1,6 @@
 <template>
   <div class="phone-wrap">
-    <div class="phone">
+    <div class="phone" :style="{ height }">
       <video
         v-if="!failed"
         :src="src"
@@ -31,6 +31,8 @@ const props = defineProps({
   file: { type: String, default: "tui-recording.mp4" },
   posterFile: { type: String, default: "tui-poster.png" },
   source: { type: String, default: "recorded on the presenter phone, local file" },
+  /** Bezel height; width follows the 9:19.5 phone ratio. */
+  height: { type: String, default: "340px" },
 });
 
 const failed = ref(false);
@@ -51,7 +53,6 @@ const poster = computed(() => `/assets/${props.posterFile}`);
  * give seeking, restart, and volume during the demo; no autoplay. */
 .phone {
   aspect-ratio: 9 / 19.5;
-  height: 340px;
   background: #211f1b;
   border: 1px solid #211f1b;
   border-radius: 14px;
