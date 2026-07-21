@@ -9,6 +9,7 @@ install:
     cd web && bun install
     cd api && uv sync
     cd deck && bun install
+    cd tui && uv sync
 
 # Local text-to-audio models (musicgen, stable audio). Several GB.
 install-audio:
@@ -77,6 +78,20 @@ deck style="paper":
 session-notebook:
     cd api && uv run jupyter lab --ServerApp.root_dir=.. ../notebooks/full-session.ipynb
 
+# The phone chess TUI, desktop convenience run. Expects a llama.cpp
+# server on 127.0.0.1:8080 (`just start-gemma`). The phone itself does
+# not need just: docs/phone-tui.md has the pip path for Termux.
+phone-tui:
+    cd tui && uv run chess-tui
+
+test-tui:
+    cd tui && uv run pytest
+
+# Sdist and wheel build for the TUI. The phone installs from the repo
+# checkout, but the package must always be buildable.
+package-tui:
+    cd tui && uv build
+
 start:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -114,6 +129,7 @@ test:
     cd api && uv run pytest
     cd web && bun test
     cd deck && bun test
+    cd tui && uv run pytest
 
 test-backend:
     cd api && uv run pytest
@@ -127,14 +143,17 @@ test-e2e:
 lint:
     cd api && uv run ruff check .
     cd web && bun run lint
+    cd tui && uv run ruff check .
 
 typecheck:
     cd api && uv run ty check src
     cd web && bun run typecheck
+    cd tui && uv run ty check src
 
 format:
     cd api && uv run ruff format .
     cd web && bun run format
+    cd tui && uv run ruff format .
 
 reset-db:
     cd api && uv run python -m euro_chess_studio.data.reset_db

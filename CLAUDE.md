@@ -20,6 +20,7 @@ just install      # bun install + uv sync
 just start        # backend :8000 + sync room :8010 + frontend :5173
 just deck         # Slidev :3030
 just session-notebook # standalone JupyterLab notebook
+just phone-tui    # Termux chess TUI against llama.cpp :8080 (docs/phone-tui.md)
 just test         # pytest + bun test
 just test-e2e     # Playwright; uses its own browser discovery, override with CHESS_STUDIO_CHROMIUM
 just lint         # ruff + biome
@@ -34,6 +35,8 @@ just seed         # repopulate pages and cached eval fixtures
 
 - `web/` React + tldraw frontend. Bun, Vite, TypeScript, Biome.
 - `api/` FastAPI backend. uv, python-chess, ruff, ty.
+- `tui/` phone-first Termux chess TUI. Own uv project; python-chess,
+  httpx, Rich, stdlib SQLite. Never depends on `api/` or `web/`.
 - `data/` datasets (`raw/processed/tiny`), canvas snapshot, uploaded assets.
 - `artifacts/` cached fixture JSON and generated job output.
 - `deck/` Slidev presentation and Vue teaching components.

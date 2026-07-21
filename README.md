@@ -83,13 +83,14 @@ Run `just` to list the full command surface. The regular development commands
 are:
 
 ```text
-just install          Install web, API, deck, and Jupyter dependencies
+just install          Install web, API, deck, TUI, and Jupyter dependencies
 just download-models  Download and verify all local models
 just start            Run API :8000, the canvas sync room :8010, and web :5173
 just start-gemma      Run Gemma 4 through llama.cpp on :8080
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
-just test             Run backend and frontend tests
+just phone-tui        Run the Termux chess TUI (docs/phone-tui.md)
+just test             Run backend, frontend, deck, and TUI tests
 just test-e2e         Run Playwright smoke tests
 just lint             Run Ruff and Biome
 just typecheck        Run ty and TypeScript checks
