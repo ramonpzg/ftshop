@@ -357,18 +357,22 @@ migration rebuild, cached media availability, and panel states.
   round three: `run_job` commits a `run_locks` row before the first
   provider call, refuses a second live run with 409 while it exists,
   and exposes it as `live_benchmark.in_progress` so reloads and other
-  tabs restore the locked state. True server-side cancellation would
-  need the handler to check a cancellation flag between gather calls;
-  not built, deliberately.
+  tabs restore the locked state. Since round four, startup clears the
+  table (a lock that survives its process is orphaned by definition)
+  and the 330 s TTL remains only for a process that is alive but
+  hung. True server-side cancellation would need the handler to check
+  a cancellation flag between gather calls; not built, deliberately.
 - Every entry in `OPPONENT_MODELS` resolves against the single
   `OPENAI_BASE_URL` and key. The documented "local Gemma default plus
   Luna in the picker" therefore cannot work across separate llama.cpp
   and OpenAI endpoints yet; that is the phase 4b named-profile
   registry, and this phase treats it as an integration dependency
   rather than claiming it. Until it lands, the room policy fails
-  closed on endpoint locality (loopback base URL or
-  `OPPONENT_ENDPOINT_IS_LOCAL=1`) and the frontier beat is a
-  presenter-machine reconfiguration.
+  closed on two independent gates: endpoint locality (loopback base
+  URL or `OPPONENT_ENDPOINT_IS_LOCAL=1`; budget) and
+  `ROOM_MODEL_PLAY=1` set after the real-endpoint load test
+  (capacity). The frontier beat is a presenter-machine
+  reconfiguration.
 
 ## What the next phase should tackle first
 
@@ -696,3 +700,56 @@ clean, api 454 passed, web 258 passed, deck 10 passed, e2e 11 passed
 (Playwright against the real stack). Route-test fixtures now model
 the full-room local-endpoint configuration explicitly; the
 fail-closed posture has its own test that removes it.
+
+## Review corrections, round four (2026-07-21)
+
+Four findings on the round-three build, all addressed on this branch.
+
+1. **Locality is not capacity (high).** The round-three gate opened
+   attendee model play to any local endpoint, and the demo plan sent
+   the whole room there: forty simultaneous Gemma requests queue
+   behind one llama.cpp server and exhaust the 30 s model-turn
+   deadlines even though every call is free, and the prescribed load
+   test ran against the mock, which measures the backend but not
+   inference. The room now opens on measurement, not location.
+   Attendee timed games AND model replies (`/model-move` works on
+   free-play boards, so the gate lives on both routes) require the
+   locality gate plus `ROOM_MODEL_PLAY=1`
+   (`is_room_model_play_open`), and the flag's documented workflow is
+   the real load test: backend pointed at the actual llama.cpp
+   endpoint on the venue laptop, `just load-test 40` (the sim already
+   drives `/model-move` and reports per-endpoint percentiles from
+   loopback, which passes the presenter gates), model-move p95 inside
+   `MODEL_TURN_DEADLINE_SECONDS` with zero errors, numbers recorded.
+   The explicit room workflow for the default (closed) posture is in
+   the demo plan's segment 5: attendees free-play (same dataset rows,
+   same rewards, same replace-in-place beat), model inference happens
+   once, presenter-led, on the projector; attendee panels render
+   "Free play today" instead of a Start button that would 403
+   (`room_model_play` on `/llm/status`). The venue measurement itself
+   is prep work only Ramon can run; the repo's part is that nothing
+   opens without it.
+2. **A restart preserved a false lock (medium).** The 330 s TTL was
+   doing double duty. A crashed backend cannot carry an in-flight run
+   across a restart, so startup now clears `run_locks`
+   (`main.lifespan`), and the TTL covers only what startup cannot
+   see: a process that is alive but hung. Tested with two TestClient
+   lifecycles over one database.
+3. **The race tested as a race (low).** The pre-inserted-lock test
+   stands, but two new tests prove the guarantee itself: one holds a
+   runner mid-flight on one connection while a second connection is
+   refused before its runner starts (threading.Event as the
+   barrier), and one pins the read-race interleaving by forcing both
+   acquires to read an empty table, so the primary key's arbitration
+   is exercised deterministically rather than assumed.
+4. **Guide tone (low).** The round-three learning-guide section
+   stacked metaphors; it now states its points directly with one
+   aside kept, and the round-four section follows the same rule.
+
+Verification after this round: ruff check and biome clean, ty and tsc
+clean, api 458 passed, web 260 passed, deck 10 passed, e2e 11 passed
+(Playwright against the real stack; its backend pins empty
+credentials, so the panels take the unconfigured-LLM path and the new
+gates never fire from loopback anyway). The venue-laptop load test
+against real Gemma remains open prep work by design: the repo cannot
+run it, and nothing opens the room until someone does.

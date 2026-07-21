@@ -353,75 +353,109 @@ panel fetched its "shared evidence" exactly once at mount, which
 makes it a screenshot, not a share; it polls now, single-flight,
 five seconds.
 
-## Round three, in which state learns where to live
+## Round three: where state lives
 
-The third review found four things, and three of them are really one
-question wearing different hats: where does the truth live, and what
-happens when the place you put it evaporates?
+The third review found four things. Three of them are one question:
+where does the truth live, and what happens when the place you put
+it goes away?
 
-Start with the policy. After round two, attendees could only play the
-default opponent. Sounds safe. Now ask: who decides what the default
-is? An environment variable. And what does the variable hold on a
-fresh checkout? Luna, on a hosted endpoint, billed per token. So the
-"safe" policy was "attendees play whatever OPENAI_MODEL says", which
-is a policy the way "drive whatever speed the road feels like" is a
-speed limit. Our own test blessed it, asserting a LAN browser could
-start a Luna game because Luna was the default. Write that sentence
-out and it refutes itself. The fix is fail closed: an attendee start
-now needs evidence the endpoint is local, either a loopback base URL,
-which the backend can see for itself, or an explicit
+Start with the policy. After round two, attendees could only play
+the default opponent. Ask who decides what the default is. An
+environment variable. Ask what that variable holds on a fresh
+checkout. Luna, on a hosted endpoint, billed per token. So the
+policy was "attendees play whatever OPENAI_MODEL says", which is not
+a policy. Our own test asserted a LAN browser could start a Luna
+game because Luna was the default. Write that sentence out and it
+refutes itself. The fix is to fail closed: an attendee start now
+needs evidence that the endpoint is local, either a loopback base
+URL, which the backend can check for itself, or an explicit
 OPPONENT_ENDPOINT_IS_LOCAL=1 from the operator who put llama.cpp on
 another box. No evidence, no game, and the refusal names the missing
-variable. Note what the evidence is not: the model name. A string
-like "gemma" proves nothing about who serves it. Ask yourself what
-your system does when configuration is half-done. Whatever it does
-then is your actual default; the rest is decoration.
+variable. The evidence is never the model name, because a name
+proves nothing about who serves it. Ask what your system does when
+configuration is half-done. Whatever it does then is your actual
+default.
 
-The same review round made us stop claiming something adjacent. The
-demo plan described a picker with local Gemma as the default and Luna
-as the frontier pick, two different endpoints. Look at the client:
-one OPENAI_BASE_URL, one key, and OPPONENT_MODELS only swaps the
-model string in the request body. Every picker entry mails a
-different name to the same address. Per-model endpoints are the phase
-4b named-profile registry, and until that lands the two-endpoint
-picker is a plan, not a feature. The docs now say so. Claiming
-integration work is done because the UI has a dropdown is how demos
-die on stage.
+The same round made us stop claiming something adjacent. The demo
+plan described a picker with local Gemma as the default and Luna as
+the frontier pick, on two different endpoints. The client has one
+OPENAI_BASE_URL and one key, and OPPONENT_MODELS only changes the
+model string in the request body, so every picker entry resolves
+against the same endpoint. Per-model endpoints are the phase 4b
+named-profile registry, and until that integration lands the
+two-endpoint picker is a plan, not a feature. The docs now say so.
 
 Now the duplicate live run, the finding that corrected this very
 document. Round two kept the live-controls lock in React state, and
 the previous version of this guide called the duplicate problem
-fixed. Think about what React state is: memory owned by one tab,
-with the lifespan of that tab. Reload and it is gone. Open a second
-presenter tab and it never existed. The guard has to live where every
-tab can see it and no tab can lose it, which means the server, which
-means a committed row. run_job now writes a run_locks row before the
-first provider call and deletes it in a finally; a second request
-reads the row and gets a 409 with the seconds remaining; the state
+fixed. React state is memory owned by one tab, with the lifespan of
+that tab. Reload and it is gone; open a second presenter tab and it
+never existed. A guard on spending has to live where every tab can
+see it and no tab can lose it, which means the server, which means a
+committed row. run_job now writes a run_locks row before the first
+provider call and deletes it in a finally; a second request reads
+the row and gets a 409 with the seconds remaining; the state
 response carries in_progress so a reloaded panel wakes up already
 locked. Two details are worth sitting with. Why does the row have an
 expiry? Because a process that dies mid-run cannot run its finally,
-and a lock nobody holds should not outlive anyone who could release
-it; 330 seconds is the server's own worst case plus slack, the same
-number the panel already used. And why is the insert a plain INSERT
-instead of an upsert? Because two requests can race past the read,
-and the primary key is the one referee that cannot be talked out of
-its call. Where should state live? Ask who has to agree on it. Money
-needs everyone to agree.
+and a lock nobody holds should not outlive everyone who could
+release it; 330 seconds is the server's own worst case plus slack,
+the number the panel already used. And why is the insert a plain
+INSERT rather than an upsert? Because two requests can race past the
+read, and the primary key constraint then decides the winner exactly
+once, in the database, where the race actually happens. Where should
+state live? Ask who has to agree on it.
 
-The third hat: the panel used to replace everything with "Backend
-down?" the moment one poll failed. One dropped request and forty
-screens of evidence become forty apologies. The evidence did not
-stop being true because a fetch hiccuped. Now the empty failure
+The third finding: the panel used to replace everything with
+"Backend down?" the moment one poll failed. One dropped request and
+forty screens of evidence become forty apologies. The evidence did
+not stop being true because a fetch failed. Now the empty failure
 state renders only when nothing ever loaded; after that, a failed
 poll keeps the last good state on screen under a stale notice that
-clears itself when the poll recovers. Distrust that erases evidence
-is just a second kind of lie.
+clears itself when the poll recovers.
 
-And the fourth finding: the refusal copy ended with "not a before",
-which is not a sentence. It now says "not a valid baseline for this
-adapter." If the refusal is the teaching material, it should at
-least survive grammar.
+And the fourth: the refusal copy ended with "not a before", which is
+not a sentence. It now reads "not a valid baseline for this
+adapter." The refusal is the teaching material; it has to survive
+grammar.
+
+## Round four: local is not the same as available
+
+Review four asked a question round three had quietly skipped. The
+locality gate proves where the bill goes. What does it prove about
+throughput? Nothing. A local server that answers one request in two
+seconds answers forty simultaneous requests in whatever order it
+likes, and the last ones in line blow through the 30 second turn
+deadline while costing nothing at all. Free and overloaded are
+compatible.
+
+So the room now opens on measurement instead of location. Attendee
+timed games and model replies need a second flag, ROOM_MODEL_PLAY=1,
+and the workflow that earns it is written into the demo plan: run
+the real load test against the actual llama.cpp endpoint on the
+venue laptop, read the model-move p95, and set the flag only if it
+sits inside the turn deadline with no errors. The mock load test
+cannot answer this question; it measures the backend while standing
+in for the very thing under test. Until the flag is set the room
+free-plays, every move still lands in the dataset with the same
+rewards, and Gemma answers once, presenter-led, on the projector.
+The attendee panel says "Free play today" instead of offering a
+button that would only 403. Ask which of your prep checks measure
+the thing you will actually do in the room, and which measure a
+stand-in.
+
+Two smaller corrections in the same round. A backend restart used to
+leave the live-run lock in the table for up to its full 330 second
+TTL, locking the panel for a run that could not possibly still
+exist; startup now clears the table, because a lock that outlives
+its process guards nothing. The TTL stays for the case startup
+cannot see, a process that is alive but hung. Different failure,
+different remedy. And the duplicate-run guarantee is now tested as
+an actual race: one test holds a runner mid-flight on one connection
+while a second connection is refused, and another pins the exact
+interleaving where both requests read an empty table and the primary
+key decides. A guarantee that only exists in production traffic is a
+hope with good posture. That one stays.
 
 ## Where to poke first
 
