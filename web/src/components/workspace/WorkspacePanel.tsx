@@ -9,7 +9,7 @@ import {
   Package,
   Sliders,
 } from "@phosphor-icons/react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ArtifactPanel } from "../../components/artifact/ArtifactPanel";
 import { ChessBoard } from "../../components/chess/ChessBoard";
 import { DatasetPanel } from "../../components/chess/DatasetPanel";
@@ -47,7 +47,7 @@ import {
   startOver,
 } from "../../data/api";
 import { useCurrentUser } from "../../lib/currentUserContext";
-import { type BanterKind, pickBanter } from "../../lib/gameBanter";
+import { type GameEventKind, gameEventMessage } from "../../lib/gameEventMessage";
 import {
   DEFAULT_TIME_LIMIT_SECONDS,
   describeGameEnd,
@@ -143,8 +143,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
   const [opponentModel, setOpponentModel] = useState<string | null>(null);
   const [confirmingStartOver, setConfirmingStartOver] = useState(false);
   const [gameNotice, setGameNotice] = useState<string | null>(null);
-  const [banter, setBanter] = useState<string | null>(null);
-  const banterIndex = useRef(0);
+  const [gameEvent, setGameEvent] = useState<string | null>(null);
   const [modelThinking, setModelThinking] = useState(false);
   // Set when the model's turn ended without a move (provider
   // unreachable). The retry button is the manual recovery.
@@ -198,7 +197,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
           (wasInGame && status.game === null && status.history[0]?.result === "loss_timeout");
         if (timedOutWhileAway) {
           setGameNotice(EXPIRED_AWAY_NOTICE);
-          dropBanter("loss");
+          showGameEvent("loss");
         }
       })
       .catch(() => {});
@@ -213,9 +212,6 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     setGame(status.game);
     setRecord(status.record);
     setHistory(status.history);
-    // Seed the pun rotation from games played, so it keeps rotating
-    // across reloads instead of restarting at the same line.
-    banterIndex.current = status.record.wins + status.record.losses + status.record.draws;
     // Remember the match this browser is in, so a later mount can
     // tell "no game" apart from "your game died while you were gone".
     if (status.game) {
@@ -228,9 +224,8 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     }
   }
 
-  function dropBanter(kind: BanterKind) {
-    setBanter(pickBanter(kind, banterIndex.current));
-    banterIndex.current += 1;
+  function showGameEvent(kind: GameEventKind) {
+    setGameEvent(gameEventMessage(kind));
   }
 
   /** The countdown component's clock hit zero; the server confirms
@@ -240,7 +235,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       const status = await flagTimeout(workspaceId);
       applyGameStatus(status);
       setGameNotice(describeGameEnd("loss_timeout"));
-      dropBanter("loss");
+      showGameEvent("loss");
       return true;
     } catch {
       // The server disagrees (clock skew) or the game already ended
@@ -275,13 +270,13 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
       reward: move.reward,
     });
     setGameNotice(null);
-    setBanter(null);
+    setGameEvent(null);
     if (move.is_legal) {
       setFen(move.fen_after);
       if (move.is_checkmate) {
-        dropBanter(mover === "you" ? "win" : "checkmate");
+        showGameEvent(mover === "you" ? "win" : "checkmate");
       } else if (move.is_check) {
-        dropBanter("check");
+        showGameEvent("check");
       }
     }
     setDatasetRows((prev) => [...prev, ...response.dataset_rows]);
@@ -338,7 +333,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
    * not a loss. */
   async function handleClockExpired() {
     setGameNotice(describeGameEnd("loss_timeout"));
-    dropBanter("loss");
+    showGameEvent("loss");
     await refreshGameStatus();
   }
 
@@ -373,7 +368,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
 
   async function handleStartGame() {
     setGameNotice(null);
-    setBanter(null);
+    setGameEvent(null);
     setLastMove(null);
     setModelUnavailable(false);
     const status = await startGame(workspaceId, timeLimit, opponentModel ?? undefined).catch(
@@ -394,7 +389,7 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
     if (status) {
       applyGameStatus(status, { board: true });
       setGameNotice(describeGameEnd("loss_resign"));
-      dropBanter("loss");
+      showGameEvent("loss");
     }
   }
 
@@ -614,9 +609,9 @@ export function WorkspacePanel({ shape, isEditing }: WorkspacePanelProps) {
                 {gameNotice}
               </p>
             )}
-            {banter && (
-              <p className="workspace-game-banter" data-testid="game-banter">
-                {banter}
+            {gameEvent && (
+              <p className="workspace-game-event" data-testid="game-event-message">
+                {gameEvent}
               </p>
             )}
             {history.length > 0 && (

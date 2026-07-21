@@ -55,13 +55,13 @@
 <script setup>
 import { computed } from "vue";
 import { compareState } from "../lib/clicks";
-import { TEXT_COMPARE_PLACEHOLDER } from "../lib/fixtures";
+import { TEXT_COMPARE_FIXTURE } from "../lib/fixtures";
 
 const props = defineProps({
   /** Slide click count: click 1 shows the base column, click 2 the
    * adapted column, its deltas, and the regression row. */
   clicks: { type: Number, default: 0 },
-  fixture: { type: Object, default: () => TEXT_COMPARE_PLACEHOLDER },
+  fixture: { type: Object, default: () => TEXT_COMPARE_FIXTURE },
 });
 
 const state = computed(() => compareState(props.clicks));

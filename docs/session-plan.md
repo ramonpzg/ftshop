@@ -126,8 +126,8 @@ came from the adapted model? Predictions from the room, then the
 reveal table: answer, exact target behavior, one metric with sample
 size, cached or live provenance, and one limitation or regression per
 row. At least one adapted result improves its target and gets worse
-somewhere else; fine-tuning is a trade, not a ceremony where every
-score rises. Every pinned output works from local files; a provider
+somewhere else. Fine-tuning changes tradeoffs; it does not make every
+score rise. Every pinned output works from local files; a provider
 request is an optional live replacement, never the only thing the
 room can see.
 

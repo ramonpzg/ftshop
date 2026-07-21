@@ -1,10 +1,9 @@
-/** Copy checks for deck-owned text.
+/** Copy checks for visible workshop text.
  *
  * This lints what a machine can honestly lint: banned punctuation and
  * a short list of genuinely unwanted stock phrases. It does not
  * pretend tone is a regex; the tone pass is editorial and happens in
- * review. Scope is deck-owned files only during the parallel stage;
- * phase 34 integration decides whether the same check widens.
+ * review.
  */
 
 export interface CopyFinding {
@@ -18,6 +17,10 @@ export interface CopyFinding {
 export const ALLOWLIST: string[] = [
   // Slidev's code-morph syntax, not the AI cliche.
   "magic-move",
+  // A literal presenter command, not a claim about what AI enables.
+  "Unlock editing",
+  // The matching API route, not visible copy.
+  "/presenter/unlock",
 ];
 
 /** Stock phrases that have already appeared in this repo's copy or

@@ -1,6 +1,5 @@
-/** The deck's own copy, checked. Scope is deck-owned files only; the
- * phase 34 integration stage decides whether the same check widens to
- * the rest of the repository. */
+/** Visible workshop copy, checked across the deck, web app, and the
+ * two presenter run-of-show documents. */
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
@@ -8,6 +7,16 @@ import { join } from "node:path";
 import { checkCopy } from "../lib/copyRules";
 
 const DECK_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = join(DECK_ROOT, "..");
+
+function filesUnder(root: string, extensions: Set<string>): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) return filesUnder(path, extensions);
+    const extension = entry.name.slice(entry.name.lastIndexOf("."));
+    return extensions.has(extension) ? [path] : [];
+  });
+}
 
 function deckFiles(): string[] {
   const slides = readdirSync(join(DECK_ROOT, "slides"))
@@ -33,6 +42,21 @@ function deckFiles(): string[] {
 describe("deck copy", () => {
   for (const file of deckFiles()) {
     test(`no banned punctuation or stock phrases in ${file.slice(DECK_ROOT.length + 1)}`, () => {
+      const findings = checkCopy(readFileSync(file, "utf8"));
+      expect(findings).toEqual([]);
+    });
+  }
+});
+
+describe("repository copy", () => {
+  const files = [
+    join(REPO_ROOT, "docs", "session-plan.md"),
+    join(REPO_ROOT, "docs", "demo-plan.md"),
+    ...filesUnder(join(REPO_ROOT, "web", "src"), new Set([".ts", ".tsx"])),
+  ];
+
+  for (const file of files) {
+    test(`no banned punctuation or stock phrases in ${file.slice(REPO_ROOT.length + 1)}`, () => {
       const findings = checkCopy(readFileSync(file, "utf8"));
       expect(findings).toEqual([]);
     });

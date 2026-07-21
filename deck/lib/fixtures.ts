@@ -1,5 +1,4 @@
-/** Fixed placeholder fixtures for slides whose data arrives with the
- * accepted phase 34 result or from Ramon.
+/** Fixed fixtures and placeholders for deck evidence.
  *
  * The parallel-stage rule: do not invent interfaces for phase 34 data
  * and do not invent measured values. Structure is real, values are
@@ -27,24 +26,23 @@ export interface CompareFixture {
   provenance: string;
 }
 
-/** Base versus adapted on the frozen text eval suite. Values land at
- * phase 34 integration. The metric set and the trade direction follow
- * the phase 34 contract: legality and JSON validity improve, the
- * adapted checkpoint deliberately loses explanations. */
-export const TEXT_COMPARE_PLACEHOLDER: CompareFixture = {
+/** Authored replay from phase 34's frozen text suite. No model was
+ * trained and no provider produced these replies. The component says
+ * so on screen; this fixture demonstrates the evaluation contract. */
+export const TEXT_COMPARE_FIXTURE: CompareFixture = {
   task: "Legal move as JSON, frozen eval suite",
-  input: "PLACEHOLDER: one FEN + prompt from the frozen suite",
+  input: "rn1qkb1r/ppp2ppp/5n2/4p3/2B1P3/5Q2/PPP2PPP/RNB1K2R w KQkq - 2 7",
   baseLabel: "BASE",
   adaptedLabel: "ADAPTED",
-  baseOutput: "--",
-  adaptedOutput: "--",
+  baseOutput: '{"move": "c4f7"',
+  adaptedOutput: '{"move": "b1c3"}',
   metrics: [
-    { name: "model_legal_move_rate", base: "--", adapted: "--", delta: "good" },
-    { name: "valid_json_rate", base: "--", adapted: "--", delta: "good" },
-    { name: "explanation_rate", base: "--", adapted: "--", delta: "bad" },
+    { name: "model_legal_move_rate", base: "7/12", adapted: "12/12", delta: "good" },
+    { name: "valid_json_rate", base: "10/12", adapted: "12/12", delta: "good" },
+    { name: "explanation_rate", base: "8/12", adapted: "0/12", delta: "bad" },
   ],
-  regression: "Explanation rate drops on the adapted checkpoint, by design.",
-  provenance: "PENDING PHASE 34 INTEGRATION",
+  regression: "The scripted adapted replies omit explanations: 8/12 to 0/12.",
+  provenance: "SCRIPTED REPLAY | sft-v2 | suite a274c01d640a346e | no model trained",
 };
 
 /** One deployment path's measured facts. "Self-hosted" covers both a

@@ -1,12 +1,9 @@
 # Phase 35, for the human: deck identity and copy
 
-Status first, because it matters for how you read this: phase 34
-integration is pending. This phase ran in parallel with phase 34 under
-the two-stage rule, so what exists on this branch is the deck
-foundation. The repository-wide copy pass, the banter removal in
-`web/`, and the reconciliation with phase 34's session and demo plans
-all wait until 34 merges. The deck itself, though, is rebuilt end to
-end.
+Phase 35 began in parallel with phase 34, then rebased onto the
+accepted result. The deck, repository copy pass, factual game-event
+messages, licenses, and phase 34 evidence integration are now one
+reviewed result.
 
 ## What actually changed
 
@@ -49,8 +46,8 @@ rewind. A pure mapping from click count to visible state means slide
 navigation is the single source of truth, forward and backward land on
 identical frames, and a bun test can drive every state without
 mounting a component. The repo's architecture rule about calculations
-living apart from rendering is not ceremony; it is what made these
-components testable at all.
+living apart from rendering is what made these components testable at
+all.
 
 ## The shared system versus identical components
 
@@ -113,11 +110,30 @@ slides. Nothing was generated or scraped to make slides look finished,
 because a placeholder that states its contract is more useful than a
 stock image that lies.
 
-## What waits for phase 34
+## What integration changed
 
-The banter pools in `web/src/lib/gameBanter.ts`, including "rooks
-before feelings" and "GPU sulking", are phase 34 territory until it
-merges. So are the session and demo plans, the licenses file, and
-every measured number in the OutcomeCompare and CostAtTarget fixtures.
-The handover lists all of it. Until then, treat this branch as a
-finished deck skeleton with its evidence still in transit.
+The app no longer rotates jokes after chess events. One event now maps
+to one factual message. Ask why this is simpler than keeping a pool of
+four nearly identical lines. The answer is not only tone. Rotation
+needed state, reload seeding, and tests for a behavior that taught
+nothing.
+
+The text comparison now reads phase 34's committed replay fixture. It
+shows exact replies from one held-out position and the three aggregate
+rates. The provenance line says the awkward part out loud: scripted
+replay, no model trained. Why keep that limitation on the slide rather
+than bury it in speaker notes? Because provenance is part of the
+result, especially when the result is teaching evaluation rather than
+claiming a successful training run.
+
+The image, audio, and video A/B slides remain placeholders. Phase 34
+did add polished local media, but it also says no model produced it.
+Using those illustrations as answers to "which one was adapted?" would
+turn a good fallback into false evidence. Likewise, the economics
+component still waits for dated prices and measured timings. A blank
+cell is cheaper than a confident fiction.
+
+Finally, the copy check now walks the web source and both presenter
+plans. It still does not claim to judge voice. It catches the small,
+repeatable failures: banned punctuation and a short list of stock
+phrases. Editorial review still does the work that regex cannot.

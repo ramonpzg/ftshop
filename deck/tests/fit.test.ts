@@ -4,9 +4,11 @@
  * not guessed. */
 
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NOTATION_EXAMPLE } from "../lib/chess";
 import { DATASET_SHAPES } from "../lib/datasetShapes";
-import { COST_ROWS, TEXT_COMPARE_PLACEHOLDER } from "../lib/fixtures";
+import { COST_ROWS, TEXT_COMPARE_FIXTURE } from "../lib/fixtures";
 
 describe("dataset shapes are honest and fit their panel", () => {
   for (const shape of DATASET_SHAPES) {
@@ -61,8 +63,24 @@ describe("cost rows fit the stepper panel", () => {
 
 describe("compare fixture fits", () => {
   test("outputs and regression line fit their reserved rows", () => {
-    expect(TEXT_COMPARE_PLACEHOLDER.input.length).toBeLessThanOrEqual(70);
-    expect(TEXT_COMPARE_PLACEHOLDER.regression.length).toBeLessThanOrEqual(70);
-    expect(TEXT_COMPARE_PLACEHOLDER.metrics.length).toBeLessThanOrEqual(4);
+    expect(TEXT_COMPARE_FIXTURE.input.length).toBeLessThanOrEqual(70);
+    expect(TEXT_COMPARE_FIXTURE.regression.length).toBeLessThanOrEqual(70);
+    expect(TEXT_COMPARE_FIXTURE.metrics.length).toBeLessThanOrEqual(4);
+  });
+
+  test("scripted outputs match the accepted replay fixture", () => {
+    const replay = JSON.parse(
+      readFileSync(
+        join(import.meta.dir, "..", "..", "artifacts", "cached", "text", "benchmark_replies.json"),
+        "utf8",
+      ),
+    );
+    expect(replay.suite_content_hash).toBe("a274c01d640a346e");
+    expect(TEXT_COMPARE_FIXTURE.baseOutput).toBe(
+      replay.checkpoints.base.replies["ex-10-opera-house-m7"],
+    );
+    expect(TEXT_COMPARE_FIXTURE.adaptedOutput).toBe(
+      replay.checkpoints["gemma-chess-sft-v1"].replies["ex-10-opera-house-m7"],
+    );
   });
 });

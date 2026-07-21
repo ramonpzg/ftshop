@@ -501,8 +501,8 @@ export function AdaptationPanel({
                   )}
                   {liveRunInFlight && busy !== "bench-live" && (
                     <span className="adaptation-source-note" data-testid="bench-live-waiting">
-                      A live run is still in flight on the server; live
-                      controls unlock when it lands or its deadline passes.
+                      A live run is still in flight on the server. Live
+                      controls return when it lands or its deadline passes.
                     </span>
                   )}
                 </div>

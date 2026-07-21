@@ -599,7 +599,7 @@ describe("WorkspacePanel", () => {
     await waitFor(() => screen.getByTestId("game-notice"));
     expect(screen.getByTestId("game-notice").textContent).toContain("while you were away");
     expect(screen.getByTestId("game-record").textContent).toBe("W 0 L 1 D 0");
-    expect(screen.getByTestId("game-banter")).toBeTruthy();
+    expect(screen.getByTestId("game-event-message").textContent).toBe("Loss recorded.");
   });
 
   test("finished matches show up in the history list", async () => {
@@ -712,7 +712,7 @@ describe("WorkspacePanel", () => {
     expect(screen.queryByTestId("freeplay-note")).toBeNull();
   });
 
-  test("a checking move earns a pun", async () => {
+  test("a checking move shows the factual event", async () => {
     globalThis.fetch = routedFetch({ checkOnMove: true }) as unknown as typeof fetch;
     render(
       <CurrentUserContext.Provider value={{ id: "user_1", name: "Ada" }}>
@@ -724,8 +724,8 @@ describe("WorkspacePanel", () => {
     fireEvent.click(screen.getByTestId("square-e2"));
     fireEvent.click(screen.getByTestId("square-e4"));
 
-    await waitFor(() => screen.getByTestId("game-banter"));
-    expect(screen.getByTestId("game-banter").textContent).toContain("Check");
+    await waitFor(() => screen.getByTestId("game-event-message"));
+    expect(screen.getByTestId("game-event-message").textContent).toBe("Check.");
   });
 
   test("a persisted scenario is restored on load", async () => {

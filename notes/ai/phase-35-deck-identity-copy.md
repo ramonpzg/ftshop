@@ -1,13 +1,12 @@
 # Phase 35 handover: deck identity and copy
 
-**Status: phase 34 integration pending. This phase is incomplete.**
+**Status: complete after phase 34 integration.**
 
 Phase 35 ran in parallel with phase 34 under the two-stage workflow in
-`notes/comms/p4-deck-identity-copy.md`. This branch contains the
-complete deck foundation, revised through three review rounds with
-Ramon; every repository-wide obligation waits for the accepted phase
-34 result. The branch must not merge before the integration stage
-below is done and all acceptance checks are repeated.
+`notes/comms/p4-deck-identity-copy.md`. The deck foundation was revised
+through Ramon's review rounds, then rebased onto accepted phase 34 at
+`590c638`. The integration work and repository-wide copy checks below
+are complete.
 
 ## What was built
 
@@ -186,7 +185,7 @@ controls (via an assertNoOverlap helper that fails loudly on missing
 geometry), hide, and the automatic full-panel return after
 send-to-workspace. The e2e surface also gained `deck.spec.ts` and its
 deck webServer entry in `playwright.config.ts`, described above.
-`just test-e2e`: 10 passed.
+The final integrated `just test-e2e` result is recorded below.
 
 ## Polyglot: adopted and rejected
 
@@ -211,20 +210,41 @@ label collisions, portrait-media overflow on three slides, audio-row
 overflow, style-grid clipping, a truncated title, and the TUI
 provenance line touching the footer.
 
-## Deferred to phase 34 integration (named, per the prompt)
+The post-integration `OutcomeCompare` final state was inspected again
+at 1280x720; the screenshot is
+`artifacts/generated/deck-screens/phase34-integration-outcome-1280.png`.
+The FEN, both exact replies, three metric rows, provenance, regression,
+title, and footer fit without overlap.
 
-1. Banter removal in `web/src/lib/gameBanter.ts` and its test
-   ("rooks before feelings", "GPU sulking" live there).
-2. Tone pass over `docs/session-plan.md` and `docs/demo-plan.md`.
-3. Tone pass over `web/` visible copy, errors, loading, fallbacks.
-4. Widening the copy check beyond deck-owned files, if wanted.
-5. Font license entry in `docs/licenses.md` (phase 34 owns the file;
-   the license is recorded in `docs/deck-plan.md` meanwhile).
-6. Real values for `OutcomeCompare`, the reveal table, `CostAtTarget`,
-   and the A/B answers from the accepted phase 34 evidence.
-7. Reconciling new phase 34 deck data or teaching components without
-   reverting them, then repeating every acceptance check. The
-   pre-integration results in this handover are not final acceptance.
+## Phase 34 integration
+
+- The web banter pool and rotating jokes were removed. Game events now
+  use one factual label per event in `gameEventMessage.ts`.
+- The copy check now covers the accepted session plan, demo plan, and
+  all `web/src` TypeScript in addition to the deck. Its only new
+  exceptions are the literal `Unlock editing` presenter command and
+  its `/presenter/unlock` route.
+- `OutcomeCompare` now uses phase 34's accepted sft-v2 scripted replay:
+  7/12 to 12/12 legal, 10/12 to 12/12 valid JSON, and 8/12 to 0/12
+  explanations. It names the suite hash and states that no model was
+  trained. A test checks its displayed replies against the committed
+  replay fixture.
+- The image, audio, and video evidence from phase 34 remains out of the
+  A/B quiz. Those files are explicit programmatic illustrations, not
+  adapted-model outputs. Presenting them as adapted results would undo
+  phase 34's provenance work. The A/B answers and reveal rows remain
+  Ramon-owned placeholders for actual pairs.
+- Economics values remain `[SOURCE, DATE]` placeholders. Phase 34 did
+  not establish current provider prices, measured hardware costs, or
+  comparable latency figures.
+- IBM Plex Sans, IBM Plex Mono, and Shantell Sans are recorded in
+  `docs/licenses.md` under SIL OFL 1.1.
+
+Final integration acceptance: `just lint` and `just typecheck` pass;
+`just test` passes 471 API, 263 web, and 174 deck tests; deck Biome and
+vue-tsc pass; default, full-route, and chalk builds pass; Playwright
+passes 12/12. The only unrelated working-tree entry is Ramon's
+untracked `musicgen_out.wav`, which this phase did not touch.
 
 ## Known issues and tech debt
 
@@ -244,11 +264,10 @@ provenance line touching the footer.
 
 ## What the next stage should tackle first
 
-Merge accepted `main` into this branch, read the phase 34 handover,
-then work the deferred list above in order. After integration, rerun:
-`just lint`, `just typecheck`, `just test`, `just test-e2e`, both deck
-builds, the screenshot sweep at all three resolutions, and the
-LiveRoom/embed checks against a running backend.
+Phase 35b can add the local/API model fallback controls from accepted
+`main`. It must preserve the scripted-evidence labels and the
+Ramon-owned media and economics placeholders above. Phase 36 should
+then consolidate release checks and the venue preflight.
 
 ## Gotchas
 

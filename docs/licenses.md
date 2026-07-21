@@ -33,6 +33,20 @@ https://tldraw.dev/community/license.
 UI icons come from Phosphor Icons (`@phosphor-icons/react`), MIT
 licensed.
 
+## Deck fonts
+
+The Slidev deck self-hosts these Fontsource packages. Each package
+includes the font's SIL Open Font License 1.1 text under
+`deck/node_modules/@fontsource/<family>/LICENSE`.
+
+- IBM Plex Sans (`@fontsource/ibm-plex-sans`), copyright IBM Corp.
+- IBM Plex Mono (`@fontsource/ibm-plex-mono`), copyright IBM Corp.
+- Shantell Sans (`@fontsource/shantell-sans`), copyright The Shantell
+  Sans Project Authors (https://github.com/arrowtype/shantell-sans).
+
+All three are licensed under **SIL OFL 1.1**. They are bundled with the
+deck, so presentation does not require a font download.
+
 ## Workshop media fixtures
 
 `artifacts/cached/media/{image,audio,video}/*`

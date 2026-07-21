@@ -142,11 +142,11 @@ clicks: 2
 
 <!--
 TIMING: 90 seconds.
-SAY: Matched inputs, two checkpoints, the same frozen evaluation suite. The numbers land with the accepted phase 34 result. Legality and JSON validity improve; the explanation rate drops on the adapted checkpoint, by design, and is shown dropping.
+SAY: Matched inputs, two checkpoints, the same frozen evaluation suite. These are authored replay fixtures, not a training run. Legality and JSON validity improve in the script; explanation rate falls. The panel shows both the trade and the provenance.
 CLICK: 2. The base column, then the adapted column with deltas and the regression row.
-SOURCE: fixture is an explicit placeholder pending phase 34 integration; nothing invented.
+SOURCE: phase 34 scripted replay, sft-v2 suite a274c01d640a346e. No model was trained and no provider produced these replies.
 CUT: never if this section runs; this is the honest-evaluation beat.
-FALLBACK: placeholder values keep the structure readable.
+FALLBACK: the fixture is committed and keyless.
 -->
 
 ---

@@ -174,8 +174,8 @@ late, and the fallback when something fails.
   mappings are Luna's work and are labelled scenario writer, never a
   fine-tuned chess model. The video stages the mapped situation and
   contains no board, pieces, or notation.
-- Close the loop: fine-tuning is a trade, not a ceremony where every
-  score rises. The board will prove this again with hashes in
+- Close the loop: fine-tuning changes tradeoffs. One score can rise
+  while another falls. The board will show this again with hashes in
   segment 6.
 - Cut: three real-world mappings down to one; the A/B slides and the
   reveal table stay.
@@ -247,7 +247,7 @@ set only after the recorded load test passed. Attendee panels show
   rows. The data story is identical; only who the opponent is changes.
 - Artifact: their own dataset rows, plus one illegal-move attempt on
   purpose: board unchanged, reward -1. If the model answers garbage,
-  celebrate: the failed attempt lands in model_attempts, the turn
+  show that the failed attempt lands in model_attempts, the turn
   retries, and after the budget a labelled fallback move plays. Run
   the two text jobs (prompt eval, reward eval) and read the live
   numbers next to the cached ones (the eval rows open into
@@ -298,8 +298,8 @@ The chain earns trust by narrating exactly what it is.
      a scripted replay, result source cached. Then select the
      just-frozen room snapshot and train again: read the 409 out
      loud. The scripted result is bound to the reference hash and
-     will not pose as training on the room's data. That refusal is
-     the honesty model.
+     will not pose as training on the room's data. That refusal keeps
+     the replay honest.
   4. Run base and adapted benchmarks; the run badges say "replayed
      (scripted)". Optionally, with a local endpoint serving the base
      model, Run base live: the run list shows live provenance with a

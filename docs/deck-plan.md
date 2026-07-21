@@ -35,10 +35,10 @@ on the canvas.
 ## Type system
 
 Self-hosted through Fontsource npm packages: no network fetch at
-presentation time, no Google Fonts. Both families are licensed under
-the SIL Open Font License 1.1; license files ship inside the packages
-under `deck/node_modules/@fontsource/*`. `docs/licenses.md` gets the
-entry at phase 34 integration, since phase 34 owns that file right now.
+presentation time, no Google Fonts. All three families are licensed
+under the SIL Open Font License 1.1; license files ship inside the
+packages under `deck/node_modules/@fontsource/*`. `docs/licenses.md` records
+the IBM Plex and Shantell Sans attributions.
 
 - `IBM Plex Sans` for display and body. Weights 400, 500, 600, 700.
 - `IBM Plex Mono` for code, notation, clocks, metrics, citations.
@@ -197,7 +197,7 @@ pure functions under `deck/lib/` so tests can drive it without a DOM.
 | component | concept | data |
 | --- | --- | --- |
 | `PhoneTuiReplay` | the TUI outcome as a phone-shaped local video with poster and explicit play control | local file, placeholder until recorded |
-| `OutcomeCompare` | matched input, base/adapted outputs, metrics with deltas, one regression | fixed placeholder fixtures until phase 34 integration |
+| `OutcomeCompare` | matched input, base/adapted outputs, metrics with deltas, one regression | accepted phase 34 scripted replay, labelled as authored evidence |
 | `DatasetShapes` | one move re-encoded, click-stepped | static, real encodings |
 | `RewardMeter` | environment feedback separated from model output; presenter presses outcomes | static reward map |
 | `CostAtTarget` | one task at a target quality, measured deployment facts | `[SOURCE, DATE]` placeholders |
@@ -247,12 +247,14 @@ test asserts every referenced file name appears in this table.
 | `meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
 | `future-tree.png` | 16:9 | the model tree diagram from v1 |
 
-Text placeholders pending from Ramon or phase 34, marked PLACEHOLDER
-in the slide source: the three real-world mappings and their approved
-edits, the Luna scene prompt, the four A/B answers with provenance,
-the reveal-table rows, the OutcomeCompare eval numbers, all economics
-numbers, the recorded TUI result, and the repo URL/QR on the closing
-slide.
+Text placeholders pending from Ramon, marked PLACEHOLDER in the slide
+source: the three real-world mappings and their approved edits, the
+Luna scene prompt, the four A/B answers with provenance, the
+reveal-table rows, all economics numbers, the recorded TUI result,
+and the repo URL/QR on the closing slide. Phase 34's image, audio, and
+video media are in-repo illustrations, not adapted-model outputs, so
+they do not fill the A/B questions. The text comparison uses phase
+34's scripted replay and states on screen that no model was trained.
 
 ## Deck commands
 
