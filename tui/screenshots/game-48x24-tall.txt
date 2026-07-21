@@ -18,4 +18,5 @@ ramon: White | Gemma: Black | move 2
                                    
     a   b   c   d   e   f   g   h
 1...e5
-gemma: Symmetry. Let us see if you know why it matters.
+gemma: Symmetry. Let us see if you know why it
+matters.

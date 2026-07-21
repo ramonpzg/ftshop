@@ -47,6 +47,7 @@ from chess_tui.ui.screens import (
     home_screen,
     move_label,
     replay_screen,
+    use_tall,
 )
 from chess_tui.ui.theme import pick_theme
 
@@ -137,7 +138,7 @@ class App:
     def _render(self) -> None:
         self.console.clear()
         width = self.console.width
-        height = self.console.size.height
+        tall = use_tall(self.console.size.height, self.config.tall_mode)
         if self.screen == "home":
             lines = home_screen(
                 self._record(),
@@ -148,12 +149,12 @@ class App:
                 game_in_progress=self.game is not None and not self.game.over,
             )
         elif self.screen == "game":
-            lines = game_screen(self._game_view(), self.theme, width, height)
+            lines = game_screen(self._game_view(), self.theme, width, tall)
         elif self.screen == "history":
             lines = history_screen(self.history, self.theme, width)
         elif self.screen == "replay":
             assert self.cursor is not None
-            lines = replay_screen(self.cursor, self.flipped, self.theme, width, height)
+            lines = replay_screen(self.cursor, self.flipped, self.theme, width, tall)
         else:
             lines = help_screen(self.theme, width)
         if self.notice and self.screen != "game":

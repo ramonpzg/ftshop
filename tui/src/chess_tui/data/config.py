@@ -27,6 +27,7 @@ class Config:
     db_path: Path = field(default_factory=lambda: default_db_path(os.environ))
     no_color: bool = False
     player_name: str | None = None  # None means ask once and persist
+    tall_mode: str = "auto"  # auto | always | never; auto measures rows
 
 
 def default_db_path(env: dict | os._Environ) -> Path:
@@ -55,12 +56,16 @@ def load_config(
     db: str | None = None,
     no_color: bool = False,
     name: str | None = None,
+    tall: str | None = None,
 ) -> Config:
     """Flags beat environment beats defaults."""
     resolved_timeout = timeout
     if resolved_timeout is None:
         raw = env.get("CHESS_TUI_TIMEOUT")
         resolved_timeout = float(raw) if raw else DEFAULT_TIMEOUT_SECONDS
+    tall_mode = (tall or env.get("CHESS_TUI_TALL") or "auto").lower()
+    if tall_mode not in ("auto", "always", "never"):
+        tall_mode = "auto"
     return Config(
         base_url=normalize_base_url(base_url or env.get("CHESS_TUI_BASE_URL") or DEFAULT_BASE_URL),
         model=model or env.get("CHESS_TUI_MODEL") or DEFAULT_MODEL,
@@ -69,4 +74,5 @@ def load_config(
         db_path=Path(db) if db else default_db_path(env),
         no_color=no_color or bool(env.get("NO_COLOR")),
         player_name=name or env.get("CHESS_TUI_NAME") or None,
+        tall_mode=tall_mode,
     )

@@ -285,6 +285,31 @@ the model. An accidental bonus: the first stub returned a wrong-color
 move and the real binary walked the whole rejection path on screen,
 corrective included, exactly as specified.
 
+## Round 4: the tall board that never fired
+
+Ramon's next screenshot showed the round 3 board wider but not
+taller. The diagnosis is a lesson in thresholds: his phone with the
+soft keyboard open is about 26 terminal rows, and the tall-board
+threshold was 27. The feature worked everywhere except the device it
+was built for.
+
+Fix, two parts. Tall mode now drops the blank separator lines (the
+fat board carries its own spacing), which brings a mid-game tall
+frame to 22 rows plus the input and suggestion rows, so
+TALL_MIN_HEIGHT fell from 27 to 24 and a keyboard-open phone clears
+it with margin. A game-over or replay frame can still run up to two
+rows over on a terminal of exactly 24; the status line scrolling off
+at checkmate was judged a fair trade and is documented. And because
+row arithmetic against unknown phones has now missed once,
+CHESS_TUI_TALL / --tall (auto, always, never) pins the choice for a
+recording. The tall decision moved out of the screens (they take a
+plain tall flag) into the app via screens.use_tall(height, mode),
+which keeps the renderers pure and the policy testable.
+
+160 tests; frame budgets pinned at 48x26 (24 of 26 rows), the 24-row
+floor (exactly 24), and 80x23 staying single-height. Screenshots
+regenerated at those sizes.
+
 ## Intentionally deferred
 
 - Resignation and draw offers: not in the command set the phase fixed;

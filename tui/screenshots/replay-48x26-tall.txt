@@ -1,5 +1,4 @@
-ramon: White | Gemma: Black | move 2
-
+replay  2026-07-21 19:53  1-0  as white
     a   b   c   d   e   f   g   h
  8  r   n   b   q   k   b   n   r   8
                                    
@@ -7,7 +6,7 @@ ramon: White | Gemma: Black | move 2
                                    
  6  .   .   .   .   .   .   .   .   6
                                    
- 5  .   .   .   .   p   .   .   .   5
+ 5  .   .   .   .   p   .   .   Q   5
                                    
  4  .   .   .   .   P   .   .   .   4
                                    
@@ -15,10 +14,8 @@ ramon: White | Gemma: Black | move 2
                                    
  2  P   P   P   P   .   P   P   P   2
                                    
- 1  R   N   B   Q   K   B   N   R   1
+ 1  R   N   B   .   K   B   N   R   1
                                    
     a   b   c   d   e   f   g   h
-
-1...e5
-gemma: Symmetry. Let us see if you know why it
-matters.
+ply 3/7  2. Qh5
+/next  /prev  /flip  /back. enter is next

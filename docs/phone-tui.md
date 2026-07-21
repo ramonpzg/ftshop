@@ -172,6 +172,7 @@ CHESS_TUI_API_KEY=local                       --api-key
 CHESS_TUI_TIMEOUT=120                         --timeout
 CHESS_TUI_DB=<path>                           --db
 CHESS_TUI_NAME=<name>                         --name
+CHESS_TUI_TALL=auto|always|never              --tall
 NO_COLOR=1                                    --no-color
 ```
 
@@ -212,10 +213,17 @@ camera.
   The TUI's corrective flow covers the rest and the attempt ledger in
   the db shows exactly what came back.
 - Narrow terminal: the board is 37 columns wide with four-character
-  cells, and on terminals 27 rows or taller each rank gets a second
-  background row, which makes the squares square. Under 27 rows the
-  board drops to single-height automatically; under 40 columns lines
-  crop rather than wrap, so shrink the Termux font one step.
+  cells, and on terminals 24 rows or taller each rank gets a second
+  background row, which makes the squares square. A phone with the
+  soft keyboard open is around 26 rows, which is inside the tall
+  range on purpose; in tall mode the blank separator lines go away to
+  pay for it, and a game-over or replay frame may push the status
+  line off by a row or two on a terminal of exactly 24. Under 24
+  rows the board drops to single-height automatically.
+  CHESS_TUI_TALL=always (or --tall always) pins the tall board for a
+  recording regardless of measurement; never does the opposite. Under
+  40 columns lines crop rather than wrap, so shrink the Termux font
+  one step.
 - Scrollback shows old frames: only outside the alternate screen.
   The app enters it on start and restores your shell on exit; if it
   ever crashes hard, `tput rmcup` or `reset` brings the terminal
@@ -261,8 +269,9 @@ the smoke command above is the check.
 
 `tui/screenshots/*.svg` and `.txt` are frames captured from the real
 App during acceptance (real actions and rendering, scripted
-transport, recording console): the tall board at 48x32 and 60x28, the
-single-height board at 40x22 and 80x24, Gemma opening as White, the
+transport, recording console): the tall board at 48x26 (a phone with
+the keyboard open), the 24-row floor, and 60x28, the single-height
+board at 40x22 and 80x23, Gemma opening as White, the
 two failure states, home, history, and replay. The SVG terminal theme
 uses the deck's chalk tokens, the same palette the TUI itself
 renders. The live suggestion row exists only in a real raw-mode

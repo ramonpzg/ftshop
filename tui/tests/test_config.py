@@ -87,6 +87,20 @@ def test_parser_exposes_equivalent_flags():
     assert args.no_color is True
 
 
+def test_tall_mode_default_env_flag_and_validation():
+    env = {"CHESS_TUI_DB": "/tmp/x.db"}
+    assert load_config(env).tall_mode == "auto"
+    assert load_config({**env, "CHESS_TUI_TALL": "always"}).tall_mode == "always"
+    assert load_config({**env, "CHESS_TUI_TALL": "NEVER"}).tall_mode == "never"
+    assert load_config({**env, "CHESS_TUI_TALL": "sideways"}).tall_mode == "auto"
+    assert load_config(env, tall="never").tall_mode == "never"
+
+
+def test_parser_has_tall_flag():
+    args = build_parser().parse_args(["--tall", "always"])
+    assert args.tall == "always"
+
+
 def test_name_env_and_flag():
     env = {"CHESS_TUI_NAME": "enviro", "CHESS_TUI_DB": "/tmp/x.db"}
     assert load_config(env).player_name == "enviro"

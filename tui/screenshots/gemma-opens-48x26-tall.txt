@@ -1,5 +1,4 @@
 ramon: Black | Gemma: White | move 1
-
     h   g   f   e   d   c   b   a
  1  R   N   B   K   Q   B   N   R   1
                                    
@@ -18,6 +17,5 @@ ramon: Black | Gemma: White | move 1
  8  r   n   b   k   q   b   n   r   8
                                    
     h   g   f   e   d   c   b   a
-
 1. e4
 gemma: I will take the center, thank you.

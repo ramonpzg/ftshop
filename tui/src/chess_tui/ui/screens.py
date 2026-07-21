@@ -43,11 +43,23 @@ def clip(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 3] + "..."
 
 
-# Tall board (two rows per rank) needs 18 board lines; with the frame
-# chrome, the input line, and the suggestion line under it, 27 rows is
-# the smallest terminal that fits. Portrait phones clear it easily; a
-# classic 80x24 stays on the single-height board.
-TALL_MIN_HEIGHT = 27
+# Tall board (two rows per rank) is 18 board lines. In tall mode the
+# blank separator lines go away, so a mid-game frame is 22 rows plus
+# the input and suggestion rows: 24 total. Ramon's phone with the soft
+# keyboard open is about 26 rows, which is why the old threshold of 27
+# quietly never fired on the one device that mattered. A game-over or
+# replay frame can run up to two rows over on a terminal of exactly
+# 24; the status line scrolling off at checkmate is a fair trade for
+# square squares. CHESS_TUI_TALL=always|never overrides the guess.
+TALL_MIN_HEIGHT = 24
+
+
+def use_tall(height: int, mode: str = "auto") -> bool:
+    if mode == "always":
+        return True
+    if mode == "never":
+        return False
+    return height >= TALL_MIN_HEIGHT
 
 
 def render_board(
@@ -83,13 +95,18 @@ def render_board(
     return lines
 
 
-def game_screen(view: GameView, theme: Theme, width: int, height: int = 24) -> list[Text]:
+def game_screen(view: GameView, theme: Theme, width: int, tall: bool = False) -> list[Text]:
+    """In tall mode the blank separators go: the fat board carries its
+    own visual spacing and the saved rows are what let tall fit a
+    phone with the keyboard open."""
     tone = {"good": theme.good, "bad": theme.bad}.get(view.state_tone, theme.soft)
     status = f"{view.player_label} | {view.gemma_label} | move {view.move_number}"
-    lines = [Text(clip(status, width), style=theme.ink), Text("")]
-    tall = height >= TALL_MIN_HEIGHT
+    lines = [Text(clip(status, width), style=theme.ink)]
+    if not tall:
+        lines.append(Text(""))
     lines.extend(render_board(view.fen, view.last_move_uci, view.flipped, theme, tall))
-    lines.append(Text(""))
+    if not tall:
+        lines.append(Text(""))
 
     state_line = Text()
     state_line.append(clip(view.last_move_label, width), style=theme.ink)
@@ -177,16 +194,18 @@ def history_screen(items: list[HistoryItem], theme: Theme, width: int) -> list[T
 
 
 def replay_screen(
-    cursor: ReplayCursor, flipped: bool, theme: Theme, width: int, height: int = 24
+    cursor: ReplayCursor, flipped: bool, theme: Theme, width: int, tall: bool = False
 ) -> list[Text]:
     when = cursor.started_at[:16].replace("T", " ")
     outcome = cursor.result or "unfinished"
     header = f"replay  {when}  {outcome}  as {cursor.participant_color}"
-    lines = [Text(clip(header, width), style=theme.ink), Text("")]
+    lines = [Text(clip(header, width), style=theme.ink)]
+    if not tall:
+        lines.append(Text(""))
     current = cursor.current
-    tall = height >= TALL_MIN_HEIGHT
     lines.extend(render_board(cursor.fen, current.uci if current else None, flipped, theme, tall))
-    lines.append(Text(""))
+    if not tall:
+        lines.append(Text(""))
     if current is None:
         position = "start"
     else:
@@ -196,7 +215,8 @@ def replay_screen(
     if current is not None and current.comment:
         for wrapped in _wrap_comment(current.comment, width):
             lines.append(Text(wrapped, style=theme.soft))
-    lines.append(Text(""))
+    if not tall:
+        lines.append(Text(""))
     lines.append(Text("/next  /prev  /flip  /back. enter is next", style=theme.faint))
     return lines
 

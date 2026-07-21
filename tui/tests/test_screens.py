@@ -216,6 +216,25 @@ def test_help_screen_lists_slash_commands():
     assert "bare words work too" in exported
 
 
+def test_use_tall_threshold_and_overrides():
+    from chess_tui.ui.screens import TALL_MIN_HEIGHT, use_tall
+
+    assert TALL_MIN_HEIGHT == 24
+    assert use_tall(23) is False
+    assert use_tall(24) is True
+    assert use_tall(26) is True  # ramon's phone, keyboard open
+    assert use_tall(10, "always") is True
+    assert use_tall(50, "never") is False
+
+
+def test_tall_frame_fits_a_keyboard_open_phone():
+    # Mid-game tall frame at 26 rows: frame + input + suggestion <= 26.
+    lines = game_screen(_view(), CHALK, 48, tall=True)
+    assert len(lines) + 2 <= 26
+    # And even at the 24-row floor.
+    assert len(lines) + 2 <= 24
+
+
 def test_move_label_numbering():
     assert move_label(1, "e4") == "1. e4"
     assert move_label(2, "e5") == "1...e5"
@@ -230,7 +249,7 @@ def test_render_board_flipped_matches_plain_flipped():
 
 def test_tall_board_at_a_phone_height_keeps_alignment():
     view = _view()
-    lines = game_screen(view, CHALK, 60, height=28)
+    lines = game_screen(view, CHALK, 60, tall=True)
     exported = _export(lines, 60)
     plain = board_lines(board_grid(view.fen, view.last_move_uci), tall=True)
     start = exported.index(plain[0])
@@ -243,7 +262,7 @@ def test_tall_board_at_a_phone_height_keeps_alignment():
 
 def test_short_terminals_keep_the_single_height_board():
     view = _view()
-    exported = _export(game_screen(view, CHALK, 60, height=24), 60)
+    exported = _export(game_screen(view, CHALK, 60, tall=False), 60)
     plain = board_lines(board_grid(view.fen, view.last_move_uci), tall=False)
     start = exported.index(plain[0])
     assert exported[start : start + len(plain)] == plain
