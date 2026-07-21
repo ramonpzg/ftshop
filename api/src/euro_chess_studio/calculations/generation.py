@@ -108,6 +108,9 @@ LIVE_BENCHMARK_LOCK_KEY = "text.benchmark_eval:live"
 # The lock outlives any legitimate run by construction: the run's own
 # server deadline clamps to 300 s, plus slack. Matches the panel's
 # SERVER_RUN_MAX_MS, so both sides agree on when a silent run is dead.
+# The TTL is for a process that is alive but hung; a process that DIED
+# does not make anyone wait it out, because startup clears the table
+# (see main.lifespan).
 LIVE_BENCHMARK_LOCK_TTL_SECONDS = 330.0
 
 

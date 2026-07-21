@@ -72,7 +72,7 @@ def test_a_live_run_in_flight_is_shared_state_and_refuses_duplicates(
     assert duplicate.status_code == 409
     assert "already in progress" in duplicate.json()["detail"]
 
-    # Expire the lock: the crashed-run case. The panel unlocks and the
+    # Expire the lock: the hung-process case. The panel unlocks and the
     # room is not stuck.
     conn = get_connection(tmp_path / "test.db")
     conn.execute(
@@ -82,6 +82,42 @@ def test_a_live_run_in_flight_is_shared_state_and_refuses_duplicates(
     conn.commit()
     conn.close()
     assert client.get("/adaptation/state").json()["live_benchmark"]["in_progress"] is False
+
+
+def test_a_backend_restart_clears_orphaned_live_run_locks(tmp_path, monkeypatch):
+    """A lock that survives into a new process is orphaned by
+    definition: the run it guarded died with the old process, and no
+    restart can carry an in-flight run across. Waiting out the 330 s
+    TTL would keep live controls dead mid-segment, so startup clears
+    the table instead."""
+    from datetime import UTC, datetime, timedelta
+
+    from euro_chess_studio.calculations.generation import LIVE_BENCHMARK_LOCK_KEY
+    from euro_chess_studio.data.db import get_connection
+    from euro_chess_studio.data.run_locks_repo import insert_lock
+
+    monkeypatch.setenv("CHESS_STUDIO_DB_PATH", str(tmp_path / "test.db"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with TestClient(app) as before_restart:
+        conn = get_connection(tmp_path / "test.db")
+        now = datetime.now(UTC)
+        insert_lock(
+            conn,
+            LIVE_BENCHMARK_LOCK_KEY,
+            acquired_at=now.isoformat(),
+            expires_at=(now + timedelta(seconds=330)).isoformat(),
+        )
+        conn.commit()
+        conn.close()
+        state = before_restart.get("/adaptation/state").json()
+        assert state["live_benchmark"]["in_progress"] is True
+
+    # The process dies mid-run and comes back: the same database, a
+    # fresh lifespan. The lock must not outlive the run it guarded.
+    with TestClient(app) as after_restart:
+        state = after_restart.get("/adaptation/state").json()
+        assert state["live_benchmark"]["in_progress"] is False
 
 
 def test_freeze_snapshot_returns_409_for_an_empty_room(client: TestClient):

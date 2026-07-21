@@ -21,3 +21,7 @@ def insert_lock(
 
 def delete_lock(conn: sqlite3.Connection, lock_key: str) -> None:
     conn.execute("DELETE FROM run_locks WHERE lock_key = ?", (lock_key,))
+
+
+def clear_all_locks(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM run_locks")
