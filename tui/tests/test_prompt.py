@@ -6,12 +6,12 @@ import chess
 
 from chess_tui.calculations.moves import legal_moves_uci_san, san_history_text
 from chess_tui.calculations.prompt import (
-    MOVE_JSON_SCHEMA,
     MOVE_PROMPT_VERSION,
     SYSTEM_PROMPT,
     build_corrective_message,
     build_messages,
     build_user_message,
+    move_json_schema,
 )
 
 
@@ -57,12 +57,14 @@ def test_messages_are_system_then_user():
     assert messages[0]["content"] is SYSTEM_PROMPT
 
 
-def test_schema_requires_exactly_move_and_comment():
-    assert MOVE_JSON_SCHEMA["required"] == ["move", "comment"]
-    assert MOVE_JSON_SCHEMA["additionalProperties"] is False
-    assert MOVE_JSON_SCHEMA["properties"]["comment"]["maxLength"] == 90
+def test_schema_constrains_move_to_the_legal_menu():
+    schema = move_json_schema(["e7e5", "g8f6"])
+    assert schema["required"] == ["move", "comment"]
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["comment"]["maxLength"] == 90
+    assert schema["properties"]["move"]["enum"] == ["e7e5", "g8f6"]
 
 
 def test_prompt_version_is_stamped():
-    assert MOVE_PROMPT_VERSION == "tui-move-v1"
+    assert MOVE_PROMPT_VERSION == "tui-move-v2"
     assert "LEGAL_MOVES" in SYSTEM_PROMPT

@@ -60,6 +60,8 @@ def test_request_body_is_bounded_and_schema_constrained(conn, config):
     assert body["response_format"]["type"] == "json_schema"
     schema = body["response_format"]["json_schema"]["schema"]
     assert schema["required"] == ["move", "comment"]
+    assert "e7e5" in schema["properties"]["move"]["enum"]
+    assert len(schema["properties"]["move"]["enum"]) == 20
     assert [m["role"] for m in body["messages"]] == ["system", "user"]
     assert "LEGAL_MOVES:" in body["messages"][1]["content"]
     assert "- e7e5 | e5" in body["messages"][1]["content"]

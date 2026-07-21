@@ -6,7 +6,14 @@ Each model turn is a fresh, bounded request: the FEN plus compact
 history carries the whole state, so no growing assistant conversation
 is ever replayed."""
 
-MOVE_PROMPT_VERSION = "tui-move-v1"
+# v2, after a real Gemma 4 E2B Q4_0 test on llama.cpp 76f46ad
+# demonstrated why: with a generic UCI pattern constraint, the model
+# anchored on the SAN column ("e5") and grammar decoding padded it
+# into pattern-valid junk ("e5b5", "e5e6") twelve attempts in a row.
+# Constraining "move" to an enum of the actual legal UCIs steers the
+# same probability mass to the listed spelling; the model then played
+# e7e5 consistently. The application still validates membership.
+MOVE_PROMPT_VERSION = "tui-move-v2"
 
 SYSTEM_PROMPT = """You are Black in a legal chess game and a terse, dry chess coach.
 
@@ -33,20 +40,25 @@ Return one JSON object and nothing else:
 
 Do not use Markdown, code fences, analysis, reasoning, or additional keys."""
 
-# Constrains shape server-side via llama.cpp's json_schema support. The
-# application still validates the parsed type and legal-set membership;
-# grammar output does not replace chess validation.
-MOVE_JSON_SCHEMA: dict = {
-    "type": "object",
-    "properties": {
-        "move": {"type": "string", "pattern": "^[a-h][1-8][a-h][1-8][nbrq]?$"},
-        "comment": {"type": "string", "maxLength": 90},
-    },
-    "required": ["move", "comment"],
-    "additionalProperties": False,
-}
-
 _REJECTED_REPLY_LIMIT = 300
+
+
+def move_json_schema(legal_uci: list[str]) -> dict:
+    """Per-turn schema for llama.cpp's json_schema response format:
+    exactly move and comment, no extra keys, comment bounded, and move
+    constrained to the actual legal menu, not merely a UCI-shaped
+    pattern (see MOVE_PROMPT_VERSION for the observed reason). Grammar
+    output still does not replace chess validation; the application
+    checks membership again on every reply."""
+    return {
+        "type": "object",
+        "properties": {
+            "move": {"type": "string", "enum": list(legal_uci)},
+            "comment": {"type": "string", "maxLength": 90},
+        },
+        "required": ["move", "comment"],
+        "additionalProperties": False,
+    }
 
 
 def build_user_message(

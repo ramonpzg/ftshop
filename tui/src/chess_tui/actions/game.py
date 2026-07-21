@@ -20,12 +20,12 @@ import chess
 
 from chess_tui.calculations.moves import ParsedMove, legal_moves_uci_san, san_history_text
 from chess_tui.calculations.prompt import (
-    MOVE_JSON_SCHEMA,
     MOVE_PROMPT_VERSION,
     SYSTEM_PROMPT,
     build_corrective_message,
     build_messages,
     build_user_message,
+    move_json_schema,
 )
 from chess_tui.calculations.replies import judge_move_reply
 from chess_tui.data import attempts_repo, games_repo, plies_repo
@@ -108,6 +108,7 @@ def play_model_turn(
     ply = len(state.board.move_stack) + 1
     legal = legal_moves_uci_san(fen)
     legal_set = {uci for uci, _ in legal}
+    schema = move_json_schema([uci for uci, _ in legal])
     user = build_user_message(
         fen,
         san_history_text(state.sans),
@@ -117,7 +118,7 @@ def play_model_turn(
     )
 
     judged = _one_request(
-        conn, state, client, ply, legal_set, build_messages(SYSTEM_PROMPT, user), False
+        conn, state, client, ply, legal_set, schema, build_messages(SYSTEM_PROMPT, user), False
     )
     if isinstance(judged, TurnFailure):
         state.pending_failure = judged
@@ -130,6 +131,7 @@ def play_model_turn(
             client,
             ply,
             legal_set,
+            schema,
             build_messages(SYSTEM_PROMPT, corrective),
             True,
         )
@@ -183,12 +185,13 @@ def _one_request(
     client: LlmClient,
     ply: int,
     legal_set: set[str],
+    schema: dict,
     messages: list[dict],
     corrective: bool,
 ) -> _JudgedReply | TurnFailure:
     attempt = attempts_repo.next_attempt_number(conn, state.game_id, ply)
     try:
-        reply = client.request_black_move(messages, MOVE_JSON_SCHEMA)
+        reply = client.request_black_move(messages, schema)
     except TransportFailure as failure:
         status = "timeout" if failure.kind == "timeout" else "transport_failed"
         _record_attempt(
