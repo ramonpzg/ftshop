@@ -4,7 +4,7 @@ class: part-opener
 ---
 
 <div class="part-number">2</div>
-<div class="part-title">Four adaptation problems, one domain</div>
+<div class="part-title">Four adaptation problems</div>
 
 <div class="opener-modalities">
   <span v-click class="reserve">Text</span>
@@ -34,22 +34,22 @@ FALLBACK: static.
 -->
 
 ---
+footer: false
+---
 
 # Text can do more than choose a move
 
 <div class="mapping-grid">
 <MediaFrame
-  file="mapping-game.png"
-  ratio="4/5"
+  file="chess-log.png"
+  ratio="9/16"
   expected="A completed board and its game log, the same artifact the three mapping slides reuse."
 />
 <div v-click class="reserve mapping-panel">
   <span class="compare-label">real-world mapping</span>
   <div class="mapping-placeholder">
-    PLACEHOLDER: one detailed real-world mapping of this exact game, written by
-    the scenario workflow. Situation at work, at home, or in sport.
+      The White Queen sitting on `e7` looks dominant and polished at first glance, much like a 300-line AI-generated pull request that passes its initial tests. Look at the clutter of captured pawns piled along the side margins of the board: that is the visual equivalent of modern "AI slop" clogging software repositories. Developers accept AI-generated code without checking edge cases, trading sound architecture for the illusion of velocity. The synthetic code compiles cleanly and looks superficially competent, yet it quietly bloats systems with duplicated logic, redundant functions, and fragile abstractions. Just as a flashy piece move can disguise positional weaknesses, unverified code tricks teams into thinking they are winning right until a refactor is needed. Maintainers now spend their days triaging hallucinated imports and useless boilerplate that no human on the team actually wrote or understands. Test suites pass because the AI wrote unit tests that merely mirror its own flawed logic rather than validating actual behavior. Pushing thousands of lines of unverified code into production isn't genuine engineering. It is merely using an automated assistant to manufacture technical debt at scale.
   </div>
-  <span class="provenance">scenario writer: gpt-5.6-luna · prompt version pending · CACHED, date pending</span>
 </div>
 </div>
 
