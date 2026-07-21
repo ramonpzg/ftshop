@@ -18,6 +18,10 @@ artifacts/generated/*
 !artifacts/generated/.gitkeep
 data/processed/text/chess_sft.jsonl
 data/processed/text/chess_all_shapes.jsonl
+data/processed/text/lichess-low-capture/
+training/.venv/
+training/**/__pycache__/
+unsloth_compiled_cache/
 euro_chess_studio.db-wal
 euro_chess_studio.db-shm
 web/test-results/

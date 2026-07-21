@@ -100,6 +100,7 @@ just download-models  Download and verify all local models
 just start            Run API :8000, the canvas sync room :8010, and web :5173
 just room-url         Print the board URL for devices on the same network
 just start-gemma      Run Gemma 4 through llama.cpp on :8080
+just chess-adapt      Prepare, enrich, train, and publish the chess adapter
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just test             Run backend and frontend tests
@@ -137,4 +138,5 @@ it; phase 36 owns the rest of the release command surface.
 - [Deck plan](docs/deck-plan.md)
 - [Local development](docs/local-dev.md)
 - [Asset licenses](docs/licenses.md)
+- [Chess adapter run](docs/chess-adaptation.md)
 - [Current phase prompts](notes/comms/README.md)

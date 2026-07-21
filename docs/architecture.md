@@ -5,6 +5,7 @@
 ```
 web/          React + tldraw frontend (Bun, Vite, TypeScript)
 api/          FastAPI backend (uv, python-chess)
+training/     Offline sample preparation and Unsloth adapter training
 data/         Dataset fixtures (raw / processed / tiny)
 artifacts/    Cached fixture JSON and generated job output
 docs/         This directory
@@ -13,6 +14,13 @@ docs/         This directory
 Two independent processes talk over HTTP: the backend owns all durable
 state in SQLite, the frontend owns the tldraw canvas. Neither embeds the
 other. `just start` runs both.
+
+The training project is not a fourth workshop service. It is an isolated
+offline tool with its own Python 3.12 environment, because CUDA, Torch, TRL,
+PEFT, and Unsloth are several GB and do not belong in `just install`. It keeps
+the same separation as the application: pure selection and training settings
+under `calculations/`, Hugging Face and file I/O under `data/`, and pipeline
+orchestration under `actions/`.
 
 ## Frontend: actions / calculations / data
 

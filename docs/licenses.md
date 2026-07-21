@@ -81,3 +81,14 @@ Generation tooling licenses: Pillow (MIT-CMU), numpy (BSD), cairosvg
 (LGPL-3.0, used as a build-time tool only), PyAV (BSD) bundling FFmpeg
 libraries (LGPL). None of these ship in the application runtime; they
 are the `media` extra used only by `just make-media`.
+
+## Lichess adaptation sample
+
+`just chess-adapt --prepare` reads one pinned Parquet partition from
+`Lichess/standard-chess-games` on Hugging Face. Lichess publishes that
+dataset under **CC0 1.0**. Generated rows retain the source game URL for
+provenance but do not copy player usernames.
+
+- Source: https://huggingface.co/datasets/Lichess/standard-chess-games
+- Revision: `de4e636eddf568a9394cc01fb0b9e1da04a6babf`
+- File: `data/year=2013/month=01/train-00000-of-00001.parquet`

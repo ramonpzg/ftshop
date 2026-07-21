@@ -1,0 +1,48 @@
+[project]
+name = "chess-adapt-pipeline"
+version = "0.1.0"
+description = "Bounded Lichess preparation and Gemma 4 adapter training"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "euro-chess-studio",
+    "huggingface-hub>=0.34",
+    "pyarrow>=21",
+    "python-chess>=1.999",
+]
+
+[project.optional-dependencies]
+# Isolated from the workshop runtime. Installing this resolves CUDA, Torch,
+# TRL, PEFT, and Unsloth and can consume several GB.
+gpu = [
+    "unsloth==2026.7.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.15",
+    "ty>=0.0.56",
+]
+
+[project.scripts]
+chess-adapt = "chess_adapt.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chess_adapt"]
+
+[tool.uv.sources]
+euro-chess-studio = { path = "../api", editable = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -21,6 +21,7 @@ just start        # backend :8000 + sync room :8010 + frontend :5173
 just deck         # Slidev :3030
 just session-notebook # standalone JupyterLab notebook
 just room-url     # print the LAN URL attendees use
+just chess-adapt  # bounded Lichess sample + Luna + Gemma 4 QLoRA + HF push
 just test         # pytest + bun test
 just test-e2e     # Playwright; uses its own browser discovery, override with CHESS_STUDIO_CHROMIUM
 just lint         # ruff + biome
@@ -39,6 +40,7 @@ just seed         # repopulate pages and cached eval fixtures
 - `artifacts/` cached fixture JSON and generated job output.
 - `deck/` Slidev presentation and Vue teaching components.
 - `notebooks/full-session.ipynb` standalone Jupyter notebook.
+- `training/` isolated Lichess preparation and Unsloth adapter pipeline.
 - `docs/` architecture, session plan, demo plan, local dev, licenses.
 - `notes/comms/` reviewed implementation prompts, in execution order.
 - `notes/ai/` handover docs, one per phase. `notes/hu/` learning guides.

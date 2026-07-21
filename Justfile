@@ -137,6 +137,36 @@ start-gemma port="8080":
         --host 127.0.0.1 \
         --port "{{ port }}"
 
+# Build the bounded Lichess sample, enrich it with Luna, train a Gemma 4
+# adapter, and optionally publish it. With no flags this runs the viable
+# laptop path: prepare + enrich + QLoRA + push. Generated data and model
+# artifacts stay outside git. See `just chess-adapt --help` before a run.
+chess-adapt *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    arguments=( {{ args }} )
+    if (( ${#arguments[@]} == 0 )); then
+        arguments=(--all)
+    fi
+
+    uv_args=(--project training --python 3.12)
+    for argument in "${arguments[@]}"; do
+        case "${argument}" in
+            --all|--lora|--qlora)
+                uv_args+=(--extra gpu)
+                break
+                ;;
+        esac
+    done
+
+    uv run "${uv_args[@]}" chess-adapt "${arguments[@]}"
+
+# Resolve the isolated CUDA/Unsloth environment without starting a run.
+# This is intentionally separate from `just install`: attendees do not
+# need several GB of trainer dependencies.
+install-chess-training:
+    uv sync --project training --python 3.12 --extra gpu
+
 # The Slidev deck on port 3030. The Presentation page embeds it; the
 # tab itself has presenter mode and speaker notes. Two styles share
 # every slide: `just deck` is the light paper scoresheet, `just deck
@@ -205,6 +235,7 @@ room-url:
 
 test:
     cd api && uv run pytest
+    cd training && uv run pytest
     cd web && bun test
     cd deck && bun test
 
@@ -219,14 +250,17 @@ test-e2e:
 
 lint:
     cd api && uv run ruff check .
+    cd training && uv run ruff check .
     cd web && bun run lint
 
 typecheck:
     cd api && uv run ty check src
+    cd training && uv run ty check src
     cd web && bun run typecheck
 
 format:
     cd api && uv run ruff format .
+    cd training && uv run ruff format .
     cd web && bun run format
 
 reset-db:
