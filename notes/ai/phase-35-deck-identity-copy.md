@@ -148,10 +148,14 @@ the SAY note routes adapter-level merging to PEFT.
 - `web/e2e/deck.spec.ts`: the deck's browser-level acceptance check.
   The Playwright config boots the deck's default route as a fourth
   webServer, and the spec walks every click state of the economics
-  stepper asserting each visible text node's computed font size stays
-  at or above the 11px type floor (0.7rem at the 16px root). String
-  budgets cannot see rendered size; this can, and it was verified to
-  fail red when a fact was deliberately set to 0.6rem.
+  stepper asserting two things per step: the active rail item and
+  panel task match the expected modality (Text, Image, Audio, Video
+  in order, so a stepper stuck on one modality cannot pass), and each
+  visible text node's computed font size stays at or above the 11px
+  type floor (0.7rem at the 16px root). String budgets cannot see
+  rendered size; this can. Both assertions were verified to fail red:
+  the font check against a fact deliberately set to 0.6rem, the
+  progression check against a stepper pinned to its first state.
 - `just test` already runs the deck tests; phase 36 consolidates
   lint/typecheck into the Justfile.
 

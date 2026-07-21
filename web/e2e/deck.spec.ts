@@ -19,6 +19,16 @@ const MIN_FONT_PX = 11;
 // minus the three optional slides before it).
 const ECONOMICS_SLIDE = 20;
 
+// What each click must show, pinned by the visible rail label and the
+// panel's task line. Without this, a stepper stuck on Text would pass
+// the font assertions four times over.
+const MODALITY_STEPS = [
+  { rail: "Text", task: "legal-move JSON" },
+  { rail: "Image", task: "themed set, same prompt" },
+  { rail: "Audio", task: "same prompt and duration" },
+  { rail: "Video", task: "saved Luna scene prompt" },
+];
+
 test("every fact on the economics stepper renders at or above the type floor", async ({
   page,
 }) => {
@@ -32,8 +42,15 @@ test("every fact on the economics stepper renders at or above the type floor", a
     timeout: 15_000,
   });
 
-  // Walk all four modalities; the assertion must hold on every step.
+  // Walk all four modalities; the assertions must hold on every step.
   for (let clicks = 0; clicks <= 3; clicks += 1) {
+    // Each ArrowRight must actually advance the stepper.
+    const step = MODALITY_STEPS[clicks];
+    await expect(scope.locator(".cost-at-target .rail-item.active .rail-name")).toHaveText(
+      step.rail,
+    );
+    await expect(scope.locator(".cost-at-target .task")).toHaveText(step.task);
+
     const sizes = await scope
       .locator(".cost-at-target *")
       .evaluateAll((elements) =>
