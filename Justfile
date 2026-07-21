@@ -65,9 +65,12 @@ start-gemma port="8080":
         --port "{{ port }}"
 
 # The Slidev deck on port 3030. The Presentation page embeds it; the
-# tab itself has presenter mode and speaker notes.
-deck:
-    cd deck && bun run dev
+# tab itself has presenter mode and speaker notes. Two styles share
+# every slide: `just deck` is the light paper scoresheet, `just deck
+# chalk` is the dark, slightly hand-written one that sits next to
+# tldraw.
+deck style="paper":
+    cd deck && VITE_DECK_STYLE={{ style }} bun run dev
 
 # The whole session as a standalone Jupyter notebook. It is not embedded
 # in tldraw and does not depend on the web app.

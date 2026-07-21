@@ -86,7 +86,7 @@ const poster = computed(() => `/assets/${props.posterFile}`);
 .ph-expected {
   font-size: 0.72rem;
   line-height: 1.45;
-  color: var(--paper);
+  color: #f3f1ec;
 }
 
 .ph-ratio {

@@ -21,7 +21,64 @@
   --accent: #1f4fd8;
   --good: #1e6b45;
   --bad: #a2352a;
+  --board-dark: #e7e2d6;
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* The chalk style: near-black ground, light ink, slightly hand-written
+ * type to sit next to tldraw. Same slides, same geometry, same motion;
+ * only tokens and faces change. Enabled by setup/main.ts when
+ * VITE_DECK_STYLE=chalk (`just deck chalk`). */
+html.style-chalk {
+  --paper: #17171a;
+  --paper-raised: #222227;
+  --ink: #f3f1ec;
+  --ink-soft: #b9b5ac;
+  --ink-faint: #85817a;
+  --rule: #3a3a41;
+  --accent: #7a9bff;
+  --good: #5fbf8a;
+  --bad: #e0796b;
+  --board-dark: #3b3b42;
+}
+
+html.style-chalk .slidev-layout,
+html.style-chalk .slidev-layout h1,
+html.style-chalk .slidev-layout h2 {
+  font-family: "Shantell Sans", "IBM Plex Sans", sans-serif;
+}
+
+/* Rounder, slightly heavier edges in chalk; still no glass, no glow. */
+html.style-chalk .slidev-layout :not(pre) > code,
+html.style-chalk .slidev-layout pre.shiki,
+html.style-chalk .slidev-layout .slidev-code-wrapper pre {
+  border-radius: 6px;
+  border-width: 1.5px;
+}
+
+/* Shiki emits both palettes; chalk activates the dark one without
+ * touching Slidev's color scheme. */
+html.style-chalk .shiki,
+html.style-chalk .shiki span,
+html.style-chalk .shiki-magic-move-container,
+html.style-chalk .shiki-magic-move-container .shiki-magic-move-item {
+  color: var(--shiki-dark, inherit) !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+}
+
+/* The known component surfaces soften from 2px to 6px corners in
+ * chalk. Same one-surface rule as paper, rounder pen. */
+html.style-chalk .panel,
+html.style-chalk .mapping-panel,
+html.style-chalk .scene-panel,
+html.style-chalk .style-text,
+html.style-chalk .modality-grid,
+html.style-chalk .reward-meter,
+html.style-chalk .live-room,
+html.style-chalk .rep-panel,
+html.style-chalk .stage,
+html.style-chalk .chip {
+  border-radius: 6px;
 }
 
 /* Ground. The deck is paper and ink; dark frames exist only around

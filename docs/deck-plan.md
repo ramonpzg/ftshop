@@ -58,6 +58,26 @@ Scale, on Slidev's 980x552 canvas (scaled to the projector):
 Nothing on a content slide goes below 0.7rem, and 0.7rem is reserved
 for the footer and citation rows. No viewport-scaled type.
 
+## Two styles, one deck
+
+Every slide, layout, click count, and motion rule is shared between
+two launch-time styles; only tokens and typefaces change, and a test
+(`tests/theme.test.ts`) asserts the chalk block overrides every color
+token paper defines.
+
+- **paper** (default): the light scoresheet system below.
+  `just deck`, `bun run dev`, `bun run build`.
+- **chalk**: near-black ground, light ink, slightly hand-written
+  Shantell Sans (the family tldraw uses for its draw style, OFL 1.1
+  via Fontsource), rounder 6px surfaces, dark Shiki palette. It sits
+  next to the tldraw whiteboard without importing its hand-drawn
+  shapes. `just deck chalk`, `bun run dev:chalk`,
+  `bun run build:chalk`. Combine with the full route manually:
+  `VITE_DECK_STYLE=chalk bun run dev:full`.
+
+The switch is `VITE_DECK_STYLE`, read once at server or build start in
+`deck/setup/main.ts`; chalk's fonts load only when selected.
+
 ## Palette
 
 Neutral ground, one functional accent, two semantic colors. All values

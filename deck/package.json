@@ -11,11 +11,14 @@
     "typecheck": "vue-tsc --noEmit",
     "format": "biome format --write .",
     "dev:full": "slidev slides-full.md --port 3030",
-    "build:full": "slidev build slides-full.md"
+    "build:full": "slidev build slides-full.md",
+    "dev:chalk": "VITE_DECK_STYLE=chalk slidev --port 3030",
+    "build:chalk": "VITE_DECK_STYLE=chalk slidev build"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/shantell-sans": "^5.3.0",
     "@slidev/cli": "^52.1.0",
     "@slidev/theme-default": "^0.25.0",
     "vue": "^3.5.18"

@@ -39,7 +39,7 @@ const highlightSet = computed(() => new Set(props.highlights));
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e7e2d6;
+  background: var(--board-dark);
 }
 
 .cell.light {

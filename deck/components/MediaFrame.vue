@@ -165,7 +165,7 @@ watch(
 }
 
 .stage.dark .ph-expected {
-  color: var(--paper);
+  color: #f3f1ec;
 }
 
 /* The caption row is reserved even when empty, so a caption arriving

@@ -26,6 +26,21 @@ frontmatter opt-out. Shiki pinned to `github-light` in
 vitesse-light, tried first, is too muted for a washed-out projector.
 Code-first slides carry a `code-lg` class that raises code to 1rem.
 
+Two launch-time styles share the whole deck (Ramon-requested, added
+after review): **paper**, the light scoresheet above and the default,
+and **chalk**, a near-black, slightly hand-written variant in Shantell
+Sans (tldraw's draw-style family, OFL 1.1 via Fontsource) with rounder
+6px surfaces and the dark Shiki palette. The switch is
+`VITE_DECK_STYLE`, read once in `deck/setup/main.ts`: `just deck` /
+`just deck chalk` (the one Justfile edit this phase makes; reconcile
+it if phase 34 touched the recipe), or `dev:chalk` / `build:chalk`.
+Chalk is a token overlay, not a fork: `tests/theme.test.ts` asserts it
+overrides every color token paper defines, the chessboard's dark
+squares became `--board-dark` so the board flips, and the two
+always-dark media bezels pin their inner text to a literal light color
+so both styles read. Shantell Sans joins the licenses.md entry due at
+integration.
+
 ### Slides and routes (deck/slides.md, slides-full.md, slides/01..05)
 
 47 slides in the exact PLAN_V2 sequence across five section files; the
