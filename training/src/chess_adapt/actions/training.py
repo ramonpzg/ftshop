@@ -19,6 +19,8 @@ from chess_adapt.calculations.training import (
     TrainerConfig,
     TrainingMethod,
     check_vram,
+    model_architectures,
+    model_load_options,
     repository_for,
 )
 from chess_adapt.data.store import PipelinePaths, read_json, read_jsonl, write_json
@@ -71,14 +73,9 @@ def train_adapter(
     trl = importlib.import_module("trl")
     FastModel = unsloth.FastModel
 
-    model, tokenizer = FastModel.from_pretrained(
-        model_name=BASE_MODEL,
-        revision=BASE_MODEL_REVISION,
-        max_seq_length=config.max_seq_length,
-        load_in_4bit=config.method == "qlora",
-        load_in_16bit=config.method == "lora",
-        full_finetuning=False,
-        use_gradient_checkpointing="unsloth",
+    model, tokenizer = FastModel.from_pretrained(**model_load_options(config))
+    model.config.architectures = model_architectures(
+        getattr(model.config, "architectures", None), type(model).__name__
     )
     model = FastModel.get_peft_model(
         model,
@@ -92,7 +89,6 @@ def train_adapter(
         bias="none",
         random_state=config.seed,
     )
-    tokenizer = templates.get_chat_template(tokenizer, chat_template="gemma-4")
 
     dataset: Any = datasets.load_dataset(
         "json", data_files={"train": str(train_file)}, split="train"

@@ -97,10 +97,10 @@ bounded retry and request-id diagnostics as the workshop backend apply.
 ## Training methods
 
 QLoRA is the local default. It loads the official unquantized QAT checkpoint
-through Unsloth in 4-bit, freezes vision layers, adapts language, attention,
-and MLP layers, uses batch size 1 with gradient accumulation, and applies the
-Gemma 4 chat template supplied by the tokenizer. It does not hand-write Gemma
-special tokens.
+through Unsloth in 4-bit, skips the image and audio towers for this text-only
+run, adapts language, attention, and MLP layers, uses batch size 1 with
+gradient accumulation, and applies the Gemma 4 chat template supplied by the
+tokenizer. It does not hand-write Gemma special tokens.
 
 The bf16 LoRA path is present for a larger machine:
 

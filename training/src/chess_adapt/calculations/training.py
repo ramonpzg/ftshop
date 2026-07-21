@@ -76,3 +76,20 @@ def check_vram(
 
 def repository_for(prefix: str, method: TrainingMethod) -> str:
     return prefix if method == "qlora" else f"{prefix}-lora"
+
+
+def model_load_options(config: TrainerConfig) -> dict[str, object]:
+    return {
+        "model_name": BASE_MODEL,
+        "revision": BASE_MODEL_REVISION,
+        "max_seq_length": config.max_seq_length,
+        "load_in_4bit": config.method == "qlora",
+        "load_in_16bit": config.method == "lora",
+        "full_finetuning": False,
+        "use_gradient_checkpointing": "unsloth",
+        "text_only": True,
+    }
+
+
+def model_architectures(current: object, model_class_name: str) -> object:
+    return current or [model_class_name]
