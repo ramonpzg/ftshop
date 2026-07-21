@@ -11,6 +11,12 @@ from euro_chess_studio.main import app
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CHESS_STUDIO_DB_PATH", str(tmp_path / "test.db"))
+    # The room model policy fails closed: attendees may only play the
+    # default opponent when its endpoint is known local. These tests
+    # model the full-room configuration (a local model serving the
+    # room); the fail-closed test removes this to prove the closed
+    # posture.
+    monkeypatch.setenv("OPPONENT_ENDPOINT_IS_LOCAL", "1")
     with TestClient(app) as test_client:
         yield test_client
 
@@ -20,8 +26,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 PRESENTER = {"x-forwarded-for": "127.0.0.1"}
 
 
-def make_workspace(client: TestClient) -> str:
-    user = client.post("/users", json={"name": "Ada"}).json()
+def make_workspace(client: TestClient, name: str = "Ada") -> str:
+    user = client.post("/users", json={"name": name}).json()
     workspace = client.post(
         "/workspaces", json={"user_id": user["id"], "page_slug": "chess-machine"}
     ).json()
@@ -300,9 +306,9 @@ def test_the_room_model_policy_gates_non_default_opponents(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
     """Attendees play the room's default opponent. A non-default pick
-    from a LAN browser is refused server-side: forty attendees on a
-    metered frontier model is a budget burst, whatever the picker
-    shows."""
+    from a LAN browser is refused server-side even when the endpoint is
+    local: forty attendees on a metered frontier model is a budget
+    burst, whatever the picker shows."""
     monkeypatch.setenv("OPPONENT_MODELS", "openai/gpt-5.6")
     workspace_id = make_workspace(client)
     lan = {"x-forwarded-for": "192.168.1.23"}
@@ -315,7 +321,8 @@ def test_the_room_model_policy_gates_non_default_opponents(
     assert frontier.status_code == 403
     assert "presenter" in frontier.json()["detail"]
 
-    # The default opponent stays open to the room, named or implied.
+    # With the endpoint attested local, the default opponent stays open
+    # to the room, named or implied.
     named_default = client.post(
         f"/workspaces/{workspace_id}/game/start",
         json={"opponent_model": "gpt-5.6-luna"},
@@ -323,6 +330,44 @@ def test_the_room_model_policy_gates_non_default_opponents(
     )
     assert named_default.status_code == 200
     client.post(f"/workspaces/{workspace_id}/game/start-over", headers=lan)
+
+
+def test_the_room_model_policy_fails_closed_without_a_local_endpoint(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """Whatever OPENAI_MODEL names, an attendee start is refused unless
+    the opponent endpoint is known local: a loopback OPENAI_BASE_URL or
+    an explicit OPPONENT_ENDPOINT_IS_LOCAL=1. The out-of-the-box
+    default is Luna on a hosted endpoint, and forty attendees playing
+    it is forty paid call streams, so imperfect configuration must
+    refuse instead of spend."""
+    monkeypatch.delenv("OPPONENT_ENDPOINT_IS_LOCAL", raising=False)
+    workspace_id = make_workspace(client)
+    lan = {"x-forwarded-for": "192.168.1.23"}
+
+    implied_default = client.post(f"/workspaces/{workspace_id}/game/start", json={}, headers=lan)
+    assert implied_default.status_code == 403
+    assert "presenter" in implied_default.json()["detail"]
+    assert "OPPONENT_ENDPOINT_IS_LOCAL" in implied_default.json()["detail"]
+
+    named_default = client.post(
+        f"/workspaces/{workspace_id}/game/start",
+        json={"opponent_model": "gpt-5.6-luna"},
+        headers=lan,
+    )
+    assert named_default.status_code == 403
+
+    # The presenter's machine spends its own budget knowingly; the
+    # closed posture does not apply to it.
+    presenter = client.post(f"/workspaces/{workspace_id}/game/start", json={}, headers=PRESENTER)
+    assert presenter.status_code == 200
+
+    # A loopback base URL is itself evidence of a local endpoint; no
+    # attestation needed for the common one-laptop setup.
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:8080/v1")
+    other_workspace = make_workspace(client, "Grace")
+    loopback = client.post(f"/workspaces/{other_workspace}/game/start", json={}, headers=lan)
+    assert loopback.status_code == 200
 
 
 def test_assessment_is_refused_for_lan_clients(client: TestClient):

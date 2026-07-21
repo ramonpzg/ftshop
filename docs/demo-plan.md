@@ -70,10 +70,21 @@ Prep checklist, in order, on the actual laptop:
    never an invented substitute.
 5. If OPPONENT_MODELS/keys are set, start one throwaway game to see
    the model answer; if not, the fallback plan below covers it. For
-   the full room, make the default opponent the local Gemma endpoint:
-   the default is what every attendee plays, and the frontier entries
-   in the picker are presenter-only by policy. If the live-benchmark
-   beat is planned, rehearse "Run base live" the week before, not
+   the full room, point OPENAI_BASE_URL at the llama.cpp endpoint
+   serving the local Gemma: the default is what every attendee plays.
+   The backend fails closed on this. Attendee game starts are refused
+   unless the opponent endpoint is known local (a loopback
+   OPENAI_BASE_URL, or OPPONENT_ENDPOINT_IS_LOCAL=1 when the local
+   endpoint runs on another LAN box), so a half-configured room
+   refuses games instead of routing forty browsers to a hosted model.
+   Know the limit: every picker entry resolves against that one base
+   URL and key. Offering the local Gemma default and a hosted Luna in
+   the same picker needs per-model endpoints, which is the phase 4b
+   named-profile registry; until that integration lands, run one
+   endpoint at a time and treat the frontier beat as a
+   presenter-machine reconfiguration, not a picker click. If the
+   live-benchmark beat is planned, rehearse "Run base live" the week
+   before, not
    while the room fills: the whole run has a deadline (60 s default,
    `BENCHMARK_RUN_DEADLINE_SECONDS` to change it) and a "Stop
    waiting" that stops the browser's wait (the server run continues

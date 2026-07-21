@@ -13,7 +13,20 @@ Hugging Face router, vLLM, llama.cpp) later without touching code:
     OPENAI_MODEL      default gpt-5.6-luna; the default opponent
     OPPONENT_MODELS   optional comma-separated list of extra opponents
                       to offer in the Start game picker, e.g.
-                      google/gemma-4-E2B-it-qat-q4_0-gguf,gpt-5.6-luna
+                      google/gemma-4-E2B-it-qat-q4_0-gguf,gpt-5.6-luna.
+                      Every entry resolves against the one
+                      OPENAI_BASE_URL and key above: offering a local
+                      Gemma and a hosted Luna at the same time needs
+                      per-model endpoints, which is the phase 4b
+                      named-profile registry. Until that integration
+                      lands, the picker is one endpoint's model list.
+    OPPONENT_ENDPOINT_IS_LOCAL
+                      set to 1 to attest that the opponent endpoint is
+                      a local model on the room's own hardware (a
+                      loopback OPENAI_BASE_URL counts automatically).
+                      The room policy in routes/game.py fails closed:
+                      attendee game starts are refused without this
+                      evidence, whatever OPENAI_MODEL names.
 
 The video-scene prompt can use a separate compatible endpoint. Each
 VIDEO_PROMPT_* setting falls back to its OPENAI_* counterpart:
@@ -41,6 +54,7 @@ import os
 import random
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import httpx
 
@@ -140,6 +154,18 @@ def get_opponent_models() -> list[str]:
 
 def is_llm_configured() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY"))
+
+
+def is_opponent_endpoint_local() -> bool:
+    """Whether the default opponent is known to run on local hardware:
+    the base URL targets loopback, or the operator attested a local
+    endpoint elsewhere on the LAN with OPPONENT_ENDPOINT_IS_LOCAL=1.
+    Never inferred from the model name; a name is just a string the
+    endpoint may or may not honor."""
+    if os.environ.get("OPPONENT_ENDPOINT_IS_LOCAL") == "1":
+        return True
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    return urlparse(base_url).hostname in ("127.0.0.1", "::1", "localhost")
 
 
 def opponent_settings(model: str | None = None) -> LlmSettings:

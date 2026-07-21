@@ -9,6 +9,9 @@ from euro_chess_studio.main import app
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CHESS_STUDIO_DB_PATH", str(tmp_path / "test.db"))
+    # Game starts model the full-room configuration: a local endpoint
+    # serves the default opponent, so the room policy lets them through.
+    monkeypatch.setenv("OPPONENT_ENDPOINT_IS_LOCAL", "1")
     with TestClient(app) as test_client:
         yield test_client
 

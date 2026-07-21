@@ -43,6 +43,7 @@ from euro_chess_studio.data.llm_client import (
     get_llm_model,
     get_opponent_models,
     is_llm_configured,
+    is_opponent_endpoint_local,
 )
 from euro_chess_studio.deps import get_db
 from euro_chess_studio.routes.client_host import require_presenter_machine
@@ -131,13 +132,25 @@ def post_start_game(
     request: Request,
     conn: sqlite3.Connection = Depends(get_db),
 ) -> GameStatusOut:
-    # The room model policy: attendees play the room's default opponent
-    # (a local model in the full-room configuration). Picking any other
-    # offered model -- the frontier beat -- is a presenter move, because
-    # forty attendees on a metered model is a budget burst and forty on
-    # a second local model is a second way to sink the presenter's GPU.
+    # The room model policy, fail closed. Picking any non-default model
+    # -- the frontier beat -- is a presenter move, because forty
+    # attendees on a metered model is a budget burst and forty on a
+    # second local model is a second way to sink the presenter's GPU.
+    # The default itself is only open to the room when the endpoint
+    # serving it is known local (loopback OPENAI_BASE_URL, or the
+    # operator's OPPONENT_ENDPOINT_IS_LOCAL=1 for a local endpoint on
+    # another LAN box). Out of the box the default is Luna on a hosted
+    # endpoint, and a policy that trusts configuration to be perfect is
+    # how forty browsers each open a paid call stream.
     if body.opponent_model is not None and body.opponent_model != get_llm_model():
         require_presenter_machine(request, "starting a game against a non-default model")
+    elif not is_opponent_endpoint_local():
+        require_presenter_machine(
+            request,
+            "starting a game against the default opponent, which is not "
+            "on a known-local endpoint (set OPPONENT_ENDPOINT_IS_LOCAL=1 "
+            "when a local model serves the room)",
+        )
     try:
         return _game_status_out(
             start_game(conn, workspace_id, body.time_limit_seconds, body.opponent_model)
