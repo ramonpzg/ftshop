@@ -25,13 +25,20 @@ from chess_tui.actions.game import (
     play_model_turn,
     start_game,
 )
-from chess_tui.calculations.commands import Command, MoveText, UnknownCommand, parse_input
+from chess_tui.calculations.commands import (
+    Command,
+    MoveText,
+    UnknownCommand,
+    command_suggestions,
+    parse_input,
+)
 from chess_tui.calculations.moves import MoveRejection, parse_participant_move
 from chess_tui.calculations.stats import compute_record
 from chess_tui.data import games_repo, plies_repo, settings_repo
 from chess_tui.data.config import Config
 from chess_tui.data.llm_client import LlmClient
 from chess_tui.data.settings_repo import PLAYER_NAME_KEY
+from chess_tui.ui.input_line import read_line
 from chess_tui.ui.screens import (
     GameView,
     game_screen,
@@ -73,7 +80,9 @@ class App:
             no_color=True if config.no_color else None, highlight=False
         )
         self.theme = pick_theme(config.no_color)
-        self.input_fn = input_fn or (lambda: input("> "))
+        self.input_fn = input_fn or (
+            lambda: read_line("> ", command_suggestions, no_color=config.no_color)
+        )
         self.rng = rng or random.Random()
         self.player_name = _DEFAULT_NAME
         self.screen = "home"
@@ -128,6 +137,7 @@ class App:
     def _render(self) -> None:
         self.console.clear()
         width = self.console.width
+        height = self.console.size.height
         if self.screen == "home":
             lines = home_screen(
                 self._record(),
@@ -138,12 +148,12 @@ class App:
                 game_in_progress=self.game is not None and not self.game.over,
             )
         elif self.screen == "game":
-            lines = game_screen(self._game_view(), self.theme, width)
+            lines = game_screen(self._game_view(), self.theme, width, height)
         elif self.screen == "history":
             lines = history_screen(self.history, self.theme, width)
         elif self.screen == "replay":
             assert self.cursor is not None
-            lines = replay_screen(self.cursor, self.flipped, self.theme, width)
+            lines = replay_screen(self.cursor, self.flipped, self.theme, width, height)
         else:
             lines = help_screen(self.theme, width)
         if self.notice and self.screen != "game":

@@ -2,15 +2,17 @@
 UI layer adds color on top of the same grid so styled and plain output
 can never disagree on geometry.
 
-Cells are three characters wide (space, piece, space), Ramon's
-requested bigger board. With rank labels on both sides the board is 29
-columns, still comfortably inside the 40-column phone floor:
+Cells are four characters wide, and on a tall enough terminal each
+rank gets a second, empty row under the pieces. Terminal glyphs are
+roughly twice as tall as they are wide, so a 4x2 cell is the first
+size that renders an actually square square. The single-row form
+remains for cramped terminals; same grid, fewer rows.
 
-    a  b  c  d  e  f  g  h
- 8  r  n  b  q  k  b  n  r  8
+    a   b   c   d   e   f   g   h
+ 8  r   n   b   q   k   b   n   r   8
  ...
- 1  R  N  B  Q  K  B  N  R  1
-    a  b  c  d  e  f  g  h
+ 1  R   N   B   Q   K   B   N   R   1
+    a   b   c   d   e   f   g   h
 
 Uppercase is White, lowercase is Black, always, so the board stays
 readable under a broken font, monochrome recording, or poor projector.
@@ -21,8 +23,10 @@ from dataclasses import dataclass
 
 import chess
 
-CELL = 3
+CELL = 4
 BOARD_WIDTH = 3 + 8 * CELL + 2  # left label gutter, cells, right label
+ROWS_SINGLE = 10
+ROWS_TALL = 18
 
 
 @dataclass(frozen=True)
@@ -80,14 +84,18 @@ def board_grid(fen: str, last_move_uci: str | None = None, flipped: bool = False
     )
 
 
-def board_lines(grid: BoardGrid) -> list[str]:
-    """The plain text form, exactly ten lines, each 29 columns or less.
-    The styled renderer walks the same grid, so this is also the
-    alignment contract the tests pin down."""
-    file_row = ("   " + "".join(f" {label} " for label in grid.file_labels)).rstrip()
+def board_lines(grid: BoardGrid, tall: bool = False) -> list[str]:
+    """The plain text form: 10 lines single-height, 18 tall, each 37
+    columns or less. In plain text the tall filler rows are blank; the
+    styled renderer paints their square backgrounds. The styled
+    renderer walks the same grid, so this is also the alignment
+    contract the tests pin down."""
+    file_row = ("   " + "".join(f" {label}  " for label in grid.file_labels)).rstrip()
     lines = [file_row]
     for label, row in zip(grid.rank_labels, grid.rows, strict=True):
-        cells = "".join(f" {cell.piece} " for cell in row)
+        cells = "".join(f" {cell.piece}  " for cell in row)
         lines.append(f" {label} {cells} {label}")
+        if tall:
+            lines.append("")
     lines.append(file_row)
     return lines

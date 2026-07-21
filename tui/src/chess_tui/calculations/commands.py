@@ -40,6 +40,30 @@ _ALIASES: dict[str, CommandKind] = {
 }
 
 
+# Canonical spellings, in the order the suggestion line shows them.
+SLASH_COMMANDS = [
+    "/new",
+    "/back",
+    "/history",
+    "/replay",
+    "/retry",
+    "/flip",
+    "/help",
+    "/quit",
+    "/next",
+    "/prev",
+]
+
+
+def command_suggestions(typed: str) -> list[str]:
+    """Live matches for a partially typed slash command. Only the
+    command token suggests; once an argument starts, silence."""
+    if not typed.startswith("/") or " " in typed:
+        return []
+    prefix = typed.lower()
+    return [command for command in SLASH_COMMANDS if command.startswith(prefix)]
+
+
 @dataclass(frozen=True)
 class Command:
     kind: CommandKind

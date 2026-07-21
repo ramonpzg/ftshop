@@ -70,7 +70,7 @@ def test_coin_toss_black_gemma_opens_and_board_is_flipped(config, conn):
         seed=BLACK_SEED,
     )
     assert "tester: Black | Gemma: White" in output
-    assert "    h  g  f  e  d  c  b  a" in output  # oriented to the participant
+    assert "    h   g   f   e   d   c   b   a" in output  # oriented to the participant
     assert "1. e4" in output
     assert "gemma: I will take the center, thanks." in output
 
@@ -165,7 +165,7 @@ def test_history_and_replay_flow(config, conn):
 
 def test_flip_command_flips_the_board(config, conn):
     output, _, _ = run_app(config, conn, [], ["/new", "/flip", "/quit", "/quit"])
-    assert "    h  g  f  e  d  c  b  a" in output
+    assert "    h   g   f   e   d   c   b   a" in output
 
 
 def test_move_when_no_game_is_a_notice_not_a_crash(config, conn):

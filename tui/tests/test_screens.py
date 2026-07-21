@@ -96,8 +96,8 @@ def test_status_line_carries_names_and_colors():
 
 def test_white_black_distinction_survives_without_color():
     exported = "\n".join(_export(game_screen(_view(), PLAIN, 40), 40))
-    assert "R  N  B  Q  K  B" in exported  # White, uppercase
-    assert "r  n  b  q  k  b  n  r" in exported  # Black, lowercase
+    assert "R   N   B   Q   K   B" in exported  # White, uppercase
+    assert "r   n   b   q   k   b   n   r" in exported  # Black, lowercase
 
 
 def test_check_and_failure_states_are_visible():
@@ -226,3 +226,24 @@ def test_render_board_flipped_matches_plain_flipped():
     fen = chess.STARTING_FEN
     exported = _export(render_board(fen, None, True, CHALK), 40)
     assert exported == board_lines(board_grid(fen, None, True))
+
+
+def test_tall_board_at_a_phone_height_keeps_alignment():
+    view = _view()
+    lines = game_screen(view, CHALK, 60, height=28)
+    exported = _export(lines, 60)
+    plain = board_lines(board_grid(view.fen, view.last_move_uci), tall=True)
+    start = exported.index(plain[0])
+    board_block = exported[start : start + len(plain)]
+    # Styled filler rows carry backgrounds but no text; compare after
+    # stripping, which is exactly what the plain contract promises.
+    assert [line.rstrip() for line in board_block] == plain
+    assert len(plain) == 18
+
+
+def test_short_terminals_keep_the_single_height_board():
+    view = _view()
+    exported = _export(game_screen(view, CHALK, 60, height=24), 60)
+    plain = board_lines(board_grid(view.fen, view.last_move_uci), tall=False)
+    start = exported.index(plain[0])
+    assert exported[start : start + len(plain)] == plain

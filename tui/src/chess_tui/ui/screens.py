@@ -43,13 +43,23 @@ def clip(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 3] + "..."
 
 
-def render_board(fen: str, last_move_uci: str | None, flipped: bool, theme: Theme) -> list[Text]:
+# Tall board (two rows per rank) needs 18 board lines; with the frame
+# chrome, the input line, and the suggestion line under it, 27 rows is
+# the smallest terminal that fits. Portrait phones clear it easily; a
+# classic 80x24 stays on the single-height board.
+TALL_MIN_HEIGHT = 27
+
+
+def render_board(
+    fen: str, last_move_uci: str | None, flipped: bool, theme: Theme, tall: bool = False
+) -> list[Text]:
     grid = board_grid(fen, last_move_uci, flipped)
     plain = board_lines(grid)
     lines = [Text(plain[0], style=theme.faint)]
     for label, row in zip(grid.rank_labels, grid.rows, strict=True):
         line = Text()
         line.append(f" {label} ", style=theme.faint)
+        pad = Text("   ")
         for cell in row:
             if cell.piece == ".":
                 piece_style = theme.empty_square
@@ -63,18 +73,22 @@ def render_board(fen: str, last_move_uci: str | None, flipped: bool, theme: Them
             style = piece_style
             if background:
                 style = f"{piece_style} on {background}" if piece_style else f"on {background}"
-            line.append(f" {cell.piece} ", style=style)
+            line.append(f" {cell.piece}  ", style=style)
+            pad.append("    ", style=f"on {background}" if background else "")
         line.append(f" {label}", style=theme.faint)
         lines.append(line)
+        if tall:
+            lines.append(pad)
     lines.append(Text(plain[-1], style=theme.faint))
     return lines
 
 
-def game_screen(view: GameView, theme: Theme, width: int) -> list[Text]:
+def game_screen(view: GameView, theme: Theme, width: int, height: int = 24) -> list[Text]:
     tone = {"good": theme.good, "bad": theme.bad}.get(view.state_tone, theme.soft)
     status = f"{view.player_label} | {view.gemma_label} | move {view.move_number}"
     lines = [Text(clip(status, width), style=theme.ink), Text("")]
-    lines.extend(render_board(view.fen, view.last_move_uci, view.flipped, theme))
+    tall = height >= TALL_MIN_HEIGHT
+    lines.extend(render_board(view.fen, view.last_move_uci, view.flipped, theme, tall))
     lines.append(Text(""))
 
     state_line = Text()
@@ -162,13 +176,16 @@ def history_screen(items: list[HistoryItem], theme: Theme, width: int) -> list[T
     return lines
 
 
-def replay_screen(cursor: ReplayCursor, flipped: bool, theme: Theme, width: int) -> list[Text]:
+def replay_screen(
+    cursor: ReplayCursor, flipped: bool, theme: Theme, width: int, height: int = 24
+) -> list[Text]:
     when = cursor.started_at[:16].replace("T", " ")
     outcome = cursor.result or "unfinished"
     header = f"replay  {when}  {outcome}  as {cursor.participant_color}"
     lines = [Text(clip(header, width), style=theme.ink), Text("")]
     current = cursor.current
-    lines.extend(render_board(cursor.fen, current.uci if current else None, flipped, theme))
+    tall = height >= TALL_MIN_HEIGHT
+    lines.extend(render_board(cursor.fen, current.uci if current else None, flipped, theme, tall))
     lines.append(Text(""))
     if current is None:
         position = "start"

@@ -242,6 +242,49 @@ the first attempt; ledger and per-color record rows verified; 143
 tests, ruff, ty clean. The round 2 changes have not run on the phone
 yet; the smoke line in docs/phone-tui.md is the check.
 
+## Round 3: bigger squares and live command suggestions
+
+Two more requests after Ramon played the round 2 build:
+
+- **The board again**: cells are now four characters wide and, on
+  terminals 27 rows or taller, each rank carries a second
+  background-only row. Terminal glyphs are about twice as tall as
+  wide, so 4x2 is the first cell that renders a square square; the
+  board is 37 columns and 18 rows tall, or 10 rows single-height on
+  cramped terminals (the responsive switch lives in
+  `screens.TALL_MIN_HEIGHT`; 80x24 desktops keep the short board,
+  and the same threshold reserves the input and suggestion rows).
+  The plain-text contract now pins both forms; styled filler rows
+  carry only square backgrounds so alignment cannot drift.
+- **Suggestions as you type**: `ui/input_line.py` adds a raw-mode
+  line reader (stdlib termios, cbreak with TCSADRAIN because the
+  TCSAFLUSH default would discard input typed before the prompt).
+  While the buffer starts with `/`, a dim suggestion row under the
+  input shows the matching commands from
+  `calculations.commands.SLASH_COMMANDS`, narrowing per keystroke;
+  tab completes the common prefix and a sole match gets a trailing
+  space. The editor is a pure state machine (fed decoded chars,
+  escape sequences swallowed including SS3 arrows, Ctrl+D as EOF on
+  an empty buffer) with its own tests; the tty wrapper only owns
+  termios and drawing, and non-tty stdin/stdout falls back to plain
+  input(), which keeps pipes, tests, and the smoke command working
+  unchanged.
+
+Acceptance for this round: 156 unit tests including a real-pty round
+trip of the reader (type `/ret`, tab, enter, get `/retry`), plus a
+scripted pty drive of the installed binary at 48x32 against a
+stdlib Chat Completions stub on 9017: alternate screen entered and
+restored, suggestions rendered live while typing `/n`, tall board
+with filler rows on screen, coin toss landed Black so Gemma opened,
+the reply and a full exchange persisted, clean exit. The llama.cpp
+build and GGUF from earlier rounds had been reclaimed with the
+scratch disk, so round 3 did not re-run the live model; the request
+bytes are unchanged from round 2's live-verified grammar (pinned
+byte-identical by test), and the stub run exercised everything above
+the model. An accidental bonus: the first stub returned a wrong-color
+move and the real binary walked the whole rejection path on screen,
+corrective included, exactly as specified.
+
 ## Intentionally deferred
 
 - Resignation and draw offers: not in the command set the phase fixed;

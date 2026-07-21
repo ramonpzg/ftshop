@@ -5,7 +5,8 @@ Android phone inside Termux, talks to a llama.cpp server on the same
 phone over the OpenAI-compatible Chat Completions API, and plays you
 against Gemma 4. A coin toss decides who gets White. One screen at a
 time inside the terminal's alternate screen buffer, typed moves and
-slash commands, a persistent named record, and replay.
+slash commands with live suggestions, a persistent named record, and
+replay.
 
 The code lives in `tui/`, a self-contained uv project. It never
 imports the workshop backend and keeps working if the whiteboard stack
@@ -126,8 +127,11 @@ White it opens immediately; the board always sits with your side at
 the bottom, and `/flip` turns it around. The status line reads
 `ramon: Black | Gemma: White | move 2`.
 
-Commands are slash words; the bare words work too. No function keys,
-no mouse:
+Commands are slash words; the bare words work too. The moment you
+type `/`, the matching commands appear on a line under the input and
+narrow as you keep typing; tab completes the rest (`/ret` tab gives
+`/retry`). Suggestions need a real terminal; piped input falls back
+to plain reads. No function keys, no mouse:
 
 ```text
 /new      start a game. a coin toss picks your color
@@ -207,9 +211,11 @@ camera.
   the server honors `grammar` (any llama.cpp from recent years does).
   The TUI's corrective flow covers the rest and the attempt ledger in
   the db shows exactly what came back.
-- Narrow terminal: the board is 29 columns; the layout is designed
-  down to 40x22. Below that, lines crop rather than wrap; shrink the
-  Termux font one step.
+- Narrow terminal: the board is 37 columns wide with four-character
+  cells, and on terminals 27 rows or taller each rank gets a second
+  background row, which makes the squares square. Under 27 rows the
+  board drops to single-height automatically; under 40 columns lines
+  crop rather than wrap, so shrink the Termux font one step.
 - Scrollback shows old frames: only outside the alternate screen.
   The app enters it on start and restores your shell on exit; if it
   ever crashes hard, `tput rmcup` or `reset` brings the terminal
@@ -255,7 +261,10 @@ the smoke command above is the check.
 
 `tui/screenshots/*.svg` and `.txt` are frames captured from the real
 App during acceptance (real actions and rendering, scripted
-transport, recording console) at 40x22, 48x24, 60x28, and 80x24,
-plus Gemma opening as White, the two failure states, home, history,
-and replay. The SVG terminal theme uses the deck's chalk tokens, the
-same palette the TUI itself renders.
+transport, recording console): the tall board at 48x32 and 60x28, the
+single-height board at 40x22 and 80x24, Gemma opening as White, the
+two failure states, home, history, and replay. The SVG terminal theme
+uses the deck's chalk tokens, the same palette the TUI itself
+renders. The live suggestion row exists only in a real raw-mode
+terminal, so it appears in the pty acceptance transcript rather than
+these frames.
