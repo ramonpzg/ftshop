@@ -44,7 +44,7 @@ interface LiveWait {
  * invents state. Attendees see all of the evidence (kept fresh by a
  * single-flight poll); only the presenter client gets the controls,
  * and the backend additionally restricts paid live runs to the
- * presenter's machine. */
+ * presenter's machine and to one at a time. */
 export function AdaptationPanel({
   isEditing,
   pollMs = SHARED_EVIDENCE_POLL_MS,
@@ -84,7 +84,11 @@ export function AdaptationPanel({
   // "Stop waiting" only aborts the browser's request; the server run
   // keeps going. The lock lifts when the run actually lands (the poll
   // brings it in) or when the server's own ceiling has passed with no
-  // row, which means it failed.
+  // row, which means it failed. This local timer covers only the tab
+  // that launched the run; reloads and other tabs get the same lock
+  // from the server's in_progress record in the polled state, which is
+  // also what refuses a duplicate run server-side (409) if a client
+  // tries anyway.
   useEffect(() => {
     if (liveWait === null || state === null) return;
     const landed = state.runs.some(
@@ -159,12 +163,21 @@ export function AdaptationPanel({
     });
   }
 
-  if (loadFailed) {
-    return <p className="adaptation-panel-empty">Adaptation state unavailable. Backend down?</p>;
-  }
   if (!state) {
-    return <p className="adaptation-panel-empty">Loading adaptation state.</p>;
+    // Only an initial load that never succeeded gets the empty failure
+    // state; once evidence exists, a failed poll must not blank it.
+    return loadFailed ? (
+      <p className="adaptation-panel-empty" data-testid="adaptation-unavailable">
+        Adaptation state unavailable. Backend down?
+      </p>
+    ) : (
+      <p className="adaptation-panel-empty">Loading adaptation state.</p>
+    );
   }
+
+  // The server's in-flight record, not this tab's memory: a reloaded
+  // panel or a second presenter tab locks live controls from here.
+  const liveRunInFlight = liveWait !== null || state.live_benchmark.in_progress;
 
   const config = state.configs[0] ?? null;
   const suite = state.suites[0] ?? null;
@@ -192,6 +205,12 @@ export function AdaptationPanel({
         <p className="adaptation-presenter-note" data-testid="adaptation-presenter-note">
           The presenter runs these steps. Everything below is the room's
           shared evidence.
+        </p>
+      )}
+      {loadFailed && (
+        <p className="adaptation-notice" data-testid="adaptation-stale">
+          Lost contact with the backend. Showing the last loaded
+          evidence; retrying.
         </p>
       )}
       {notice && (
@@ -461,7 +480,7 @@ export function AdaptationPanel({
                   </button>
                   {state.live_benchmark.available &&
                     busy !== "bench-live" &&
-                    liveWait === null && (
+                    !liveRunInFlight && (
                       <button
                         type="button"
                         onClick={() => runLiveBenchmark(suite.id)}
@@ -480,7 +499,7 @@ export function AdaptationPanel({
                       Stop waiting
                     </button>
                   )}
-                  {liveWait !== null && busy !== "bench-live" && (
+                  {liveRunInFlight && busy !== "bench-live" && (
                     <span className="adaptation-source-note" data-testid="bench-live-waiting">
                       A live run is still in flight on the server; live
                       controls unlock when it lands or its deadline passes.

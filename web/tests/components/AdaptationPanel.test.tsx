@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdaptationPanel } from "../../src/components/adaptation/AdaptationPanel";
 import type { AdaptationState } from "../../src/data/api";
 import { PresenterContext } from "../../src/lib/presenterContext";
@@ -90,7 +90,7 @@ function baseState(): AdaptationState {
     ],
     runs: [],
     comparison: null,
-    live_benchmark: { available: false, model: null },
+    live_benchmark: { available: false, model: null, in_progress: false },
   };
 }
 
@@ -378,7 +378,7 @@ describe("AdaptationPanel shared evidence and live-run locking", () => {
   test("stopping the wait keeps live runs locked until the server run lands", async () => {
     let current: AdaptationState = {
       ...baseState(),
-      live_benchmark: { available: true, model: "gemma-4-2b-local" },
+      live_benchmark: { available: true, model: "gemma-4-2b-local", in_progress: false },
     };
     globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -413,5 +413,72 @@ describe("AdaptationPanel shared evidence and live-run locking", () => {
     // The run lands server-side; the poll notices and unlocks.
     current = { ...current, runs: [{ ...runRow("base", "live"), id: "run_live_new" }] };
     await waitFor(() => expect(screen.getByTestId("bench-base-live")).toBeTruthy());
+  });
+
+  test("a reloaded panel restores the live lock from the server record", async () => {
+    // This tab never launched anything (no liveWait in React state);
+    // the server's durable in-progress record alone must lock the
+    // controls, or a reload could start a duplicate paid run.
+    let current: AdaptationState = {
+      ...baseState(),
+      live_benchmark: { available: true, model: "gemma-4-2b-local", in_progress: true },
+    };
+    installFetch(() => current);
+    renderPanel({ pollMs: 20 });
+
+    await waitFor(() => expect(screen.getByTestId("bench-live-waiting")).toBeTruthy());
+    expect(screen.queryByTestId("bench-base-live")).toBeNull();
+
+    // The in-flight run finishes (or its lock expires server-side);
+    // the poll unlocks the controls.
+    current = {
+      ...current,
+      live_benchmark: { ...current.live_benchmark, in_progress: false },
+    };
+    await waitFor(() => expect(screen.getByTestId("bench-base-live")).toBeTruthy());
+    expect(screen.queryByTestId("bench-live-waiting")).toBeNull();
+  });
+
+  test("a failed poll keeps the last good evidence with a stale notice", async () => {
+    let fail = false;
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/adaptation/state")) {
+        if (fail) {
+          return new Response(JSON.stringify({ detail: "backend restarting" }), { status: 500 });
+        }
+        return new Response(JSON.stringify(baseState()), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    renderPanel({ pollMs: 20 });
+    await waitFor(() => expect(screen.getByTestId("snapshot-card")).toBeTruthy());
+
+    // One failed poll: the shared evidence stays on screen, flagged
+    // stale, instead of being replaced by an empty failure state.
+    fail = true;
+    await waitFor(() => expect(screen.getByTestId("adaptation-stale")).toBeTruthy());
+    expect(screen.getByTestId("snapshot-card")).toBeTruthy();
+    expect(screen.queryByTestId("adaptation-unavailable")).toBeNull();
+
+    // Recovery clears the notice without any interaction. The poll is
+    // driven inside act so the interval's update is flushed before the
+    // assertion instead of raced against it.
+    fail = false;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+    expect(screen.queryByTestId("adaptation-stale")).toBeNull();
+    expect(screen.getByTestId("snapshot-card")).toBeTruthy();
+  });
+
+  test("the empty failure state appears only when nothing ever loaded", async () => {
+    globalThis.fetch = mock(
+      async () => new Response(JSON.stringify({ detail: "down" }), { status: 500 }),
+    ) as unknown as typeof fetch;
+    renderPanel({ pollMs: 20 });
+    await waitFor(() => expect(screen.getByTestId("adaptation-unavailable")).toBeTruthy());
+    expect(screen.queryByTestId("adaptation-panel")).toBeNull();
   });
 });

@@ -784,7 +784,9 @@ export interface AdaptationState {
   suites: EvalSuite[];
   runs: BenchmarkRun[];
   comparison: AdaptationComparison | null;
-  live_benchmark: { available: boolean; model: string | null };
+  // in_progress is the server's durable single-flight record, not any
+  // tab's memory: it survives reloads and is shared by every client.
+  live_benchmark: { available: boolean; model: string | null; in_progress: boolean };
 }
 
 export function fetchAdaptationState(): Promise<AdaptationState> {
