@@ -1,3 +1,4 @@
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -196,6 +197,86 @@ def test_an_expired_live_lock_is_replaced_not_honored(
     run_job(conn, "text.benchmark_eval", _live_params(), None)
     assert runner.calls == 1
     assert get_lock(conn, LIVE_BENCHMARK_LOCK_KEY) is None
+
+
+def test_the_live_lock_excludes_a_second_connection_while_a_run_is_mid_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The race run as a race: no pre-inserted lock, two connections,
+    a genuine overlap. The first run_job blocks inside its runner (a
+    live gather in flight); the second, on its own connection like a
+    second request thread, must be refused before its runner starts.
+    Exactly one runner runs."""
+    from euro_chess_studio.actions import jobs as jobs_action
+
+    first_conn = make_conn(tmp_path)
+    second_conn = get_connection(tmp_path / "test.db")
+
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    runner_runs: list[str] = []
+
+    class BlockingRunner:
+        def run(self, conn, job):
+            runner_runs.append("started")
+            runner_started.set()
+            assert release_runner.wait(timeout=10)
+            return JobOutput(
+                modality="text", kind="benchmark_eval", cached=False, payload={"ok": True}
+            )
+
+    monkeypatch.setattr(jobs_action, "get_runner_for_job_type", lambda job_type: BlockingRunner())
+
+    first_error: list[BaseException] = []
+
+    def first_request() -> None:
+        try:
+            run_job(first_conn, "text.benchmark_eval", _live_params(), None)
+        except BaseException as exc:
+            first_error.append(exc)
+
+    thread = threading.Thread(target=first_request)
+    thread.start()
+    try:
+        # The barrier: the second request fires only once the first is
+        # provably mid-flight, holding the lock with its runner open.
+        assert runner_started.wait(timeout=10)
+        with pytest.raises(JobInProgressError, match="already in progress"):
+            run_job(second_conn, "text.benchmark_eval", _live_params(), None)
+        assert runner_runs == ["started"]
+    finally:
+        release_runner.set()
+        thread.join(timeout=10)
+    assert not thread.is_alive()
+    assert first_error == []
+
+    # The finished run released the lock; the room can run again.
+    assert get_lock(second_conn, LIVE_BENCHMARK_LOCK_KEY) is None
+    run_job(second_conn, "text.benchmark_eval", _live_params(), None)
+    assert runner_runs == ["started", "started"]
+
+
+def test_two_acquires_that_both_read_an_empty_table_hit_the_primary_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Pins the narrowest interleaving, which the threaded test cannot
+    force: both requests read no lock before either inserts. The read
+    is advisory; the primary key is the arbiter. Exactly one insert
+    lands and the loser gets the same in-progress refusal."""
+    from euro_chess_studio.actions import jobs as jobs_action
+    from euro_chess_studio.calculations.generation import SingleFlightLock
+
+    first_conn = make_conn(tmp_path)
+    second_conn = get_connection(tmp_path / "test.db")
+    # Both connections "read" an empty table, whatever is really there.
+    monkeypatch.setattr(jobs_action, "get_lock", lambda conn, lock_key: None)
+
+    lock = single_flight_lock("text.benchmark_eval", _live_params())
+    assert isinstance(lock, SingleFlightLock)
+    jobs_action._acquire_single_flight(first_conn, lock)
+    with pytest.raises(JobInProgressError, match="another request started it just now"):
+        jobs_action._acquire_single_flight(second_conn, lock)
+    assert get_lock(first_conn, LIVE_BENCHMARK_LOCK_KEY) is not None
 
 
 def test_only_live_benchmarks_are_single_flight():
