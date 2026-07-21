@@ -3,6 +3,7 @@ but failed validation, no silent fallback ever, the board unchanged on
 failure, retry repeating the turn, and every raw reply persisted. The
 transport boundary is httpx.MockTransport; nothing above it is mocked."""
 
+import chess
 import httpx
 import pytest
 from conftest import fresh_connection, move_reply, scripted_client
@@ -22,7 +23,7 @@ from chess_tui.data import attempts_repo
 def after_e4(conn, config):
     def _start(script):
         client, scripted = scripted_client(config, script)
-        state = start_game(conn, config.model)
+        state = start_game(conn, config.model, chess.WHITE, "tester")
         parsed = parse_participant_move(state.board.fen(), "e2e4")
         assert isinstance(parsed, ParsedMove)
         apply_participant_move(conn, state, parsed)
@@ -161,7 +162,7 @@ def test_no_api_key_or_auth_header_ever_reaches_disk(conn, db_path):
 
     secret_config = Config(db_path=db_path, api_key="sk-super-secret-750", no_color=True)
     client, scripted = scripted_client(secret_config, ["oops", httpx.ConnectError("down")])
-    state = start_game(conn, secret_config.model)
+    state = start_game(conn, secret_config.model, chess.WHITE, "tester")
     parsed = parse_participant_move(state.board.fen(), "e2e4")
     assert isinstance(parsed, ParsedMove)
     apply_participant_move(conn, state, parsed)

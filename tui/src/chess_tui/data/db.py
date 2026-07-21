@@ -1,5 +1,10 @@
 """SQLite connection and schema. Repositories hold no business logic
-and never commit; the action that composes them owns the transaction."""
+and never commit; the action that composes them owns the transaction.
+
+The schema migrates in place: columns added since the first release
+are ensured with ALTER TABLE so an existing phone database keeps its
+games. Old games predate random color assignment and were always
+played as White, so the backfill default is honest, not a guess."""
 
 import sqlite3
 from pathlib import Path
@@ -13,7 +18,9 @@ CREATE TABLE IF NOT EXISTS games (
     prompt_version TEXT NOT NULL,
     result TEXT,
     termination TEXT,
-    duration_seconds REAL
+    duration_seconds REAL,
+    participant_color TEXT NOT NULL DEFAULT 'white',
+    player_name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS plies (
@@ -46,7 +53,19 @@ CREATE TABLE IF NOT EXISTS model_attempts (
     error_detail TEXT,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
+
+_ENSURED_COLUMNS = {
+    "games": [
+        ("participant_color", "TEXT NOT NULL DEFAULT 'white'"),
+        ("player_name", "TEXT"),
+    ],
+}
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -55,5 +74,10 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(_SCHEMA)
+    for table, columns in _ENSURED_COLUMNS.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, definition in columns:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
     conn.commit()
     return conn

@@ -7,7 +7,7 @@ import chess
 import pytest
 from rich.console import Console
 
-from chess_tui.actions.replay import ReplayCursor, ReplayPly
+from chess_tui.actions.replay import HistoryItem, ReplayCursor, ReplayPly
 from chess_tui.calculations.board_view import board_grid, board_lines
 from chess_tui.calculations.stats import Record
 from chess_tui.ui.screens import (
@@ -40,6 +40,8 @@ def _view(**overrides) -> GameView:
         fen=board.fen(),
         flipped=False,
         move_number=2,
+        player_label="ramon: White",
+        gemma_label="Gemma: Black",
         last_move_uci="e7e5",
         last_move_label="1...e5",
         state_word="",
@@ -84,15 +86,18 @@ def test_comment_wraps_to_at_most_two_lines(width):
     assert any(line.startswith("gemma:") for line in exported)
 
 
-def test_status_line_matches_the_spec():
-    exported = _export(game_screen(_view(), PLAIN, 40), 40)
-    assert exported[0] == "You: White | Gemma: Black | move 2"
+def test_status_line_carries_names_and_colors():
+    exported = _export(game_screen(_view(), PLAIN, 48), 48)
+    assert exported[0] == "ramon: White | Gemma: Black | move 2"
+    swapped = _view(player_label="ramon: Black", gemma_label="Gemma: White")
+    exported = _export(game_screen(swapped, PLAIN, 48), 48)
+    assert exported[0] == "ramon: Black | Gemma: White | move 2"
 
 
 def test_white_black_distinction_survives_without_color():
     exported = "\n".join(_export(game_screen(_view(), PLAIN, 40), 40))
-    assert "R N B Q K B" in exported  # White, uppercase
-    assert "r n b q k b n r" in exported  # Black, lowercase
+    assert "R  N  B  Q  K  B" in exported  # White, uppercase
+    assert "r  n  b  q  k  b  n  r" in exported  # Black, lowercase
 
 
 def test_check_and_failure_states_are_visible():
@@ -109,62 +114,76 @@ def test_check_and_failure_states_are_visible():
 
 
 def test_game_over_screen_offers_next_commands():
-    view = _view(state_word="checkmate. white won", state_tone="good", game_over=True)
+    view = _view(state_word="checkmate. ramon won", state_tone="good", game_over=True)
     exported = "\n".join(_export(game_screen(view, PLAIN, 40), 40))
-    assert "checkmate. white won" in exported
-    assert "new  history  replay  help  quit" in exported
+    assert "checkmate. ramon won" in exported
+    assert "/new  /history  /replay  /help  /quit" in exported
+
+
+def _history_items():
+    return [
+        HistoryItem("g", "2026-07-21T10:00:00+00:00", "1-0", "checkmate", 9, "white"),
+        HistoryItem("h", "2026-07-21T09:00:00+00:00", "1-0", "checkmate", 7, "black"),
+        HistoryItem("i", "2026-07-21T08:00:00+00:00", None, None, 4, "black"),
+    ]
+
+
+def _cursor(index=1):
+    plies = [ReplayPly(1, "participant", "e2e4", "e4", chess.Board().fen(), None)]
+    return ReplayCursor(
+        game_id="g",
+        started_at="2026-07-21T10:00:00+00:00",
+        result="1-0",
+        termination="checkmate",
+        participant_color="black",
+        plies=plies,
+        index=index,
+    )
 
 
 @pytest.mark.parametrize("width", TARGET_WIDTHS)
 def test_home_history_replay_help_fit_the_width(width):
     record = Record(wins=2, losses=1, draws=0, completed=3, captures_in_wins=9)
-    lines = home_screen(record, "gemma-4-2b-local", CHALK, width)
-    plies = [
-        ReplayPly(1, "participant", "e2e4", "e4", chess.Board().fen(), None),
-    ]
-    cursor = ReplayCursor(
-        game_id="g",
-        started_at="2026-07-21T10:00:00+00:00",
-        result="1-0",
-        termination="checkmate",
-        plies=plies,
-        index=1,
-    )
-    from chess_tui.actions.replay import HistoryItem
-
-    items = [
-        HistoryItem("g", "2026-07-21T10:00:00+00:00", "1-0", "checkmate", 9),
-        HistoryItem("h", "2026-07-21T09:00:00+00:00", None, None, 4),
-    ]
-    for screen_lines in [
-        lines,
-        history_screen(items, CHALK, width),
-        replay_screen(cursor, False, CHALK, width),
+    screens = [
+        home_screen(record, "gemma-4-2b-local", "ramon", CHALK, width, game_in_progress=True),
+        history_screen(_history_items(), CHALK, width),
+        replay_screen(_cursor(), False, CHALK, width),
         help_screen(CHALK, width),
-    ]:
+    ]
+    for screen_lines in screens:
         exported = _export(screen_lines, width)
         assert all(len(line) <= width for line in exported)
 
 
-def test_home_screen_shows_record_and_objective():
+def test_home_screen_shows_name_record_objective_and_resume_hint():
     record = Record(wins=2, losses=1, draws=0, completed=3, captures_in_wins=9)
-    exported = "\n".join(_export(home_screen(record, "gemma-4-2b-local", PLAIN, 40), 40))
+    exported = "\n".join(
+        _export(
+            home_screen(record, "gemma-4-2b-local", "ramon", PLAIN, 48, game_in_progress=True), 48
+        )
+    )
+    assert "ramon vs gemma-4-2b-local" in exported
     assert "W 2" in exported
-    assert "L 1" in exported
     assert "captures in wins" in exported
-    assert "9" in exported
+    assert "game in progress. /back returns to it" in exported
+
+    without = "\n".join(_export(home_screen(record, "gemma-4-2b-local", "ramon", PLAIN, 48), 48))
+    assert "game in progress" not in without
 
 
-def test_history_screen_labels_unfinished_games():
-    from chess_tui.actions.replay import HistoryItem
+def test_history_screen_shows_color_and_win_tone_by_color():
+    lines = history_screen(_history_items(), CHALK, 60)
+    body = "\n".join(line.plain for line in lines)
+    assert "W  1-0 checkmate" in body  # won as white
+    assert "B  1-0 checkmate" in body  # same result string, lost as black
+    assert "unfinished" in body
+    win_row = next(line for line in lines if line.plain.startswith(" 1  "))
+    loss_row = next(line for line in lines if line.plain.startswith(" 2  "))
+    assert win_row.style == CHALK.good
+    assert loss_row.style == CHALK.bad
 
-    items = [HistoryItem("h", "2026-07-21T09:00:00+00:00", None, None, 4)]
-    exported = "\n".join(_export(history_screen(items, PLAIN, 48), 48))
-    assert "unfinished" in exported
-    assert "4 moves" in exported
 
-
-def test_replay_screen_shows_ply_position_and_comment():
+def test_replay_screen_shows_ply_color_and_comment():
     board = chess.Board()
     board.push_uci("e2e4")
     fen_after_e4 = board.fen()
@@ -178,13 +197,23 @@ def test_replay_screen_shows_ply_position_and_comment():
         started_at="2026-07-21T10:00:00+00:00",
         result=None,
         termination=None,
+        participant_color="white",
         plies=plies,
         index=2,
     )
     exported = "\n".join(_export(replay_screen(cursor, False, PLAIN, 48), 48))
+    assert "as white" in exported
     assert "ply 2/2" in exported
     assert "1...e5" in exported
     assert "gemma: Symmetry. Bold." in exported
+
+
+def test_help_screen_lists_slash_commands():
+    exported = "\n".join(_export(help_screen(PLAIN, 48), 48))
+    assert "/back" in exported
+    assert "/retry" in exported
+    assert "coin toss" in exported
+    assert "bare words work too" in exported
 
 
 def test_move_label_numbering():

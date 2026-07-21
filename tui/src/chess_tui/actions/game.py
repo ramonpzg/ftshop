@@ -1,7 +1,11 @@
 """Game orchestration. Actions compose calculations and repositories
 and own every transaction. python-chess is the sole authority on
 rules; the model only ever picks from the legal list and its reply is
-validated again here regardless of the server-side schema.
+validated again here regardless of the server-side grammar.
+
+Sides are assigned per game (the app flips a coin); the participant's
+color is persisted with the game and the model plays the other side,
+moving first when it has White.
 
 Failure policy, from the phase prompt: a malformed or illegal reply
 gets exactly one corrective request naming the rejection; if that also
@@ -21,11 +25,11 @@ import chess
 from chess_tui.calculations.moves import ParsedMove, legal_moves_uci_san, san_history_text
 from chess_tui.calculations.prompt import (
     MOVE_PROMPT_VERSION,
-    SYSTEM_PROMPT,
     build_corrective_message,
     build_messages,
+    build_move_grammar,
     build_user_message,
-    move_json_schema,
+    system_prompt,
 )
 from chess_tui.calculations.replies import judge_move_reply
 from chess_tui.data import attempts_repo, games_repo, plies_repo
@@ -47,6 +51,8 @@ class GameState:
     game_id: str
     board: chess.Board
     model: str
+    player_name: str
+    participant_color: chess.Color
     started_monotonic: float
     over: bool = False
     result: str | None = None
@@ -54,6 +60,22 @@ class GameState:
     last_comment: str | None = None
     pending_failure: "TurnFailure | None" = None
     sans: list[str] = field(default_factory=list)
+
+    @property
+    def model_color(self) -> chess.Color:
+        return not self.participant_color
+
+    @property
+    def participant_color_name(self) -> str:
+        return "White" if self.participant_color == chess.WHITE else "Black"
+
+    @property
+    def model_color_name(self) -> str:
+        return "White" if self.model_color == chess.WHITE else "Black"
+
+    @property
+    def model_to_move(self) -> bool:
+        return not self.over and self.board.turn == self.model_color
 
 
 @dataclass(frozen=True)
@@ -70,14 +92,29 @@ class AppliedMove:
     game_over: bool
 
 
-def start_game(conn: sqlite3.Connection, model: str) -> GameState:
+def start_game(
+    conn: sqlite3.Connection,
+    model: str,
+    participant_color: chess.Color,
+    player_name: str,
+) -> GameState:
     state = GameState(
         game_id=uuid.uuid4().hex[:12],
         board=chess.Board(),
         model=model,
+        player_name=player_name,
+        participant_color=participant_color,
         started_monotonic=time.monotonic(),
     )
-    games_repo.insert_game(conn, state.game_id, _now(), model, MOVE_PROMPT_VERSION)
+    games_repo.insert_game(
+        conn,
+        state.game_id,
+        _now(),
+        model,
+        MOVE_PROMPT_VERSION,
+        "white" if participant_color == chess.WHITE else "black",
+        player_name,
+    )
     conn.commit()
     return state
 
@@ -101,24 +138,26 @@ def play_model_turn(
     attempt row; failed attempts commit as they happen so evidence
     survives a failed turn. On failure the board is left unchanged and
     retry repeats the turn."""
-    if state.over or state.board.turn != chess.BLACK:
+    if not state.model_to_move:
         raise ValueError("not the model's turn")
     state.pending_failure = None
     fen = state.board.fen()
     ply = len(state.board.move_stack) + 1
     legal = legal_moves_uci_san(fen)
     legal_set = {uci for uci, _ in legal}
-    schema = move_json_schema([uci for uci, _ in legal])
+    grammar = build_move_grammar([uci for uci, _ in legal])
+    system = system_prompt(state.model_color_name)
+    opponent_last = state.board.peek().uci() if state.board.move_stack else None
     user = build_user_message(
         fen,
         san_history_text(state.sans),
-        state.board.peek().uci(),
-        state.sans[-1],
+        opponent_last,
+        state.sans[-1] if state.sans else None,
         legal,
     )
 
     judged = _one_request(
-        conn, state, client, ply, legal_set, schema, build_messages(SYSTEM_PROMPT, user), False
+        conn, state, client, ply, legal_set, grammar, build_messages(system, user), False
     )
     if isinstance(judged, TurnFailure):
         state.pending_failure = judged
@@ -131,8 +170,8 @@ def play_model_turn(
             client,
             ply,
             legal_set,
-            schema,
-            build_messages(SYSTEM_PROMPT, corrective),
+            grammar,
+            build_messages(system, corrective),
             True,
         )
         if isinstance(judged, TurnFailure):
@@ -185,13 +224,13 @@ def _one_request(
     client: LlmClient,
     ply: int,
     legal_set: set[str],
-    schema: dict,
+    grammar: str,
     messages: list[dict],
     corrective: bool,
 ) -> _JudgedReply | TurnFailure:
     attempt = attempts_repo.next_attempt_number(conn, state.game_id, ply)
     try:
-        reply = client.request_black_move(messages, schema)
+        reply = client.request_move(messages, grammar)
     except TransportFailure as failure:
         status = "timeout" if failure.kind == "timeout" else "transport_failed"
         _record_attempt(

@@ -15,7 +15,7 @@ from rich.text import Text
 
 from chess_tui.actions.replay import HistoryItem, ReplayCursor
 from chess_tui.calculations.board_view import board_grid, board_lines
-from chess_tui.calculations.stats import Record
+from chess_tui.calculations.stats import Record, participant_lost, participant_won
 from chess_tui.ui.theme import Theme
 
 COMMENT_LINES = 2
@@ -26,6 +26,8 @@ class GameView:
     fen: str
     flipped: bool
     move_number: int
+    player_label: str  # "ramon: White"
+    gemma_label: str  # "Gemma: Black"
     last_move_uci: str | None
     last_move_label: str
     state_word: str
@@ -47,7 +49,7 @@ def render_board(fen: str, last_move_uci: str | None, flipped: bool, theme: Them
     lines = [Text(plain[0], style=theme.faint)]
     for label, row in zip(grid.rank_labels, grid.rows, strict=True):
         line = Text()
-        line.append(f" {label}  ", style=theme.faint)
+        line.append(f" {label} ", style=theme.faint)
         for cell in row:
             if cell.piece == ".":
                 piece_style = theme.empty_square
@@ -61,7 +63,7 @@ def render_board(fen: str, last_move_uci: str | None, flipped: bool, theme: Them
             style = piece_style
             if background:
                 style = f"{piece_style} on {background}" if piece_style else f"on {background}"
-            line.append(f"{cell.piece} ", style=style)
+            line.append(f" {cell.piece} ", style=style)
         line.append(f" {label}", style=theme.faint)
         lines.append(line)
     lines.append(Text(plain[-1], style=theme.faint))
@@ -70,7 +72,7 @@ def render_board(fen: str, last_move_uci: str | None, flipped: bool, theme: Them
 
 def game_screen(view: GameView, theme: Theme, width: int) -> list[Text]:
     tone = {"good": theme.good, "bad": theme.bad}.get(view.state_tone, theme.soft)
-    status = f"You: White | Gemma: Black | move {view.move_number}"
+    status = f"{view.player_label} | {view.gemma_label} | move {view.move_number}"
     lines = [Text(clip(status, width), style=theme.ink), Text("")]
     lines.extend(render_board(view.fen, view.last_move_uci, view.flipped, theme))
     lines.append(Text(""))
@@ -94,7 +96,7 @@ def game_screen(view: GameView, theme: Theme, width: int) -> list[Text]:
 
     if view.game_over:
         lines.append(Text(""))
-        lines.append(Text(clip("new  history  replay  help  quit", width), style=theme.faint))
+        lines.append(Text(clip("/new  /history  /replay  /help  /quit", width), style=theme.faint))
     return lines
 
 
@@ -107,10 +109,17 @@ def _wrap_comment(comment: str, width: int) -> list[str]:
     )
 
 
-def home_screen(record: Record, model: str, theme: Theme, width: int) -> list[Text]:
+def home_screen(
+    record: Record,
+    model: str,
+    player_name: str,
+    theme: Theme,
+    width: int,
+    game_in_progress: bool = False,
+) -> list[Text]:
     lines = [
         Text("chess tui", style=f"bold {theme.ink}" if theme.ink else ""),
-        Text(clip(model, width), style=theme.faint),
+        Text(clip(f"{player_name} vs {model}", width), style=theme.faint),
         Text(""),
     ]
     record_line = Text()
@@ -124,7 +133,9 @@ def home_screen(record: Record, model: str, theme: Theme, width: int) -> list[Te
     captures.append(str(record.captures_in_wins), style=theme.ink)
     lines.append(captures)
     lines.append(Text(""))
-    lines.append(Text("new  history  replay  help  quit", style=theme.faint))
+    if game_in_progress:
+        lines.append(Text("game in progress. /back returns to it", style=theme.accent))
+    lines.append(Text("/new  /history  /replay  /help  /quit", style=theme.faint))
     return lines
 
 
@@ -137,18 +148,24 @@ def history_screen(items: list[HistoryItem], theme: Theme, width: int) -> list[T
         outcome = item.result or "unfinished"
         if item.termination:
             outcome = f"{outcome} {item.termination}"
-        row = f"{number:>2}  {when}  {outcome}  {item.move_count} moves"
-        tone = {"1-0": theme.good, "0-1": theme.bad}.get(item.result or "", theme.soft)
+        as_color = item.participant_color[:1].upper()
+        row = f"{number:>2}  {when}  {as_color}  {outcome}  {item.move_count} moves"
+        if participant_won(item.result, item.participant_color):
+            tone = theme.good
+        elif participant_lost(item.result, item.participant_color):
+            tone = theme.bad
+        else:
+            tone = theme.soft
         lines.append(Text(clip(row, width), style=tone))
     lines.append(Text(""))
-    lines.append(Text("replay <number>  new  quit", style=theme.faint))
+    lines.append(Text("/replay <number>  /new  /back", style=theme.faint))
     return lines
 
 
 def replay_screen(cursor: ReplayCursor, flipped: bool, theme: Theme, width: int) -> list[Text]:
     when = cursor.started_at[:16].replace("T", " ")
     outcome = cursor.result or "unfinished"
-    header = f"replay  {when}  {outcome}"
+    header = f"replay  {when}  {outcome}  as {cursor.participant_color}"
     lines = [Text(clip(header, width), style=theme.ink), Text("")]
     current = cursor.current
     lines.extend(render_board(cursor.fen, current.uci if current else None, flipped, theme))
@@ -163,28 +180,29 @@ def replay_screen(cursor: ReplayCursor, flipped: bool, theme: Theme, width: int)
         for wrapped in _wrap_comment(current.comment, width):
             lines.append(Text(wrapped, style=theme.soft))
     lines.append(Text(""))
-    lines.append(Text("next  prev  flip  quit. enter is next", style=theme.faint))
+    lines.append(Text("/next  /prev  /flip  /back. enter is next", style=theme.faint))
     return lines
 
 
 def help_screen(theme: Theme, width: int) -> list[Text]:
     rows = [
         ("moves", "type e2e4 or Nf3. promotion e7e8q or e8=Q"),
-        ("new", "start a fresh game"),
-        ("history", "past games, newest first"),
-        ("replay", "step through a stored game"),
-        ("retry", "repeat a failed model turn"),
-        ("flip", "turn the board around"),
-        ("quit", "leave this screen. at home, exit"),
+        ("/new", "start a game. a coin toss picks your color"),
+        ("/back", "return to the game or previous screen"),
+        ("/history", "past games, newest first"),
+        ("/replay", "step through a stored game"),
+        ("/retry", "repeat a failed model turn"),
+        ("/flip", "turn the board around"),
+        ("/quit", "leave the screen. at home, exit"),
     ]
     lines = [Text("help", style=f"bold {theme.ink}" if theme.ink else ""), Text("")]
     for name, description in rows:
         row = Text()
-        row.append(f"{name:<8}", style=theme.accent)
-        row.append(clip(description, width - 8), style=theme.soft)
+        row.append(f"{name:<10}", style=theme.accent)
+        row.append(clip(description, width - 10), style=theme.soft)
         lines.append(row)
     lines.append(Text(""))
-    lines.append(Text(clip("NO_COLOR or --no-color drops color", width), style=theme.faint))
+    lines.append(Text(clip("bare words work too. NO_COLOR drops color", width), style=theme.faint))
     return lines
 
 

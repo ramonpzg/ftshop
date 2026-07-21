@@ -2,25 +2,27 @@
 UI layer adds color on top of the same grid so styled and plain output
 can never disagree on geometry.
 
-The reference format, from the phase prompt, White at the bottom:
+Cells are three characters wide (space, piece, space), Ramon's
+requested bigger board. With rank labels on both sides the board is 29
+columns, still comfortably inside the 40-column phone floor:
 
-    a b c d e f g h
- 8  r n b q k b n r  8
+    a  b  c  d  e  f  g  h
+ 8  r  n  b  q  k  b  n  r  8
  ...
- 1  R N B Q K B N R  1
-    a b c d e f g h
+ 1  R  N  B  Q  K  B  N  R  1
+    a  b  c  d  e  f  g  h
 
 Uppercase is White, lowercase is Black, always, so the board stays
 readable under a broken font, monochrome recording, or poor projector.
-Every cell is exactly two characters wide (piece plus one space), which
-keeps the board 22 columns wide and immune to label-induced shifts.
-"""
+Every cell has a fixed width, so a check label or selection can never
+shift the board."""
 
 from dataclasses import dataclass
 
 import chess
 
-BOARD_WIDTH = 22
+CELL = 3
+BOARD_WIDTH = 3 + 8 * CELL + 2  # left label gutter, cells, right label
 
 
 @dataclass(frozen=True)
@@ -79,13 +81,13 @@ def board_grid(fen: str, last_move_uci: str | None = None, flipped: bool = False
 
 
 def board_lines(grid: BoardGrid) -> list[str]:
-    """The plain text form, exactly ten lines, each 22 columns or less.
+    """The plain text form, exactly ten lines, each 29 columns or less.
     The styled renderer walks the same grid, so this is also the
     alignment contract the tests pin down."""
-    file_row = "    " + " ".join(grid.file_labels)
+    file_row = ("   " + "".join(f" {label} " for label in grid.file_labels)).rstrip()
     lines = [file_row]
     for label, row in zip(grid.rank_labels, grid.rows, strict=True):
-        cells = "".join(f"{cell.piece} " for cell in row)
-        lines.append(f" {label}  {cells} {label}")
+        cells = "".join(f" {cell.piece} " for cell in row)
+        lines.append(f" {label} {cells} {label}")
     lines.append(file_row)
     return lines

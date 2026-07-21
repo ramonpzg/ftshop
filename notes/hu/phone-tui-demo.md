@@ -59,13 +59,25 @@ now lands on `e7e5`, because that is the only legal continuation
 spelled anything like it. After the change, every live turn applied
 on the first attempt.
 
+Ramon's phone then supplied the sequel. His Termux llama.cpp build
+silently ignored `response_format` altogether, free-ran every reply
+to the 192-token cap, and handed back an unlisted move on the first
+turn, which is how we learned that the OpenAI-shaped schema field is
+the newer, less portable spelling of the same idea. The constraint
+now ships as a raw GBNF `grammar` field, llama.cpp's own mechanism
+and years older than json_schema support, enumerating the legal menu
+inside the fixed JSON shape. Same trick, lower in the stack, works on
+old builds, and as a bonus generation stops at the closing brace,
+about 35 tokens instead of 192, which on a phone is the difference
+between seven seconds and seventeen.
+
 So why does `judge_move_reply` still check everything, membership
-included? Because the schema lives on the server, and servers change,
-downgrade, or get swapped for one that silently ignores
-`response_format`. An application that trusts a remote validator has
-no validator. The seatbelt keeps the reply parseable and, since the
-enum, steers it toward the menu; the license to move a piece is
-issued by python-chess alone, on every reply, forever.
+included? Because the grammar lives on the server, and servers
+change, downgrade, or get swapped for one that ignores the field.
+An application that trusts a remote validator has no validator. The
+seatbelt keeps the reply parseable and steers it toward the menu;
+the license to move a piece is issued by python-chess alone, on
+every reply, forever.
 
 Here is the judgment, condensed:
 

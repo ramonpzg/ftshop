@@ -79,8 +79,9 @@ session-notebook:
     cd api && uv run jupyter lab --ServerApp.root_dir=.. ../notebooks/full-session.ipynb
 
 # The phone chess TUI, desktop convenience run. Expects a llama.cpp
-# server on 127.0.0.1:8080 (`just start-gemma`). The phone itself does
-# not need just: docs/phone-tui.md has the pip path for Termux.
+# server on 127.0.0.1:9017 (`just start-gemma 9017`; the TUI default
+# avoids crowded 8080). The phone itself does not need just:
+# docs/phone-tui.md has the Termux path.
 phone-tui:
     cd tui && uv run chess-tui
 

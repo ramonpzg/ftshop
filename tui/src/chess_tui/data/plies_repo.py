@@ -38,14 +38,21 @@ def plies_for_game(conn: sqlite3.Connection, game_id: str) -> list[sqlite3.Row]:
     return list(conn.execute("SELECT * FROM plies WHERE game_id = ? ORDER BY ply", (game_id,)))
 
 
-def participant_captures_by_game(conn: sqlite3.Connection) -> list[tuple[str | None, int]]:
-    """Per game: its result and how many captures the participant made
-    in it. Mechanical retrieval; the rules live in calculations.stats."""
+def participant_captures_by_game(
+    conn: sqlite3.Connection, player_name: str | None = None
+) -> list[tuple[str | None, str, int]]:
+    """Per game: its result, the participant's color, and how many
+    captures the participant made in it. Mechanical retrieval; the
+    rules live in calculations.stats."""
+    where = "WHERE g.player_name = ?" if player_name is not None else ""
+    params = (player_name,) if player_name is not None else ()
     return [
-        (row["result"], row["captures"])
+        (row["result"], row["participant_color"], row["captures"])
         for row in conn.execute(
-            "SELECT g.result AS result, "
+            "SELECT g.result AS result, g.participant_color AS participant_color, "
             "COALESCE(SUM(CASE WHEN p.actor = 'participant' THEN p.is_capture END), 0) "
-            "AS captures FROM games g LEFT JOIN plies p ON p.game_id = g.id GROUP BY g.id"
+            f"AS captures FROM games g LEFT JOIN plies p ON p.game_id = g.id {where} "
+            "GROUP BY g.id",
+            params,
         )
     ]

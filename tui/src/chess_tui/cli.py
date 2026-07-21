@@ -32,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--db", help="SQLite path (default: XDG data dir)")
     parser.add_argument("--no-color", action="store_true", help="plain output; NO_COLOR works too")
+    parser.add_argument("--name", help="player name; asked once and remembered otherwise")
     parser.add_argument("--version", action="version", version=f"chess-tui {__version__}")
     return parser
 
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout=args.timeout,
         db=args.db,
         no_color=args.no_color,
+        name=args.name,
     )
     conn = connect(config.db_path)
     client = LlmClient(config)

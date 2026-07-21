@@ -9,11 +9,12 @@ from chess_tui.data.config import default_db_path, load_config, normalize_base_u
 
 def test_defaults(tmp_path):
     config = load_config({"CHESS_TUI_DB": str(tmp_path / "x.db")})
-    assert config.base_url == "http://127.0.0.1:8080/v1"
+    assert config.base_url == "http://127.0.0.1:9017/v1"
     assert config.model == "gemma-4-2b-local"
     assert config.api_key == "local"
     assert config.timeout_seconds == 120.0
     assert config.no_color is False
+    assert config.player_name is None
 
 
 def test_environment_overrides():
@@ -84,6 +85,17 @@ def test_parser_exposes_equivalent_flags():
     assert args.timeout == 9.0
     assert args.db == "/tmp/d.db"
     assert args.no_color is True
+
+
+def test_name_env_and_flag():
+    env = {"CHESS_TUI_NAME": "enviro", "CHESS_TUI_DB": "/tmp/x.db"}
+    assert load_config(env).player_name == "enviro"
+    assert load_config(env, name="flagged").player_name == "flagged"
+
+
+def test_parser_has_name_flag():
+    args = build_parser().parse_args(["--name", "ramon"])
+    assert args.name == "ramon"
 
 
 def test_api_key_never_appears_in_repr():

@@ -17,6 +17,7 @@ class HistoryItem:
     result: str | None
     termination: str | None
     move_count: int
+    participant_color: str
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class ReplayCursor:
     started_at: str
     result: str | None
     termination: str | None
+    participant_color: str
     plies: list[ReplayPly]
     index: int = 0
 
@@ -61,9 +63,9 @@ class ReplayCursor:
             self.index -= 1
 
 
-def list_history(conn: sqlite3.Connection) -> list[HistoryItem]:
+def list_history(conn: sqlite3.Connection, player_name: str | None = None) -> list[HistoryItem]:
     items = []
-    for row in games_repo.list_games_newest_first(conn):
+    for row in games_repo.list_games_newest_first(conn, player_name):
         items.append(
             HistoryItem(
                 game_id=row["id"],
@@ -71,6 +73,7 @@ def list_history(conn: sqlite3.Connection) -> list[HistoryItem]:
                 result=row["result"],
                 termination=row["termination"],
                 move_count=(int(row["ply_count"]) + 1) // 2,
+                participant_color=row["participant_color"],
             )
         )
     return items
@@ -96,5 +99,6 @@ def open_replay(conn: sqlite3.Connection, game_id: str) -> ReplayCursor | None:
         started_at=game["started_at"],
         result=game["result"],
         termination=game["termination"],
+        participant_color=game["participant_color"],
         plies=plies,
     )

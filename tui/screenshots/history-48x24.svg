@@ -19,58 +19,58 @@
         font-weight: 700;
     }
 
-    .terminal-1904650403-matrix {
+    .terminal-2434115984-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-1904650403-title {
+    .terminal-2434115984-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-1904650403-r1 { fill: #f3f1ec;font-weight: bold }
-.terminal-1904650403-r2 { fill: #f3f1ec }
-.terminal-1904650403-r3 { fill: #5fbf8a }
-.terminal-1904650403-r4 { fill: #85817a }
+    .terminal-2434115984-r1 { fill: #f3f1ec;font-weight: bold }
+.terminal-2434115984-r2 { fill: #f3f1ec }
+.terminal-2434115984-r3 { fill: #5fbf8a }
+.terminal-2434115984-r4 { fill: #85817a }
     </style>
 
     <defs>
-    <clipPath id="terminal-1904650403-clip-terminal">
+    <clipPath id="terminal-2434115984-clip-terminal">
       <rect x="0" y="0" width="584.5999999999999" height="121.0" />
     </clipPath>
-    <clipPath id="terminal-1904650403-line-0">
+    <clipPath id="terminal-2434115984-line-0">
     <rect x="0" y="1.5" width="585.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-1904650403-line-1">
+<clipPath id="terminal-2434115984-line-1">
     <rect x="0" y="25.9" width="585.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-1904650403-line-2">
+<clipPath id="terminal-2434115984-line-2">
     <rect x="0" y="50.3" width="585.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-1904650403-line-3">
+<clipPath id="terminal-2434115984-line-3">
     <rect x="0" y="74.7" width="585.6" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#17171a" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="602" height="170" rx="8"/><text class="terminal-1904650403-title" fill="#f3f1ec" text-anchor="middle" x="301" y="27">chess-tui</text>
+    <rect fill="#17171a" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="602" height="170" rx="8"/><text class="terminal-2434115984-title" fill="#f3f1ec" text-anchor="middle" x="301" y="27">chess-tui</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-1904650403-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-2434115984-clip-terminal)">
     
-    <g class="terminal-1904650403-matrix">
-    <text class="terminal-1904650403-r1" x="0" y="20" textLength="85.4" clip-path="url(#terminal-1904650403-line-0)">history</text><text class="terminal-1904650403-r2" x="585.6" y="20" textLength="12.2" clip-path="url(#terminal-1904650403-line-0)">
-</text><text class="terminal-1904650403-r2" x="585.6" y="44.4" textLength="12.2" clip-path="url(#terminal-1904650403-line-1)">
-</text><text class="terminal-1904650403-r3" x="0" y="68.8" textLength="536.8" clip-path="url(#terminal-1904650403-line-2)">&#160;1&#160;&#160;2026-07-21&#160;13:29&#160;&#160;1-0&#160;checkmate&#160;&#160;4&#160;moves</text><text class="terminal-1904650403-r2" x="585.6" y="68.8" textLength="12.2" clip-path="url(#terminal-1904650403-line-2)">
-</text><text class="terminal-1904650403-r2" x="585.6" y="93.2" textLength="12.2" clip-path="url(#terminal-1904650403-line-3)">
-</text><text class="terminal-1904650403-r4" x="0" y="117.6" textLength="317.2" clip-path="url(#terminal-1904650403-line-4)">replay&#160;&lt;number&gt;&#160;&#160;new&#160;&#160;quit</text><text class="terminal-1904650403-r2" x="585.6" y="117.6" textLength="12.2" clip-path="url(#terminal-1904650403-line-4)">
+    <g class="terminal-2434115984-matrix">
+    <text class="terminal-2434115984-r1" x="0" y="20" textLength="85.4" clip-path="url(#terminal-2434115984-line-0)">history</text><text class="terminal-2434115984-r2" x="585.6" y="20" textLength="12.2" clip-path="url(#terminal-2434115984-line-0)">
+</text><text class="terminal-2434115984-r2" x="585.6" y="44.4" textLength="12.2" clip-path="url(#terminal-2434115984-line-1)">
+</text><text class="terminal-2434115984-r3" x="0" y="68.8" textLength="573.4" clip-path="url(#terminal-2434115984-line-2)">&#160;1&#160;&#160;2026-07-21&#160;16:12&#160;&#160;W&#160;&#160;1-0&#160;checkmate&#160;&#160;4&#160;moves</text><text class="terminal-2434115984-r2" x="585.6" y="68.8" textLength="12.2" clip-path="url(#terminal-2434115984-line-2)">
+</text><text class="terminal-2434115984-r2" x="585.6" y="93.2" textLength="12.2" clip-path="url(#terminal-2434115984-line-3)">
+</text><text class="terminal-2434115984-r4" x="0" y="117.6" textLength="353.8" clip-path="url(#terminal-2434115984-line-4)">/replay&#160;&lt;number&gt;&#160;&#160;/new&#160;&#160;/back</text><text class="terminal-2434115984-r2" x="585.6" y="117.6" textLength="12.2" clip-path="url(#terminal-2434115984-line-4)">
 </text>
     </g>
     </g>

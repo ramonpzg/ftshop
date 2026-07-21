@@ -28,7 +28,7 @@ def conn(db_path: Path):
 
 @pytest.fixture
 def config(db_path: Path) -> Config:
-    return Config(db_path=db_path, no_color=True)
+    return Config(db_path=db_path, no_color=True, player_name="tester")
 
 
 def chat_response(content: str) -> httpx.Response:

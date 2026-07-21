@@ -180,6 +180,68 @@ device. docs/phone-tui.md states this plainly and gives the exact
 one-line smoke command to run in Termux before trusting the setup.
 Desktop Linux results above are not reported as Android validation.
 
+## Round 2: Ramon's field test, same day
+
+Ramon ran the first build on the actual phone within hours and sent
+screenshots. What his run established, and what changed because of it:
+
+- **His Termux llama.cpp build ignores `response_format`.** The
+  server log shows every reply free-running to the full 192-token cap
+  (12.2s of generation at 15.75 t/s) and the first move came back
+  illegal, corrective-rescued. The constraint now rides as llama.cpp's
+  raw GBNF `grammar` field (verified live on the desktop build,
+  byte-identical template pinned by test), which predates json_schema
+  support by years, works on old builds, and stops generation at the
+  closing brace (~35 tokens). `response_format` is gone from the
+  request. No `outlines`, no `llama-cpp-python`: GBNF over HTTP is
+  the same constrained decoding with zero new dependencies.
+  `MOVE_PROMPT_VERSION` is `tui-move-v3`.
+- **uv works on his Termux** in `uv venv` + `uv pip install ./tui`
+  mode against Termux CPython 3.13.13 (screenshot evidence), which
+  softens the round-1 research finding; `uv sync` with managed
+  Pythons remains a desktop path. Docs now lead with the uv path and
+  keep plain pip as the always-works fallback.
+- **Scrollback showed old frames**: the loop now runs inside the
+  terminal's alternate screen buffer (`Console.set_alt_screen`),
+  entered on start, restored in a finally, skipped for non-terminal
+  consoles. Real-TUI feel; shell history intact on exit.
+- **The help trap**: commands are now slash-prefixed (`/new`, `/help`,
+  bare words still accepted, unknown `/x` gets its own notice), an
+  active game survives every navigation including `/quit` to home,
+  the home screen shows a resume hint, and `/back` returns to the
+  game or previous screen. The failure headlines keep the phase
+  prompt's exact bare-word copy, which also keeps them inside 48
+  columns.
+- **Coin-toss colors**: `/new` randomly assigns White (injectable
+  `random.Random` for tests; seeds 1/0 give White/Black). The model
+  opens when it draws White; the system prompt is color-parameterized;
+  the user message field became `OPPONENT_LAST_MOVE` with a
+  "(you move first)" variant; the board auto-orients to the
+  participant's side per game and `/flip` still works; check tone,
+  result copy ("checkmate. ramon won"), history tones, and the record
+  are all color-aware. `games` gained `participant_color`.
+- **Names**: first launch asks once, stores in a new `settings`
+  table, `--name`/`CHESS_TUI_NAME` override; `games.player_name`
+  scopes the record and history; pre-name games are claimed by the
+  first name (`claim_unnamed_games`). The status line reads
+  `ramon: Black | Gemma: White | move 2`.
+- **Bigger board**: 3-character cells, 29 columns total, file letters
+  pinned over pieces by test; still fits 40x22 with the input line.
+- **Port**: TUI default moved to 9017 (8080 is crowded on his phone).
+  `just start-gemma 9017` pairs with it on the desktop; the docs
+  server command mirrors his real one (`-c 8192 -ctk q8_0 -ctv q8_0
+  --offline`) plus `--reasoning off` and the shared alias.
+- **Schema migration**: `db.connect` ensures new columns with ALTER
+  TABLE; a test builds a v1-schema database and proves games survive
+  and get claimed. His existing phone db upgrades in place.
+
+Round 2 live acceptance (desktop, real server on 9017, real Gemma):
+both colors played through the real App; as Black, Gemma opened e4 in
+8.8s unprompted and answered 1...e5 with c3; every turn applied on
+the first attempt; ledger and per-color record rows verified; 143
+tests, ruff, ty clean. The round 2 changes have not run on the phone
+yet; the smoke line in docs/phone-tui.md is the check.
+
 ## Intentionally deferred
 
 - Resignation and draw offers: not in the command set the phase fixed;

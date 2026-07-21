@@ -6,7 +6,9 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8080/v1"
+# 9017 because half the world already squats on 8080, Ramon's phone
+# included.
+DEFAULT_BASE_URL = "http://127.0.0.1:9017/v1"
 DEFAULT_MODEL = "gemma-4-2b-local"
 DEFAULT_API_KEY = "local"
 # Phone inference budget: a mid-game prompt is a few hundred tokens and
@@ -24,6 +26,7 @@ class Config:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     db_path: Path = field(default_factory=lambda: default_db_path(os.environ))
     no_color: bool = False
+    player_name: str | None = None  # None means ask once and persist
 
 
 def default_db_path(env: dict | os._Environ) -> Path:
@@ -51,6 +54,7 @@ def load_config(
     timeout: float | None = None,
     db: str | None = None,
     no_color: bool = False,
+    name: str | None = None,
 ) -> Config:
     """Flags beat environment beats defaults."""
     resolved_timeout = timeout
@@ -64,4 +68,5 @@ def load_config(
         timeout_seconds=resolved_timeout,
         db_path=Path(db) if db else default_db_path(env),
         no_color=no_color or bool(env.get("NO_COLOR")),
+        player_name=name or env.get("CHESS_TUI_NAME") or None,
     )

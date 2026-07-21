@@ -14,7 +14,7 @@ def _play_short_game(conn, config):
         config,
         [move_reply("e7e5", "Symmetry. Bold."), move_reply("b8c6", "A knight, developed.")],
     )
-    state = start_game(conn, config.model)
+    state = start_game(conn, config.model, chess.WHITE, "tester")
     for white in ["e2e4", "g1f3"]:
         parsed = parse_participant_move(state.board.fen(), white)
         assert isinstance(parsed, ParsedMove)

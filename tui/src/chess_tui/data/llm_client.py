@@ -59,15 +59,18 @@ class LlmClient:
     def close(self) -> None:
         self._client.close()
 
-    def request_black_move(self, messages: list[dict], json_schema: dict) -> ChatReply:
-        """One fresh, bounded, non-streaming request per turn."""
+    def request_move(self, messages: list[dict], grammar: str) -> ChatReply:
+        """One fresh, bounded, non-streaming request per turn. The
+        constraint rides as llama.cpp's raw GBNF `grammar` field, which
+        far older server builds honor than response_format json_schema;
+        Ramon's Termux build ignored the latter, free-ran to the token
+        cap, and returned junk. A non-llama.cpp server ignores the
+        field, and the corrective/retry machinery upstream covers that
+        honestly."""
         body = {
             "model": self._model,
             "messages": messages,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "black_move", "schema": json_schema, "strict": True},
-            },
+            "grammar": grammar,
             "temperature": 0.3,
             "max_tokens": 192,
             "stream": False,
