@@ -298,7 +298,7 @@ footer: false
 
 <div class="webui-pair">
 <MediaFrame
-  file="gemma-webui-1.jpg"
+  file="llamacpp.jpg"
   ratio="9/19.5"
   height="440px"
   expected="llama.cpp web UI in a phone browser, chat view."
@@ -315,7 +315,7 @@ footer: false
   </p>
 </div>
 <MediaFrame
-  file="gemma-webui-2.jpg"
+  file="gemmallama.jpg"
   ratio="9/19.5"
   height="440px"
   expected="llama.cpp web UI in a phone browser, a reply mid-stream."
@@ -598,7 +598,7 @@ adapted/reference pair, not a before/after experiment.</p>
 </style>
 
 <!--
-TIMING: 30 seconds.
+TIMING: 30 seconds. OPTIONAL: the default route skips this slide.
 SAY: Which is base and which is adapted?
 CLICK: none. The Answer disclosure sits outside the Slidev click sequence, so a presenter clicker (ArrowRight/PageDown) advances past it without opening it; default is to hold answers for the combined reveal. If the room is quiet, open it directly (click, or Enter when focused) and keep moving.
 SOURCE: only an actual adapted/reference pair fills this slide; provenance pending.
@@ -645,7 +645,7 @@ FALLBACK: placeholders keep the frames.
 </style>
 
 <!--
-TIMING: 30 seconds.
+TIMING: 30 seconds. OPTIONAL: the default route skips this slide.
 SAY: Same prompt, two sets of pieces.
 CLICK: none. Answer sits outside the click sequence, same policy as the text pair.
 SOURCE: pair provenance pending.
@@ -693,7 +693,7 @@ FALLBACK: placeholders keep the frames.
 </style>
 
 <!--
-TIMING: 30 seconds, both clips play once.
+TIMING: 30 seconds, both clips play once. OPTIONAL: the default route skips this slide.
 SAY: Two clips, one text prompt.
 CLICK: none. Answer sits outside the click sequence, same policy.
 SOURCE: pair provenance pending. No autoplay.
@@ -739,7 +739,7 @@ FALLBACK: placeholders keep the rows.
 </style>
 
 <!--
-TIMING: 30 seconds; play the clips only if the room is engaged.
+TIMING: 30 seconds; play the clips only if the room is engaged. OPTIONAL: the default route skips this slide.
 SAY: Same saved scene prompt, two clips.
 CLICK: none. Answer sits outside the click sequence, same policy.
 SOURCE: pair provenance pending.
@@ -805,10 +805,35 @@ Fine-tuning is a trade.
 </style>
 
 <!--
-TIMING: 75 seconds.
+TIMING: 75 seconds. OPTIONAL: the default route skips this slide.
 SAY: One row per modality: the answer, the exact target behavior, one metric with its sample size, cached or live provenance, and one limitation or regression.
 CLICK: 4. One row per click, fixed modality order.
 SOURCE: every cell lands with the accepted phase 34 evidence or from recorded pairs; nothing here is invented in the meantime.
-CUT: never; this is the payoff of the four questions.
+CUT: runs only when the guessing game runs; the wrap slide lands the section on the default route.
 FALLBACK: the structure reads even before the data lands.
+-->
+
+---
+layout: center
+clicks: 1
+footer: false
+---
+
+<div class="statement">
+One chess game became a move engine, a story, a set of pieces, a
+soundtrack, and a scene.
+</div>
+
+<p v-click class="reserve statement-quiet">
+Same recipe every time; only the pairs changed. Whether that is worth
+owning is the next question.
+</p>
+
+<!--
+TIMING: 20 seconds.
+SAY: Land the section: one game, four modalities, one recipe. The click hands the room to part 3, which asks whether owning it is worth the trouble.
+CLICK: 1. The handoff line.
+SOURCE: none.
+CUT: never; this is the section close on the default route.
+FALLBACK: static.
 -->
