@@ -18,6 +18,7 @@ FALLBACK: static.
 
 ---
 clicks: 3
+footer: false
 ---
 
 # Economics at a target quality
@@ -34,13 +35,22 @@ FALLBACK: the structure reads without final numbers.
 -->
 
 ---
+footer: false
+---
 
 # Providers do not have your data
 
 <div class="data-cols">
 <div>
-  <div class="compare-label">the public corpus</div>
-  <p>What the general model was trained on. Scraped, licensed, public.</p>
+  <div class="compare-label">the public-ish corpus</div>
+  <p>What the general model was trained on. Scraped, licensed, public, and, more recently, synthetic data.</p>
+  <MediaFrame
+    file="hf-synth-data.png"
+    ratio="1/1"
+    height="210px"
+    expected="FinePhrase synthetic-data explorer screenshot."
+    source="huggingface.co/spaces/HuggingFaceFW/finephrase"
+  />
 </div>
 <div class="compare-col adapted">
   <div class="compare-label">this exact behavior</div>

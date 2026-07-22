@@ -254,6 +254,7 @@ test asserts every referenced file name appears in this table.
 | `canva-template.mp4` | 16:9 | the real Canva video-template example |
 | `meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
 | `future-tree.png` | 16:9 | the model tree diagram from v1 |
+| `hf-synth-data.png` | 1:1 | FinePhrase synthetic-data explorer, huggingface.co/spaces/HuggingFaceFW/finephrase |
 
 Text placeholders pending from Ramon, marked PLACEHOLDER in the slide
 source: the three real-world mappings and their approved edits, the
