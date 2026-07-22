@@ -23,7 +23,7 @@ just install --whiteboard  # web + sync room + API
 just install --web
 just install --api
 just install --deck
-just install --nb          # root .venv for Zed and Jupyter
+just install --nb          # root .venv and ftshop Jupyter kernel
 just install --tui         # isolated pure-Python phone app
 ```
 
@@ -67,6 +67,7 @@ startup.
 | `just make-media` | Regenerate the committed workshop media fixtures (deterministic; installs the small `media` extra) |
 | `just deck` | The Slidev deck on port 3030 |
 | `just session-notebook` | Open the standalone Jupyter notebook in JupyterLab |
+| `just start-gemma [options]` | Serve the default Gemma, another HF model, or a local GGUF through llama.cpp |
 | `just phone-tui` | Run the phone chess TUI against llama.cpp; see `docs/phone-tui.md` |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
 | `just load-test` | Simulate a room of attendees against a running backend |
@@ -121,6 +122,24 @@ persist it right back.
 The Presentation page remains in the canvas as an emergency embedded-deck
 fallback, but it is intentionally absent from the normal page tabs. The deck
 and notebook are the primary presentation surfaces.
+
+## Local llama.cpp model
+
+`just start-gemma` serves the workshop Gemma on
+`http://127.0.0.1:8080/v1`. The name is historical; pass a local GGUF to use
+any llama.cpp-supported text model while keeping the notebook endpoint and
+alias unchanged:
+
+```
+just start-gemma --model "$HOME/models/my-model.gguf"
+```
+
+The full form accepts `--model PATH [PORT]` or `--hf REPO[:QUANT] [PORT]`.
+The old port shorthand remains valid, so the phone TUI can use
+`just start-gemma 9017`. Run `just start-gemma --help` for the examples. When
+changing the port, export the matching `GEMMA_BASE_URL` before launching
+JupyterLab. The API alias stays fixed so changing the model itself needs no
+notebook edit.
 
 ## Environment variables
 

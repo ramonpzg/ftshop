@@ -88,6 +88,10 @@ install *targets:
         # Keep optional packages Ramon has installed locally (notably
         # MusicGen) while enforcing the locked notebook baseline.
         uv sync --locked --inexact
+        uv run python -m ipykernel install \
+            --sys-prefix \
+            --name ftshop \
+            --display-name "Python (ftshop .venv)"
     fi
     if (( install_tui )); then
         echo "Installing phone chess TUI"
@@ -134,19 +138,78 @@ download-models:
         uvx --from huggingface-hub hf cache verify "${model}" --fail-on-missing-files
     done
 
-# Gemma 4 on llama.cpp's OpenAI-compatible API at http://127.0.0.1:8080/v1.
-start-gemma port="8080":
+# Start llama.cpp's OpenAI-compatible API with the workshop Gemma by default.
+# The fixed API alias keeps model switching transparent to the notebook.
+start-gemma source="" model="" requested_port="8080":
     #!/usr/bin/env bash
     set -euo pipefail
+    source="{{ source }}"
+    model="{{ model }}"
+    port="{{ requested_port }}"
+    model_args=( -hf "{{ gemma_model }}:Q4_0" )
+
+    case "${source}" in
+        "")
+            [[ -z "${model}" ]] || {
+                echo "A model value needs --model or --hf" >&2
+                exit 2
+            }
+            ;;
+        --model)
+            [[ -n "${model}" ]] || {
+                echo "--model needs a local GGUF path" >&2
+                exit 2
+            }
+            [[ -f "${model}" ]] || {
+                echo "Model file not found: ${model}" >&2
+                exit 2
+            }
+            model_args=( --model "${model}" )
+            ;;
+        --hf)
+            [[ -n "${model}" ]] || {
+                echo "--hf needs a Hugging Face model reference" >&2
+                exit 2
+            }
+            model_args=( -hf "${model}" )
+            ;;
+        --help)
+            printf '%s\n' \
+                'Usage: just start-gemma [PORT]' \
+                '       just start-gemma --model PATH [PORT]' \
+                '       just start-gemma --hf REPO[:QUANT] [PORT]' \
+                '' \
+                'No model option serves the workshop Gemma from the llama.cpp cache.' \
+                '--model serves any local llama.cpp-compatible GGUF.'
+            exit 0
+            ;;
+        [0-9]*)
+            [[ -z "${model}" ]] || {
+                echo "Unexpected argument after port: ${model}" >&2
+                exit 2
+            }
+            port="${source}"
+            ;;
+        *)
+            echo "Unknown start-gemma option: ${source}" >&2
+            exit 2
+            ;;
+    esac
+
+    if [[ ! "${port}" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+        echo "Invalid port: ${port}" >&2
+        exit 2
+    fi
     command -v llama >/dev/null || {
         echo "llama.cpp is required: https://github.com/ggml-org/llama.cpp" >&2
         exit 1
     }
+
     exec llama serve \
-        -hf "{{ gemma_model }}:Q4_0" \
+        "${model_args[@]}" \
         --alias gemma-4-2b-local \
         --host 127.0.0.1 \
-        --port "{{ port }}"
+        --port "${port}"
 
 # Build the bounded Lichess sample, enrich it with Luna, train a Gemma 4
 # adapter, and optionally publish it. With no flags this runs the viable

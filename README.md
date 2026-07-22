@@ -10,75 +10,129 @@ has three deliberately separate teaching assets:
 - `deck/`: a Slidev presentation with its own projected visual system;
 - `notebooks/main-nb.ipynb`: a pragmatic, standalone Jupyter notebook.
 
-The notebook is not a Marimo app and is not required inside the whiteboard.
-Legacy Marimo sources and compatibility support for old notebook shapes remain
-until a reviewed phase removes them. Do not regenerate the old browser
-notebook exports.
+The notebook is plain Jupyter and runs independently of the whiteboard.
 
-## Current status
+The supporting `tui/` app runs chess against llama.cpp on a phone or laptop.
+The isolated `training/` project prepares the bounded chess dataset and trains
+LoRA or QLoRA adapters. Neither is required to read or run the notebook.
 
-The app is in pre-workshop hardening. It has a FastAPI backend, durable SQLite
-workshop state, a backend-persisted canvas snapshot, cached offline artifacts,
-live model and media-generation paths, presenter controls, and room exports.
+## Notebook only
 
-Current `main` is not yet the release build. Canvas persistence, presenter
-navigation, and the deck's network path were phase 32's room-correctness
-problems; all three are fixed as of that phase: the canvas is a real
-multiplayer room built on tldraw's own sync engine (conflicts resolve per
-record, not by one shared snapshot overwriting another), presenter navigation
-transmits an exact camera target (bounds, with a frame id riding along), and
-the deck reaches the backend through a documented LAN-safe proxy with CORS
-limited to the four listed dev origins. See
-[notes/comms/README.md](notes/comms/README.md) for the current phase order and
-what each remaining phase owns.
+This is the smallest useful install. It needs [uv](https://docs.astral.sh/uv/)
+and [`just`](https://github.com/casey/just), plus Git to clone the repository.
+It does not need Bun, Node, the whiteboard, llama.cpp, or downloaded model
+weights. `uv` selects a compatible Python 3.11 or newer and installs the
+locked dependencies.
 
-## Quick start
+```bash
+git clone https://github.com/ramonpzg/ftshop.git
+cd ftshop
+just install --nb
+just session-notebook
+```
 
-Prerequisites: [Bun](https://bun.sh), [uv](https://docs.astral.sh/uv/), and
-[`just`](https://github.com/casey/just).
+`just install --nb` creates the locked root `.venv` and registers the
+`Python (ftshop .venv)` kernel inside it. `just session-notebook` opens
+`notebooks/main-nb.ipynb` in JupyterLab. Most of the notebook is local Python;
+the live API and media cells are optional and state which key or server they
+need.
+
+To open another notebook with the same environment:
+
+```bash
+just session-notebook notebooks/another.ipynb
+```
+
+## Full workshop app
+
+The shared room and deck also require [Bun](https://bun.sh). Install every
+surface, then start the whiteboard stack:
 
 ```bash
 just install
 just start
 ```
 
-The default install covers the whiteboard, backend, deck, standalone
-notebook, and phone TUI. On a weak connection, install only the surface
-you need:
-
-```bash
-just install --whiteboard  # web, sync room, and API
-just install --deck
-just install --nb          # locked root .venv used by Zed and Jupyter
-just install --tui         # isolated pure-Python phone app
-```
-
-These core installs do not download model weights or the optional multi-GB
-audio stack.
-
-Open <http://localhost:5173>. The API runs at <http://localhost:8000>.
-The deck and Jupyter notebook are separate processes:
+Open <http://localhost:5173>. The command runs the API on port 8000, the tldraw
+sync room on 8010, and the web app on 5173. The deck and notebook are separate
+processes, normally started in their own terminals:
 
 ```bash
 just deck               # Slidev on http://localhost:3030
 just session-notebook   # JupyterLab with notebooks/main-nb.ipynb
 ```
 
-Model calls use the OpenAI-compatible Chat Completions endpoint,
-`/chat/completions`. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and
-`OPENAI_MODEL` together. The current default model is `gpt-5.6-luna`.
-Provider-specific model names still need to match the configured endpoint.
+On a weak connection, install only what you will use. Flags can be combined.
 
-The local Gemma baseline is
-`google/gemma-4-E2B-it-qat-q4_0-gguf`. For llama.cpp, start it with:
+| Command | Installs |
+|---|---|
+| `just install --nb` | Standalone notebook and Jupyter kernel |
+| `just install --whiteboard` | Web app, sync room, and API |
+| `just install --web` | Web app and sync room only |
+| `just install --api` | FastAPI backend only |
+| `just install --deck` | Slidev deck only |
+| `just install --tui` | Isolated phone chess TUI |
+| `just install` | Every surface above |
+
+Installation does not download model weights or the optional multi-GB audio
+stack.
+
+## Model endpoints
+
+Hosted model calls use the OpenAI-compatible Chat Completions endpoint,
+`/chat/completions`. Choose the provider before starting JupyterLab:
 
 ```bash
-just download-models  # Gemma and MusicGen; download and verify
-just start-gemma      # OpenAI-compatible API on http://127.0.0.1:8080/v1
+# Direct OpenAI
+export CHAT_PROVIDER=openai
+export OPENAI_API_KEY=...
+export OPENAI_MODEL=gpt-5.6-luna
+
+# Or OpenRouter
+export CHAT_PROVIDER=openrouter
+export OPENROUTER_API_KEY=...
+export OPENROUTER_MODEL=openai/gpt-5.6-luna
 ```
 
-Stable Audio remains an optional, commented model in the download recipe. It
-is not part of the workshop's required path.
+Provider-specific model names must match the configured endpoint. The
+notebook keeps local Gemma and the hosted provider independent, so one being
+unavailable does not prevent the other comparison row from running.
+
+The local baseline is `google/gemma-4-E2B-it-qat-q4_0-gguf`. With a current
+llama.cpp installation, this serves it on the notebook's default endpoint,
+`http://127.0.0.1:8080/v1`:
+
+```bash
+just start-gemma
+```
+
+The recipe name reflects the workshop default, but it can serve any local
+llama.cpp-compatible GGUF without changing the notebook:
+
+```bash
+just start-gemma --model "$HOME/models/my-model.gguf"
+```
+
+The API alias stays `gemma-4-2b-local`, which is what the notebook requests.
+Other useful forms are:
+
+```bash
+just start-gemma --model /path/model.gguf 9017
+just start-gemma --hf owner/model-gguf:Q4_K_M
+```
+
+If the port changes, set the matching notebook variable before starting
+JupyterLab:
+
+```bash
+GEMMA_BASE_URL=http://127.0.0.1:9017/v1 \
+just session-notebook
+```
+
+Run `just start-gemma --help` for the complete syntax. `just download-models`
+is an optional presenter-preparation command that downloads and verifies the
+workshop Gemma and MusicGen. It is deliberately separate from installation.
+Stable Audio remains commented out and is not required.
 
 The published chess artifact is a PEFT adapter, not a deployment-ready GGUF.
 Trainer examples use the matching
@@ -102,12 +156,12 @@ just install          Install all core surfaces; flags select individual ones
 just download-models  Download and verify all local models
 just start            Run API :8000, the canvas sync room :8010, and web :5173
 just room-url         Print the board URL for devices on the same network
-just start-gemma      Run Gemma 4 through llama.cpp on :8080
+just start-gemma      Serve default Gemma or a local GGUF through llama.cpp
 just chess-adapt      Prepare/train/publish, or pull the public chess adapter
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just phone-tui        Run the Termux chess TUI (docs/phone-tui.md)
-just test             Run backend, frontend, deck, and TUI tests
+just test             Run API, training, web, deck, and TUI tests
 just test-e2e         Run Playwright smoke tests
 just lint             Run Ruff and Biome
 just typecheck        Run ty and TypeScript checks
@@ -132,7 +186,7 @@ includes its `notes/ai/` handover and `notes/hu/` learning guide.
 
 Playwright uses its own default browser discovery for `just test-e2e`. Set
 `CHESS_STUDIO_CHROMIUM` to a specific executable path if you need to override
-it; phase 36 owns the rest of the release command surface.
+it.
 
 ## Documentation
 
@@ -143,4 +197,5 @@ it; phase 36 owns the rest of the release command surface.
 - [Local development](docs/local-dev.md)
 - [Asset licenses](docs/licenses.md)
 - [Chess adapter run](docs/chess-adaptation.md)
+- [Phone TUI](docs/phone-tui.md)
 - [Current phase prompts](notes/comms/README.md)
