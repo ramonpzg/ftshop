@@ -108,9 +108,9 @@ export const COST_ROWS: CostRow[] = [
       setupCost: "4m03s training",
     },
     api: {
-      identity: "gpt-5.6-luna via OpenRouter",
+      identity: "gpt-5.6-luna API",
       outcome: "quality not run on same suite",
-      latency: "~1.66s first token",
+      latency: "~1.66s TTFT (obs.)",
       perRequestCost: "$0.00058; $0.58/1k",
       thresholdMet: "not measured",
     },
