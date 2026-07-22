@@ -222,6 +222,7 @@ test asserts every referenced file name appears in this table.
 | `old-book.jpg` | 3:4 | the chess book, photographed as an object |
 | `duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
 | `duo-example-cmate.jpg` | 9:19.5 | Duolingo chess app screenshot |
+| `duo-1000-matches.jpg`, `duo-matches-won.jpg` | 9:16 | Duolingo match-count screenshots, 5-20-500 overlays |
 | `oscar-game.png` | 9:19.5 | one game against Oscar, app screenshot |
 | `oscar.png` | 9:19.5 | Oscar |
 | `queens-gambit.jpg` | 16:9 | Queen's Gambit still |

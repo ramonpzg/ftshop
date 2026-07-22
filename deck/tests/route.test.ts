@@ -66,12 +66,12 @@ describe("default route encoding", () => {
     });
   }
 
-  test("the optional slides are the nine named in the plan", () => {
-    // Oscar, mappings two and three, the model tree, the four A/B
+  test("the optional slides are the ten named in the plan", () => {
+    // Oscar, mappings one to three, the model tree, the four A/B
     // guessing slides, and their reveal.
     const optionalCount = SECTIONS.flatMap((file) => noteBlocks(file)).filter((block) =>
       block.includes("OPTIONAL"),
     ).length;
-    expect(optionalCount).toBe(9);
+    expect(optionalCount).toBe(10);
   });
 });

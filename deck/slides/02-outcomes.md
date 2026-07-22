@@ -149,7 +149,7 @@ FALLBACK: placeholders carry the structure.
 </style>
 
 <!--
-TIMING: 45 seconds.
+TIMING: 45 seconds. OPTIONAL: the default route skips this slide.
 SAY: The board and log do not move. Only the description changes. That change is the event.
 CLICK: 1. The approved edit appears under the raw mapping.
 SOURCE: exact game or final FEN pending; model and prompt version in the disclosure line. No chess pieces in any later video prompt derived from this.
@@ -363,7 +363,7 @@ FALLBACK: placeholders keep the phone geometry.
   <div class="compare-label">BASE</div>
   <div v-click class="reserve">
   <MediaFrame
-    file="image-qr.jpg"
+    file="chess-mech.png"
     ratio="1/1"
     expected="Base model output: an actual board and pieces, one specific theme."
   />
@@ -373,7 +373,7 @@ FALLBACK: placeholders keep the phone geometry.
   <div class="compare-label">ADAPTED</div>
   <div v-click class="reserve">
   <MediaFrame
-    file="analog-chess.jpg"
+    file="chess-drawing.png"
     ratio="1/1"
     expected="Adapted output, same prompt where possible."
   />
@@ -383,7 +383,7 @@ FALLBACK: placeholders keep the phone geometry.
   <div class="compare-label">SECOND STYLE</div>
   <div v-click class="reserve">
   <MediaFrame
-    file="image-style-2.png"
+    file="chess-cool.png"
     ratio="1/1"
     expected="A second style, only if it earns the time."
   />
@@ -392,10 +392,7 @@ FALLBACK: placeholders keep the phone geometry.
 </div>
 
 <div class="provenance">
-prompt, both runs: "a complete chess set arranged on its board, all six piece
-types visible and identifiable, low angle, studio light, in the style of TOK"
-· the base run drops the TOK trigger · adapter identity, seed, dimensions
-pending · piece-identity and style-adherence checks pending
+prompt for all: "chess board from the perspective of a user interlace, this design would be what a user sees when they go into the web app to play"
 </div>
 
 <style>
@@ -430,12 +427,12 @@ our own.
 ::media::
 
 <MediaFrame
-  file="duo-chess-sound.mp4"
+  file="duo-demo.mp4"
   ratio="9/19.5"
   height="450px"
   kind="video"
   expected="Screen recording of Duolingo chess with sound: moves, captures, the win fanfare."
-  source="Duolingo chess mode, screen recording from Ramon's phone."
+  source="Duolingo chess mode, screen recording from my phone."
 />
 
 <!--
@@ -448,6 +445,8 @@ FALLBACK: skip straight to the generated audio rows.
 -->
 
 ---
+footer: false
+---
 
 # Audio adaptation
 
@@ -459,7 +458,7 @@ FALLBACK: skip straight to the generated audio rows.
 <div class="audio-rows">
   <div v-click class="reserve audio-row">
     <span class="compare-label">capture sound</span>
-    <MediaFrame file="audio-capture.wav" ratio="16/3" kind="audio" expected="A capture: wooden piece landing on wood." caption='prompt: "a single wooden chess piece set down hard on a wooden board, one short dry knock, close mic, no music"' />
+    <MediaFrame file="audio-capture2.wav" ratio="16/3" kind="audio" expected="A capture: wooden piece landing on wood." caption='prompt: "a single wooden chess piece set down hard on a wooden board, one short dry knock, close mic, no music"' />
   </div>
   <div v-click class="reserve audio-row">
     <span class="compare-label">background, one genre</span>
@@ -467,7 +466,7 @@ FALLBACK: skip straight to the generated audio rows.
   </div>
   <div v-click class="reserve audio-row">
     <span class="compare-label">spoken move, optional</span>
-    <MediaFrame file="audio-move.wav" ratio="16/3" kind="audio" expected="A spoken move announcement." caption='text: "Knight takes f7. Check."' />
+    <MediaFrame file="audio-move.mp3" ratio="16/3" kind="audio" expected="A spoken move announcement." caption='text: I cant believe that was the play, bishop to f7 to take the knight and check' />
   </div>
 </div>
 </div>
@@ -507,22 +506,20 @@ FALLBACK: placeholders keep the rows; the board renders locally.
   <div v-click class="reserve scene-panel">
     <span class="compare-label">scene description</span>
     <div class="scene-placeholder">
-      PLACEHOLDER: the Luna real-world scene description for one mapping.
-      Camera, light, sound. No board, no pieces, no move notation.
+      While the hand-drawn board illustration shows a generic tactical checkmate rather than Kasparov’s 1997 match against Deep Blue...
     </div>
-    <span class="provenance">scenario writer: gpt-5.6-luna · CACHED, date pending</span>
+    <span class="provenance">scenario writer: gpt-5.6-sol</span>
   </div>
   <div v-click class="reserve scene-panel">
     <span class="compare-label">adapted prompt</span>
     <div class="scene-placeholder">
-      PLACEHOLDER: the prompt actually sent to the video model, adapted from
-      the description above.
+      Create a cinematic, photorealistic short film that transforms a completed chess game into a warning about unverified AI-generated software...
     </div>
-    <span class="provenance">video model and parameters recorded with the clip</span>
+    <span class="provenance">Gemini Omni used for generation</span>
   </div>
 </div>
 <MediaFrame
-  file="video-scene.mp4"
+  file="prompt-to-video2.mp4"
   ratio="16/9"
   kind="video"
   poster="/assets/video-scene-poster.png"
@@ -833,8 +830,8 @@ footer: false
 ---
 
 <div class="statement">
-One chess game became a move engine, a story, a set of pieces, a
-soundtrack, and a scene.
+One chess game becomes a move engine, a storyteller, a board designer, a
+dj, and a movie director.
 </div>
 
 <p v-click class="reserve statement-quiet">

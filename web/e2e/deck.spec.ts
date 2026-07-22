@@ -15,9 +15,9 @@ const DECK = "http://localhost:3030";
 // this bound is viewport-independent.
 const MIN_FONT_PX = 11;
 
-// The default route imports 7 origin slides and 9 outcome slides before
+// The default route imports 7 origin slides and 8 outcome slides before
 // part 3; economics is the second slide in that section.
-const ECONOMICS_SLIDE = 18;
+const ECONOMICS_SLIDE = 17;
 
 // What each click must show, pinned by the visible rail label and the
 // panel's task line. Without this, a stepper stuck on Text would pass
