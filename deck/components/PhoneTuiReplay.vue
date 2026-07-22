@@ -1,6 +1,6 @@
 <template>
   <div class="phone-wrap">
-    <div class="phone" :style="{ height }">
+    <div class="phone" :style="bezelStyle">
       <video
         v-if="!failed"
         :src="src"
@@ -32,7 +32,16 @@ const props = defineProps({
   posterFile: { type: String, default: "tui-poster.png" },
   source: { type: String, default: "recorded on the presenter phone, local file" },
   /** Bezel height; width follows the 9:19.5 phone ratio. */
-  height: { type: String, default: "340px" },
+  height: { type: String, default: "" },
+  /** Bezel width; height follows the ratio. Setting both fixes both
+   * and the ratio yields. Neither set: 340px tall. */
+  width: { type: String, default: "" },
+});
+
+const bezelStyle = computed(() => {
+  if (props.width && props.height) return { width: props.width, height: props.height };
+  if (props.width) return { width: props.width };
+  return { height: props.height || "340px" };
 });
 
 const failed = ref(false);
