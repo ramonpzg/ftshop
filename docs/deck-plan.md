@@ -289,7 +289,7 @@ in the root Justfile; phase 36 wires them in.
 
 PLAN_V2 budgets 20 to 25 minutes for the opening deck (parts 1-4, up
 to the point the room moves to the whiteboard). `deck/slides.md` is
-the single default deck, all five parts, 43 slides after its `src`
+the single default deck, all five parts, 44 slides after its `src`
 ranges exclude exactly the OPTIONAL slides named in the speaker
 notes; `tests/route.test.ts` asserts those ranges stay exact. It is
 **not** itself a 20-25 minute file: parts 1-4 hit that budget, and
@@ -301,12 +301,12 @@ included, for rehearsal (`bun run dev:full`).
 | part | default | slides skipped by default |
 | --- | --- | --- |
 | 1 origin | 5:35 | Oscar (0:30) |
-| 2 outcomes | 6:20 | mappings two and three (1:30), the A/B guessing block and reveal (3:15) |
+| 2 outcomes | 5:35 | mappings one to three (2:15), the A/B guessing block and reveal (3:15) |
 | 3 why adapt | 6:20 | the model tree (0:45) |
 | 4 chess primer | 4:55 | none |
-| **opening (1-4)** | **23:10** | optional adds up to 6:00 |
-| 5 technical reference | 14:55 | modular, see below |
-| **slides.md total** | **38:05** | |
+| **opening (1-4)** | **22:25** | optional adds up to 6:45 |
+| 5 technical reference | 18:25 | modular, see below |
+| **slides.md total** | **40:50** | |
 
 The room-join dead air (up to 90 seconds) is budgeted in the LiveRoom
 slide's note on top of its talking time. The last slide of part 4
@@ -327,13 +327,17 @@ phase 35 screenshot pass (slide number: clicks).
 1:0   2:1   3:1   4:1   5:4   6:0   7:3   8:1
 9:4   10:1  11:1  12:1  13:1  14:1  15:3  16:0  17:3  18:2
 19:0  20:0  21:0  22:0  23:4  24:1
-25:0  26:3  27:1  28:4  29:5  30:0  31:0  32:0  33:0  34:0
+25:0  26:3  27:1  28:3  29:5  30:0  31:0  32:0  33:0  34:0
 35:0  36:3  37:3  38:2  39:0
-40:0  41:5  42:5  43:0  44:2  45:2  46:2  47:0  48:0  49:2  50:1
+40:0  41:1  42:0  43:0  44:0  45:5  46:5  47:0  48:2  49:2
+50:2  51:0  52:0  53:2  54:1
 ```
 
-50 slides, numbered on the full route; the default route drops slides
-4, 12, 13, 19 to 23 (the A/B guessing block and its reveal), and 32.
+54 slides, numbered on the full route; the default route drops slides
+4, 11 to 13 (the three mappings), 19 to 23 (the A/B guessing block and
+its reveal), and 32. Slides 41 to 44 are the fine-tuning method
+sequence (transformer anatomy, full fine-tuning, LoRA, QLoRA); only
+the anatomy slide takes a click, for its punch line.
 Slide 14 is the browser bridge, 16 the Duolingo sound clip, 24 the
 part-2 wrap. The A/B slides (17 to 20) have zero clicker clicks:
 their answers are `<details>` disclosures outside the Slidev click

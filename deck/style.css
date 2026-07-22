@@ -81,6 +81,17 @@ html.style-chalk .chip {
   border-radius: 6px;
 }
 
+/* Mermaid method diagrams. The base palette lives in setup/mermaid.ts.
+ * The SVG itself sits in a shadow root, so selectors cannot reach into
+ * it; trained/frozen styling happens via classDef inside each diagram,
+ * using CSS variables, which inherit through the shadow boundary. Only
+ * the wrapper is styled here. */
+.slidev-layout .mermaid {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
 /* Ground. The deck is paper and ink; dark frames exist only around
  * media that is itself dark (the TUI recording, video clips). */
 .slidev-layout {

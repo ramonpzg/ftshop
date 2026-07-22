@@ -18,6 +18,226 @@ FALLBACK: static.
 -->
 
 ---
+footer: false
+---
+
+# A transformer, ruthlessly simplified
+
+<p class="method-intro">
+Tokens go in, pass through a stack of identical blocks, and the head predicts
+the next token. Attention decides which earlier tokens matter; the MLP decides
+what to make of them.
+</p>
+
+```mermaid {scale: 0.75}
+flowchart LR
+  T["tokens"] --> E["embedding"]
+  E --> B1["block 1<br/>attention + MLP"]
+  B1 --> DOTS["..."]
+  DOTS --> BN["block N"]
+  BN --> H["output head"]
+  H --> O["next token"]
+```
+
+<p v-click class="reserve method-punch">
+Every arrow is a matrix of learned weights. Training changes matrices. The
+three methods that follow differ only in which ones.
+</p>
+
+<style>
+.method-intro {
+  max-width: 44rem;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.method-punch {
+  margin-top: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+</style>
+
+<!--
+TIMING: 60 seconds.
+SAY: This is the whole architecture at the resolution we need today. Billions of numbers arranged as matrices; a forward pass is multiplication. The click lands the setup for the next three slides: methods differ only in which matrices get to change.
+CLICK: 1. The punch line.
+SOURCE: standard decoder-only transformer, simplified past recognition on purpose.
+CUT: compress to 20 seconds for an ML-heavy room.
+FALLBACK: static diagram, renders offline.
+-->
+
+---
+footer: false
+---
+
+# Full fine-tuning updates everything
+
+<p class="method-intro">
+New pairs, the same or a new instruction format, and gradients flow into every
+layer. The whole model moves toward the new behavior.
+</p>
+
+```mermaid {scale: 0.75}
+flowchart TB
+  D["new pairs: instruction, reply"] --> TR["trainer"]
+  TR -- "gradients into every layer" --> M
+  subgraph M["the whole model"]
+    direction LR
+    E["embedding"] --> B["blocks 1..N"] --> H["output head"]
+  end
+  class E,B,H trained
+```
+
+<div class="method-facts">
+  <span>updates all weights, about 2B for our Gemma</span>
+  <span>needs optimizer state for every one of them</span>
+  <span>ships a whole new checkpoint</span>
+</div>
+
+<style>
+.method-intro {
+  max-width: 44rem;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.method-facts {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+  border-top: 2px solid var(--rule);
+  padding-top: 0.6rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+</style>
+
+<!--
+TIMING: 45 seconds.
+SAY: The most capable and the most expensive option. Every weight can move, so it needs the most memory and the most data, and the result is a full copy of the model. Catastrophic forgetting lives here too: everything can move, so everything can drift.
+CLICK: none; one idea, one diagram.
+SOURCE: standard supervised fine-tuning; the parameter count is Gemma 4 E2B's, rounded.
+CUT: never if this section runs; the next two slides are defined relative to this one.
+FALLBACK: static diagram, renders offline.
+-->
+
+---
+footer: false
+---
+
+# LoRA freezes the base and trains a detour
+
+<p class="method-intro">
+The base weights never change. Two small matrices attach next to chosen
+layers, their product is added to the output, and only they are trained. They
+steer the frozen model toward the behavior in the pairs.
+</p>
+
+```mermaid {scale: 0.75}
+flowchart TB
+  A["LoRA adapter: two small matrices, rank r<br/>the only thing trained"] -- "output added to chosen layers" --> B
+  subgraph M["base model, frozen"]
+    direction LR
+    E["embedding"] --> B["blocks 1..N"] --> H["output head"]
+  end
+  class E,B,H,M frozen
+  class A trained
+```
+
+<div class="method-facts">
+  <span>base untouched, no forgetting in it</span>
+  <span>roughly 1% of the weights train</span>
+  <span>ships an adapter file, megabytes</span>
+</div>
+
+<style>
+.method-intro {
+  max-width: 44rem;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.method-facts {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+  border-top: 2px solid var(--rule);
+  padding-top: 0.6rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+</style>
+
+<!--
+TIMING: 60 seconds.
+SAY: Low-Rank Adaptation. Instead of moving a huge matrix, add a small correction beside it and train only the correction. The adapter can be shipped alone, swapped, or merged into the base later. This is the LoRA the image and video slides kept mentioning.
+CLICK: none; one idea, one diagram.
+SOURCE: Hu et al. 2021; adapters commonly attach to the attention projections, chosen per config.
+CUT: never if this section runs.
+FALLBACK: static diagram, renders offline.
+-->
+
+---
+footer: false
+---
+
+# QLoRA is LoRA on a compressed base
+
+<p class="method-intro">
+Same detour, but the frozen base is first quantized to 4-bit. The adapter
+stays in higher precision and trains exactly as before. Quality drops a
+little; memory drops a lot.
+</p>
+
+```mermaid {scale: 0.75}
+flowchart TB
+  A["same LoRA adapter, kept in 16-bit<br/>still the only thing trained"] -- "output added to chosen layers" --> B
+  subgraph M["base model, quantized to 4-bit, frozen"]
+    direction LR
+    E["embedding"] --> B["blocks 1..N"] --> H["output head"]
+  end
+  class E,B,H,M frozen
+  class A trained
+```
+
+<div class="method-facts">
+  <span>base compressed about 4x in memory</span>
+  <span>same adapter, same training loop</span>
+  <span>fits on a laptop GPU</span>
+</div>
+
+<div class="provenance">
+this is the workshop path: just chess-adapt runs QLoRA on Gemma 4
+</div>
+
+<style>
+.method-intro {
+  max-width: 44rem;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.method-facts {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+  border-top: 2px solid var(--rule);
+  padding-top: 0.6rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+</style>
+
+<!--
+TIMING: 45 seconds.
+SAY: The Q buys memory: quantize the frozen base to 4-bit, keep the adapter in 16-bit, and the whole thing fits on hardware people actually own. That trade is why the workshop trainer uses it.
+CLICK: none; one idea, one diagram.
+SOURCE: Dettmers et al. 2023; the workshop runs Unsloth QLoRA on google/gemma-4-E2B-it-qat-q4_0-unquantized via just chess-adapt.
+CUT: never if this section runs; it names the exact path the room will use.
+FALLBACK: static diagram, renders offline.
+-->
+
+---
 clicks: 5
 ---
 

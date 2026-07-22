@@ -20,7 +20,7 @@ FALLBACK: static.
 clicks: 3
 ---
 
-# The rules the workshop needs
+# The rules our model needs to know
 
 <div class="rules-grid">
 <ChessBoard fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" size="270px" />
@@ -98,15 +98,14 @@ clicks: 2
 # Stockfish has one job here
 
 <div class="stockfish-lines">
-  <div class="sf-line">The model proposes.</div>
-  <div v-click="1" class="reserve sf-line">python-chess validates.</div>
-  <div v-click="2" class="reserve sf-line">Stockfish evaluates.</div>
+  <div class="sf-line">The model proposes. <span class="sf-role">creativity</span></div>
+  <div v-click="1" class="reserve sf-line">python-chess validates. <span class="sf-role">legality</span></div>
+  <div v-click="2" class="reserve sf-line">Stockfish evaluates. <span class="sf-role">quality</span></div>
 </div>
 
 <p class="statement-quiet">
-Stockfish is not the fine-tuned model and not the dataset. It is an optional
-oracle for move quality, centipawn loss, and tactical checks. python-chess
-handles legal state transitions without pretending to evaluate strategy.
+Three jobs, three owners. Stockfish is an optional oracle, not the model and
+not the dataset.
 </p>
 
 <style>
@@ -118,11 +117,18 @@ handles legal state transitions without pretending to evaluate strategy.
   font-weight: 700;
   padding: 0.45rem 0;
 }
+.sf-role {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ink-faint);
+  margin-left: 0.8rem;
+}
 </style>
 
 <!--
 TIMING: 30 seconds.
-SAY: Three different jobs, three different owners. Keeping them separate is what makes the evals honest.
+SAY: Three different jobs, three different owners. Stockfish scores move quality when asked; python-chess only enforces the rules. Keeping them separate is what makes the evals honest.
 CLICK: 2. Validate, then evaluate.
 SOURCE: none.
 CUT: never.
