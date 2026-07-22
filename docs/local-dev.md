@@ -201,7 +201,7 @@ nothing errors.
 
 ## Notebook
 
-`notebooks/full-session.ipynb` is a standalone Jupyter notebook. It is
+`notebooks/main-nb.ipynb` is a standalone Jupyter notebook. It is
 not served by Vite, exported to browser WASM, or required inside a
 tldraw panel. Open it separately with `just session-notebook` when the
 run of show calls for it.
@@ -291,7 +291,7 @@ substituted automatically when the stored URL points at localhost.
 
 ## The standalone notebook
 
-`notebooks/full-session.ipynb` contains the end-to-end material in a
+`notebooks/main-nb.ipynb` contains the end-to-end material in a
 plain Jupyter format. `just session-notebook` opens JupyterLab through
 the API environment. Optional provider and local-model cells still
 depend on their documented credentials and packages.

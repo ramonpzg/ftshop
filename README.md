@@ -8,7 +8,7 @@ has three deliberately separate teaching assets:
 
 - `web/`: a hand-drawn tldraw whiteboard where the room works;
 - `deck/`: a Slidev presentation with its own projected visual system;
-- `notebooks/full-session.ipynb`: a pragmatic, standalone Jupyter notebook.
+- `notebooks/main-nb.ipynb`: a pragmatic, standalone Jupyter notebook.
 
 The notebook is not a Marimo app and is not required inside the whiteboard.
 Legacy Marimo sources and compatibility support for old notebook shapes remain
@@ -59,7 +59,7 @@ The deck and Jupyter notebook are separate processes:
 
 ```bash
 just deck               # Slidev on http://localhost:3030
-just session-notebook   # JupyterLab with notebooks/full-session.ipynb
+just session-notebook   # JupyterLab with notebooks/main-nb.ipynb
 ```
 
 Model calls use the OpenAI-compatible Chat Completions endpoint,

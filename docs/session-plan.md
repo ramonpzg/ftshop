@@ -203,7 +203,7 @@ calls a real model.
 
 ## 7. Notebook practice (standalone Jupyter)
 
-A deliberate switch: open `notebooks/full-session.ipynb` in its own
+A deliberate switch: open `notebooks/main-nb.ipynb` in its own
 JupyterLab via `just session-notebook`. This is the pragmatic
 take-home. Participants follow the end-to-end material and can load
 the exact `chess_sft.jsonl` the room exported. Provider and

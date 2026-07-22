@@ -39,7 +39,7 @@ just seed         # repopulate pages and cached eval fixtures
 - `data/` datasets (`raw/processed/tiny`), canvas snapshot, uploaded assets.
 - `artifacts/` cached fixture JSON and generated job output.
 - `deck/` Slidev presentation and Vue teaching components.
-- `notebooks/full-session.ipynb` standalone Jupyter notebook.
+- `notebooks/main-nb.ipynb` standalone Jupyter notebook.
 - `training/` isolated Lichess preparation and Unsloth adapter pipeline.
 - `docs/` architecture, session plan, demo plan, local dev, licenses.
 - `notes/comms/` reviewed implementation prompts, in execution order.

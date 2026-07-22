@@ -177,7 +177,7 @@ deck style="paper":
 
 # The whole session as a standalone Jupyter notebook. It is not embedded
 # in tldraw and does not depend on the web app.
-session-notebook notebook="notebooks/full-session.ipynb":
+session-notebook notebook="notebooks/main-nb.ipynb":
     uv run jupyter lab --ServerApp.root_dir=. {{ notebook }}
 
 start:
