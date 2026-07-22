@@ -218,8 +218,7 @@ test asserts every referenced file name appears in this table.
 
 | file | ratio | content |
 | --- | --- | --- |
-| `cover.jpg` | 4:3 | one strong chess image or a frame of the actual TUI board |
-| `origin-photo.jpg` | 4:3 | childhood photo, readable from the back |
+| `origin-photo.png` | 4:3 | childhood photo, readable from the back |
 | `old-book.jpg` | 3:4 | the chess book, photographed as an object |
 | `duolingo-launch.png` | 16:9 | Duolingo chess launch post screenshot |
 | `duo-example-cmate.jpg` | 9:19.5 | Duolingo chess app screenshot |
@@ -231,13 +230,13 @@ test asserts every referenced file name appears in this table.
 | `plane-chair-meme.png` | 4:3 | plane-seat meme, no-internet overlay |
 | `burning-house.jpg` | 4:3 | burning-house meme, reasonable-response overlay |
 | `meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
-| `tui-recording.mp4`, `tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
+| `tui-demo.mp4`, `tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
 | `mapping-game.png` | 4:5 | the completed board and game log the mapping slides share |
 | `image-qr.jpg`, `analog-chess.jpg` | 1:1 | generated board styles, same model different prompts |
 | `image-style-2.png` | 1:1 | optional second style |
-| `audio-capture.wav` | audio | a capture: wooden piece on wood |
+| `audio-capture2.wav` | audio | a capture: wooden piece on wood |
 | `audio-genre.wav` | audio | background music, one genre |
-| `audio-move.wav` | audio | optional spoken move |
+| `audio-move.mp3` | audio | optional spoken move |
 | `video-scene.mp4`, `video-scene-poster.png` | 16:9 | Luna scene video, no chess objects |
 | `chess-log.png` | 9:16 | completed board and game log for the mapping slides |
 | `sun-tzu.jpg` | 1:1 | Art of War quote image for the TUI objective |
@@ -248,13 +247,16 @@ test asserts every referenced file name appears in this table.
 | `ab-image-a.png`, `ab-image-b.png` | 1:1 | image A/B pair |
 | `ab-audio-a.wav`, `ab-audio-b.wav` | audio | audio A/B pair |
 | `ab-video-a.mp4`, `ab-video-b.mp4` | 16:9 | video A/B pair |
-| `goth-minions.jpg` | 4:3 | goth Minions |
+| `goth-minions.png` | 1:1 | goth Minions |
 | `corporate-lamp.txt` | text block | the jargon-heavy lamp announcement paragraph |
 | `style-translation.mp4` | 16:9 | bachata background or Thinking Machines translation clip |
 | `canva-template.mp4` | 16:9 | the real Canva video-template example |
 | `meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
 | `future-tree.png` | 16:9 | the model tree diagram from v1 |
 | `hf-synth-data.png` | 1:1 | FinePhrase synthetic-data explorer, huggingface.co/spaces/HuggingFaceFW/finephrase |
+| `chess-mech.png`, `chess-drawing.png`, `chess-cool.png` | 1:1 | generated board styles, same model different prompts |
+| `duo-demo.mp4` | 9:19.5 | Duolingo chess screen recording with sound |
+| `prompt-to-video2.mp4` | 16:9 | Luna scene video, no chess objects |
 
 Text placeholders pending from Ramon, marked PLACEHOLDER in the slide
 source: the three real-world mappings and their approved edits, the

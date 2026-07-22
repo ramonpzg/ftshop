@@ -1,5 +1,13 @@
-<div class="title-grid">
-<div>
+<div class="title-pieces" aria-hidden="true">
+  <span style="top: 6%; left: 6%; font-size: 5.5rem; transform: rotate(-14deg);">&#9822;</span>
+  <span style="top: 12%; right: 10%; font-size: 7rem; transform: rotate(10deg);">&#9820;</span>
+  <span style="bottom: 14%; left: 12%; font-size: 6.5rem; transform: rotate(8deg);">&#9819;</span>
+  <span style="bottom: 8%; right: 22%; font-size: 5rem; transform: rotate(-8deg);">&#9821;</span>
+  <span style="top: 44%; right: 4%; font-size: 4.5rem; transform: rotate(-18deg);">&#9823;</span>
+  <span style="bottom: 30%; left: 40%; font-size: 4rem; transform: rotate(16deg);">&#9818;</span>
+</div>
+
+<div class="title-block">
 
 <div class="kicker">EUROSCIPY 2026 · WORKSHOP</div>
 
@@ -13,21 +21,14 @@ One domain: chess.
 </div>
 
 </div>
-<div>
-<MediaFrame
-  file="cover.jpg"
-  ratio="4/3"
-  expected="One strong chess image or a frame of the actual TUI board. Not a generic AI illustration."
-/>
-</div>
-</div>
 
 <style>
-.title-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 3rem;
-  align-items: center;
+.title-block {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   height: 100%;
 }
 .title-modalities {
@@ -35,13 +36,20 @@ One domain: chess.
   font-size: 1.15rem;
   color: var(--ink-soft);
 }
+.title-pieces span {
+  position: absolute;
+  color: var(--ink);
+  opacity: 0.14;
+  user-select: none;
+  line-height: 1;
+}
 </style>
 
 <!--
 TIMING: 30 seconds, hard stop.
 SAY: One sentence. We will use chess to inspect the same adaptation recipe across text, image, audio, and video.
 CLICK: none.
-SOURCE: cover image pending (assets/cover.jpg); record source and license when it lands.
+SOURCE: none; the background is typographic chess glyphs, no asset.
 CUT: never.
 FALLBACK: static slide, nothing to fail.
 -->
@@ -381,7 +389,7 @@ footer: false
 
 ::media::
 
-<PhoneTuiReplay height="470px" />
+<PhoneTuiReplay height="470px" file="tui-demo.mp4" source="" width="300px" />
 
 <style>
 .objective {

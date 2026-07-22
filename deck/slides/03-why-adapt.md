@@ -43,11 +43,12 @@ footer: false
 <div class="data-cols">
 <div>
   <div class="compare-label">the public-ish corpus</div>
-  <p>What the general model was trained on. Scraped, licensed, public, and, more recently, synthetic data.</p>
+  <p>What the general model was trained on includes scraped, licensed, public, and, more recently, synthetic data.</p>
   <MediaFrame
     file="hf-synth-data.png"
     ratio="1/1"
-    height="210px"
+    height="300px"
+    width="450px"
     expected="FinePhrase synthetic-data explorer screenshot."
     source="huggingface.co/spaces/HuggingFaceFW/finephrase"
   />
@@ -56,13 +57,13 @@ footer: false
   <div class="compare-label">this exact behavior</div>
   <p>The private, licensed, reviewed, or newly created examples that define
   the task. The model has not seen them.</p>
+  <p v-click class="reserve statement-quiet">
+      -------------------- <br>
+  Hosted fine-tuning still sends data to a provider. Local ownership and
+  fine-tuning are related decisions, not the same decision.
+  </p>
 </div>
 </div>
-
-<p v-click class="reserve statement-quiet">
-Hosted fine-tuning still sends data to a provider. Local ownership and
-fine-tuning are related decisions, not the same decision.
-</p>
 
 <style>
 .data-cols {
@@ -87,78 +88,90 @@ FALLBACK: static.
 -->
 
 ---
-clicks: 4
+clicks: 3
 ---
 
 # Providers do not know your style
 
 <div class="style-grid">
 <div v-click="1" class="reserve">
+<div class="zoomable" @click="$event.currentTarget.classList.toggle('zoomed')">
 <MediaFrame
-  file="goth-minions.jpg"
-  ratio="4/3"
+  file="goth-minions.png"
+  ratio="1/1"
   expected="Goth Minions."
-  source="Meme. Record origin and license."
 />
 </div>
-<div v-click="2" class="reserve style-text">
-  <span class="compare-label">the lamp announcement</span>
-  <div class="style-placeholder">
-    PLACEHOLDER: assets/corporate-lamp.txt. The jargon-heavy paragraph about
-    the new lamps on employees' desks, rendered verbatim.
-  </div>
+</div>
+<div v-click="2" class="reserve yt-cell">
+<iframe
+  class="yt-frame"
+  src="https://www.youtube.com/embed/2ky5MXBvZP8"
+  title="Thinking Machines"
+  frameborder="0"
+  allow="autoplay; encrypted-media; picture-in-picture"
+  allowfullscreen
+></iframe>
 </div>
 <div v-click="3" class="reserve">
 <MediaFrame
   file="style-translation.mp4"
-  ratio="16/9"
+  ratio="9/16"
   kind="video"
+  height="400px"
+  width="235px"
   expected="Bachata background, or the Thinking Machines translation clip."
-  source="Record source and license."
-/>
-</div>
-<div v-click="4" class="reserve">
-<MediaFrame
-  file="canva-template.mp4"
-  ratio="16/9"
-  kind="video"
-  expected="The real Canva video-template example. Carries the claim."
-  source="Canva. Record source and license."
 />
 </div>
 </div>
 
 <style>
-/* One row, four beats, revealed left to right. Cell heights are
- * bounded so nothing leaves the 16:9 frame at 720p. */
+/* Bento: square meme left, wide YouTube embed middle, tall lamp video
+ * right. Heights are bounded so nothing leaves the 16:9 frame at 720p. */
 .style-grid {
   display: grid;
-  grid-template-columns: 0.9fr 1fr 1.1fr 1.1fr;
-  gap: 1rem;
+  grid-template-columns: 250px 1fr 235px;
+  gap: 1.2rem;
   margin-top: 0.5rem;
-  align-items: start;
+  align-items: center;
 }
-.style-text {
+.yt-cell {
+  align-self: center;
+}
+.yt-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 400px;
   border: 1px solid var(--rule);
   border-radius: 2px;
   background: var(--paper-raised);
-  padding: 0.9rem 1.1rem;
-  min-height: 10rem;
 }
-.style-placeholder {
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-  margin-top: 0.4rem;
+/* Click the meme to blow it up over the slide; click again to put it back. */
+.zoomable {
+  cursor: zoom-in;
+}
+.zoomable.zoomed {
+  cursor: zoom-out;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+}
+.zoomable.zoomed :deep(.media-frame),
+.zoomable.zoomed > * {
+  width: min(70vh, 80vw);
 }
 </style>
 
 <!--
 TIMING: 75 seconds.
-SAY: Style is the thing providers cannot know by default. The first three beats set up personality; the Canva template is the concrete case and lands last.
-CLICK: 4. Goth Minions, the lamp paragraph, the translation clip, then Canva.
-SOURCE: all four assets pending with source and license. End on Canva.
-CUT: beats one to three can compress; Canva stays.
-FALLBACK: placeholders keep the grid stable.
+SAY: Style is the thing providers cannot know by default. Goth Minions is the personality beat, the Thinking Machines video is the translation case, the lamp clip lands the style-transfer point. Click the minions to zoom, click again to shrink.
+CLICK: 3. Goth Minions, the Thinking Machines embed, then the lamp video.
+SOURCE: goth-minions.png and style-translation.mp4 pending source and license; embed youtu.be/2ky5MXBvZP8 (Thinking Machines) needs the venue network.
+CUT: the embed if the network is down; the lamp video stays.
+FALLBACK: the two local assets carry the slide offline; the iframe shows an empty frame without internet.
 -->
 
 ---
