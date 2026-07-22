@@ -60,8 +60,9 @@ just seed         # repopulate pages and cached eval fixtures
 - The local Gemma baseline is
   `google/gemma-4-E2B-it-qat-q4_0-gguf`. That GGUF is for deployment.
   Trainer examples use the matching
-  `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights and convert the
-  merged result back to GGUF.
+  `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights. The published
+  chess adapter is PEFT-only; llama.cpp use still requires a separate
+  merge and GGUF conversion.
 - Luna maps each game to a detailed real-world case and an LTX-ready scene
   prompt. The generated video stages that case. It does not depict a chess
   move, chessboard, or chess pieces.

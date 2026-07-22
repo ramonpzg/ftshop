@@ -3,7 +3,7 @@ import json
 import pytest
 
 from chess_adapt.actions import training
-from chess_adapt.actions.training import push_adapter
+from chess_adapt.actions.training import pull_adapter, push_adapter
 from chess_adapt.data.store import PipelinePaths
 
 
@@ -65,3 +65,51 @@ def test_push_uses_hf_access_token_alias(monkeypatch, tmp_path):
     assert seen["create"][0] == ("ramonpzg/test",)
     assert seen["upload"][1]["folder_path"] == paths.adapter("qlora")
     assert url == "https://huggingface.co/ramonpzg/test"
+
+
+def test_pull_downloads_and_verifies_public_adapter(monkeypatch, tmp_path):
+    paths = PipelinePaths(tmp_path / "data", tmp_path / "output")
+    seen = {}
+
+    def fake_download(**kwargs):
+        seen.update(kwargs)
+        adapter_dir = kwargs["local_dir"]
+        for filename in ("adapter_config.json", "adapter_model.safetensors", "README.md"):
+            (adapter_dir / filename).write_text("adapter")
+        (adapter_dir / "run_manifest.json").write_text(
+            json.dumps(
+                {
+                    "base_model": training.BASE_MODEL,
+                    "adapter_type": "qlora",
+                }
+            )
+        )
+        return str(adapter_dir)
+
+    monkeypatch.delenv("HF_ACCESS_TOKEN", raising=False)
+    monkeypatch.setattr(training, "snapshot_download", fake_download)
+
+    adapter_dir = pull_adapter(paths, "qlora", "ramonpzg/test")
+
+    assert adapter_dir == paths.adapter("qlora")
+    assert seen["repo_id"] == "ramonpzg/test"
+    assert seen["repo_type"] == "model"
+    assert seen["token"] is None
+
+
+def test_pull_refuses_wrong_base_model(monkeypatch, tmp_path):
+    paths = PipelinePaths(tmp_path / "data", tmp_path / "output")
+
+    def fake_download(**kwargs):
+        adapter_dir = kwargs["local_dir"]
+        for filename in ("adapter_config.json", "adapter_model.safetensors", "README.md"):
+            (adapter_dir / filename).write_text("adapter")
+        (adapter_dir / "run_manifest.json").write_text(
+            json.dumps({"base_model": "wrong/base", "adapter_type": "qlora"})
+        )
+        return str(adapter_dir)
+
+    monkeypatch.setattr(training, "snapshot_download", fake_download)
+
+    with pytest.raises(RuntimeError, match="base model"):
+        pull_adapter(paths, "qlora", "ramonpzg/test")

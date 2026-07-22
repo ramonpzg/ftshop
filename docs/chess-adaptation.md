@@ -27,6 +27,18 @@ just chess-adapt --qlora
 just chess-adapt --push
 ```
 
+After cloning the repository, download and verify the published adapter with:
+
+```bash
+just chess-adapt --pull
+```
+
+This is the lightweight path: it does not install Unsloth or load the GPU. It
+downloads about 83 MB to
+`artifacts/generated/chess-adapt/qlora/adapter/` and resumes through the
+Hugging Face cache if the connection drops. The repository is public, so a
+token is not required. `HF_ACCESS_TOKEN` is still used when present.
+
 Enrichment writes one atomic checkpoint after every provider call. A rerun
 skips successes and retries failed or missing games. It stops after three
 consecutive failures instead of spending the night proving that the Wi-Fi is
@@ -149,3 +161,8 @@ dataset hash, exact settings, GPU, package versions, git commit, training
 metrics, and raw held-out replies. It is not a merged model or a GGUF. Merging
 and conversion are separate deployment work because they create another
 multi-GB artifact and are not required to preserve or inspect the adapter.
+
+To run the downloaded PEFT adapter, load it with the matching
+`google/gemma-4-E2B-it-qat-q4_0-unquantized` base through Transformers and
+PEFT. llama.cpp cannot serve this repository directly. A llama.cpp deployment
+first needs the adapter merged into the base and converted to GGUF.

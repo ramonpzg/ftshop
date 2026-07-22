@@ -9,10 +9,11 @@ import os
 import shutil
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from euro_chess_studio.calculations.llm_prompts import parse_move_reply
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, snapshot_download
 
 from chess_adapt.calculations.training import (
     BASE_MODEL,
@@ -216,6 +217,53 @@ def push_adapter(
         commit_message=f"Upload Gemma 4 chess {method.upper()} adapter",
     )
     return f"https://huggingface.co/{repo_id}"
+
+
+def pull_adapter(
+    paths: PipelinePaths,
+    method: TrainingMethod,
+    repo_prefix: str,
+    *,
+    overwrite: bool = False,
+) -> Path:
+    """Download and verify one published PEFT adapter."""
+    adapter_dir = paths.adapter(method)
+    if overwrite:
+        shutil.rmtree(adapter_dir, ignore_errors=True)
+    adapter_dir.mkdir(parents=True, exist_ok=True)
+
+    repo_id = repository_for(repo_prefix, method)
+    snapshot_download(
+        repo_id=repo_id,
+        repo_type="model",
+        local_dir=adapter_dir,
+        token=os.environ.get("HF_ACCESS_TOKEN"),
+    )
+
+    required = (
+        "adapter_config.json",
+        "adapter_model.safetensors",
+        "run_manifest.json",
+        "README.md",
+    )
+    missing = [filename for filename in required if not (adapter_dir / filename).is_file()]
+    if missing:
+        raise RuntimeError(
+            f"downloaded {repo_id}, but the adapter is incomplete: missing {', '.join(missing)}"
+        )
+
+    run_manifest = read_json(adapter_dir / "run_manifest.json")
+    if run_manifest.get("base_model") != BASE_MODEL:
+        raise RuntimeError(
+            f"downloaded {repo_id}, but its base model is "
+            f"{run_manifest.get('base_model')!r}; expected {BASE_MODEL!r}"
+        )
+    if run_manifest.get("adapter_type") != method:
+        raise RuntimeError(
+            f"downloaded {repo_id}, but its adapter type is "
+            f"{run_manifest.get('adapter_type')!r}; expected {method!r}"
+        )
+    return adapter_dir
 
 
 def _validate_adapter(

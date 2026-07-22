@@ -10,7 +10,12 @@ from pathlib import Path
 from euro_chess_studio.data.llm_client import video_prompt_chat
 
 from chess_adapt.actions.pipeline import enrich_sample, prepare_sample
-from chess_adapt.actions.training import preflight_training, push_adapter, train_adapter
+from chess_adapt.actions.training import (
+    preflight_training,
+    pull_adapter,
+    push_adapter,
+    train_adapter,
+)
 from chess_adapt.calculations.dataset import SelectionConfig
 from chess_adapt.calculations.training import (
     DEFAULT_REPO_PREFIX,
@@ -47,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="train the bf16 LoRA adapter (requires at least 16 GiB VRAM)",
     )
     stages.add_argument("--push", action="store_true", help="publish each selected adapter")
+    stages.add_argument(
+        "--pull",
+        action="store_true",
+        help="download and verify the public QLoRA adapter (no GPU dependencies)",
+    )
 
     data = parser.add_argument_group("sample")
     data.add_argument("--limit", type=int, default=64, help="number of selected games")
@@ -98,8 +108,11 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    if not any((args.all, args.prepare, args.enrich, args.qlora, args.lora, args.push)):
+    if not any((args.all, args.prepare, args.enrich, args.qlora, args.lora, args.push, args.pull)):
         args.all = True
+
+    if args.pull and any((args.all, args.prepare, args.enrich, args.qlora, args.lora, args.push)):
+        raise ValueError("--pull is a standalone download; do not combine it with run stages")
 
     paths = PipelinePaths(data_dir=args.data_dir.resolve(), output_dir=args.output_dir.resolve())
     with pipeline_lock(paths):
@@ -107,6 +120,21 @@ def _main(argv: list[str] | None = None) -> None:
 
 
 def _run(args: argparse.Namespace, paths: PipelinePaths) -> None:
+    if args.pull:
+        print("Downloading the published QLoRA adapter")
+        adapter_dir = pull_adapter(
+            paths,
+            "qlora",
+            args.repo_prefix,
+            overwrite=args.overwrite,
+        )
+        print(adapter_dir)
+        print(
+            "Downloaded PEFT adapter. It requires the matching unquantized base model; "
+            "it is not a llama.cpp GGUF."
+        )
+        return
+
     methods: list[TrainingMethod] = []
     if args.all or args.qlora:
         methods.append("qlora")

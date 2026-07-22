@@ -78,10 +78,11 @@ just start-gemma      # OpenAI-compatible API on http://127.0.0.1:8080/v1
 Stable Audio remains an optional, commented model in the download recipe. It
 is not part of the workshop's required path.
 
-That repository is a deployment-ready QAT GGUF. Trainer examples use the
-matching `google/gemma-4-E2B-it-qat-q4_0-unquantized` weights, then convert the
-merged result back to GGUF. Passing a GGUF repository directly to TRL or
-Axolotl is not the same operation.
+The published chess artifact is a PEFT adapter, not a deployment-ready GGUF.
+Trainer examples use the matching
+`google/gemma-4-E2B-it-qat-q4_0-unquantized` weights. llama.cpp use requires a
+separate merge and GGUF conversion; passing a GGUF repository directly to TRL
+or Axolotl is not the same operation.
 
 Game analysis also produces the detailed real-world scene prompt used for
 video generation. It defaults to Luna. When the opponent uses a different
@@ -100,7 +101,7 @@ just download-models  Download and verify all local models
 just start            Run API :8000, the canvas sync room :8010, and web :5173
 just room-url         Print the board URL for devices on the same network
 just start-gemma      Run Gemma 4 through llama.cpp on :8080
-just chess-adapt      Prepare, enrich, train, and publish the chess adapter
+just chess-adapt      Prepare/train/publish, or pull the public chess adapter
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
 just test             Run backend and frontend tests
