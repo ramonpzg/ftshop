@@ -26,9 +26,9 @@ clicks: 3
 
 <!--
 TIMING: 90 seconds.
-SAY: One modality at a time, one task at one target quality, not a general head-to-head. The rate-card numbers were checked yesterday and the sources are on the slide; latency and whether each path meets the threshold get measured in this room. Never imply fine-tuning alone lowered a serving bill.
+SAY: One task and one workload at a time. Text has held-out evidence. The MusicGen clip passed my review. Image and video have cost ballparks, but no matched quality result, so the comparison stops there. Fine-tuning alone did not lower any serving bill.
 CLICK: 3. Text is visible first; the three clicks step image, audio, video. One modality on screen at a time, readable from the back.
-SOURCE: rates checked 2026-07-22: gpt-5.6-luna $1/$6 per 1M tokens (openrouter.ai), FLUX.2 Flash $0.005/MP and LTX-2-19B $0.0018/MP on fal.ai (costbench.com), RTX 4090 rental $0.69/hr (runpod.io via getdeploying.com). Latency, outcomes, and threshold verdicts are measured live in the session, not quoted.
+SOURCE: rates checked 2026-07-22: gpt-5.6-luna $1/$6 per 1M tokens (OpenRouter); FLUX.2 LoRA $0.021/MP and LTX-2-19B $0.0018 per generated megapixel-frame (fal); Eleven Music $0.15/minute (ElevenLabs); RTX 4090 $0.69/hour and H100 PCIe $2.89/hour (Runpod). LTX's report measures 1.22 seconds per 720p step on H100. Totals are derived from the workloads shown.
 CUT: the audio and video steps if time is short.
 FALLBACK: the structure reads without final numbers.
 -->
