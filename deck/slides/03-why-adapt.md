@@ -21,13 +21,13 @@ clicks: 3
 footer: false
 ---
 
-# Economics at a target quality
+# What does repeated use cost?
 
 <CostAtTarget :clicks="$clicks" />
 
 <!--
 TIMING: 90 seconds.
-SAY: One task and one workload at a time. Text has held-out evidence. The MusicGen clip passed my review. Image and video have cost ballparks, but no matched quality result, so the comparison stops there. Fine-tuning alone did not lower any serving bill.
+SAY: Each click asks one question: what would this fixed batch cost? Left is a machine we control. Right is an API. These are usage estimates, not total cost, and they do not prove equal quality. Text is already cheap through an API. Local audio already worked here. The image and video numbers are rate-card arithmetic, not completed experiments.
 CLICK: 3. Text is visible first; the three clicks step image, audio, video. One modality on screen at a time, readable from the back.
 SOURCE: rates checked 2026-07-22: gpt-5.6-luna $1/$6 per 1M tokens (OpenRouter); FLUX.2 LoRA $0.021/MP and LTX-2-19B $0.0018 per generated megapixel-frame (fal); Eleven Music $0.15/minute (ElevenLabs); RTX 4090 $0.69/hour and H100 PCIe $2.89/hour (Runpod). LTX's report measures 1.22 seconds per 720p step on H100. Totals are derived from the workloads shown.
 CUT: the audio and video steps if time is short.
