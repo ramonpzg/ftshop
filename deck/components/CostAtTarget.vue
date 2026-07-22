@@ -11,9 +11,9 @@
         <span class="rail-name">{{ row.modality }}</span>
       </div>
       <p class="footnote">
-        Self-hosted: laptop or rented GPU you control, not physical location.
-        Cells marked measured live or in session come from the room, not a
-        rate card.
+        Usage cost is not total cost. Data, training, setup, idle time, and
+        failed generations still count. Price comparisons matter only after
+        both paths meet the same quality target.
       </p>
     </div>
 

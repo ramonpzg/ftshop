@@ -200,7 +200,7 @@ pure functions under `deck/lib/` so tests can drive it without a DOM.
 | `OutcomeCompare` | matched input, base/adapted outputs, metrics with deltas, one regression | accepted phase 34 scripted replay, labelled as authored evidence |
 | `DatasetShapes` | one move re-encoded, click-stepped | static, real encodings |
 | `RewardMeter` | environment feedback separated from model output; presenter presses outcomes | static reward map |
-| `CostAtTarget` | one task at a target quality, measured deployment facts | `[SOURCE, DATE]` placeholders |
+| `CostAtTarget` | one task at a target quality, measured or sourced deployment facts | held-out text result plus dated rate cards |
 | `DataUniverse` | the data circles narrowing, then the train/eval split | static |
 | `NotationMorph` | one position and one move across FEN, UCI, SAN, PGN with the board fixed | real game data |
 | `LiveRoom` | actual room state via `GET /presenter/games`, offline fallback | live backend |

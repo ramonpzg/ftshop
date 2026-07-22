@@ -15,23 +15,21 @@ const DECK = "http://localhost:3030";
 // this bound is viewport-independent.
 const MIN_FONT_PX = 11;
 
-// Economics is slide 20 on the default route (23 on the full route,
-// minus the three optional slides before it).
-const ECONOMICS_SLIDE = 20;
+// The default route imports 7 origin slides and 9 outcome slides before
+// part 3; economics is the second slide in that section.
+const ECONOMICS_SLIDE = 18;
 
 // What each click must show, pinned by the visible rail label and the
 // panel's task line. Without this, a stepper stuck on Text would pass
 // the font assertions four times over.
 const MODALITY_STEPS = [
   { rail: "Text", task: "legal-move JSON" },
-  { rail: "Image", task: "themed set, same prompt" },
-  { rail: "Audio", task: "same prompt and duration" },
-  { rail: "Video", task: "saved Luna scene prompt" },
+  { rail: "Image", task: "themed 1 MP image" },
+  { rail: "Audio", task: "30-second music clip" },
+  { rail: "Video", task: "5-second 720p scene" },
 ];
 
-test("every fact on the economics stepper renders at or above the type floor", async ({
-  page,
-}) => {
+test("every fact on the economics stepper renders at or above the type floor", async ({ page }) => {
   // Warm the dev server on slide 1 first; deep links into a cold
   // Slidev compile can render a stale neighbor.
   await page.goto(`${DECK}/1`);
@@ -51,22 +49,20 @@ test("every fact on the economics stepper renders at or above the type floor", a
     );
     await expect(scope.locator(".cost-at-target .task")).toHaveText(step.task);
 
-    const sizes = await scope
-      .locator(".cost-at-target *")
-      .evaluateAll((elements) =>
-        elements
-          .filter(
-            (el) =>
-              el.checkVisibility?.() !== false &&
-              Array.from(el.childNodes).some(
-                (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
-              ),
-          )
-          .map((el) => ({
-            text: (el.textContent ?? "").trim().slice(0, 40),
-            px: Number.parseFloat(getComputedStyle(el).fontSize),
-          })),
-      );
+    const sizes = await scope.locator(".cost-at-target *").evaluateAll((elements) =>
+      elements
+        .filter(
+          (el) =>
+            el.checkVisibility?.() !== false &&
+            Array.from(el.childNodes).some(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+            ),
+        )
+        .map((el) => ({
+          text: (el.textContent ?? "").trim().slice(0, 40),
+          px: Number.parseFloat(getComputedStyle(el).fontSize),
+        })),
+    );
     expect(sizes.length).toBeGreaterThan(0);
     for (const { text, px } of sizes) {
       expect(px, `"${text}" renders at ${px}px on click ${clicks}`).toBeGreaterThanOrEqual(
