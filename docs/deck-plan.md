@@ -252,7 +252,7 @@ test asserts every referenced file name appears in this table.
 | `corporate-lamp.txt` | text block | the jargon-heavy lamp announcement paragraph |
 | `style-translation.mp4` | 16:9 | bachata background or Thinking Machines translation clip |
 | `canva-template.mp4` | 16:9 | the real Canva video-template example |
-| `meme-cookie.gif` | 1:1 | chunky boy deciding which cookie to eat |
+| `meme-cookie.gif`, `what-huh.gif` | 1:1 | reaction GIF for the choice beat |
 | `future-tree.png` | 16:9 | the model tree diagram from v1 |
 | `hf-synth-data.png` | 1:1 | FinePhrase synthetic-data explorer, huggingface.co/spaces/HuggingFaceFW/finephrase |
 | `chess-mech.png`, `chess-drawing.png`, `chess-cool.png` | 1:1 | generated board styles, same model different prompts |

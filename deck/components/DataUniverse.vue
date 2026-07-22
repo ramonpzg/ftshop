@@ -88,7 +88,7 @@ const circles = [
     label: "private or newly created",
     cx: 402,
     cy: 192,
-    r: 56,
+    r: 76,
     lx: 462,
     ly: 122,
     anchor: "middle",

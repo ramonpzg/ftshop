@@ -199,11 +199,11 @@ footer: false
 # Cool bruh, what now?
 
 <MediaFrame
-  file="meme-cookie.gif"
+  file="what-huh.gif"
   ratio="1/1"
-  width="320px"
+  width="380px"
+  height="340px"
   expected="Chunky boy deciding which cookie to eat."
-  source="Meme. Record origin and license."
 />
 
 <!--
@@ -217,7 +217,7 @@ FALLBACK: the placeholder is less funny. Land the line and move on.
 
 ---
 
-# Choose the intervention, not a tribe
+# This talk(workshop-ish) is about fine-tuning but don't reach for it if you don't need it
 
 <div class="options">
   <div class="option">
@@ -239,7 +239,7 @@ FALLBACK: the placeholder is less funny. Land the line and move on.
 </div>
 
 <p class="statement-quiet">
-The chess app already combines them: python-chess owns legality, the prompt
+The chess app already combines them nicely as `python-chess` owns legality, the prompt
 supplies the position, an adapted model learns how to choose.
 </p>
 
@@ -320,7 +320,7 @@ footer: false
 ---
 
 <div class="statement">
-Enough preamble, let's get started.
+Let's get started.
 </div>
 
 <!--

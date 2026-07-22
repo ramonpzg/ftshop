@@ -202,6 +202,26 @@ FALLBACK: placeholders keep the phone geometry.
 </div>
 </div>
 
+<MediaFrame
+  v-click
+  class="reserve"
+  centered
+  file="duo-1000-matches.jpg"
+  ratio="9/16"
+  width="240px"
+  height="500px"
+/>
+
+<MediaFrame
+  v-click
+  class="reserve"
+  centered
+  file="duo-matches-won.jpg"
+  ratio="9/16"
+  width="240px"
+  height="500px"
+/>
+
 <style>
 .count-grid {
   display: grid;
