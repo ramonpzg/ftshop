@@ -22,6 +22,7 @@ just deck         # Slidev :3030
 just session-notebook # standalone JupyterLab notebook
 just room-url     # print the LAN URL attendees use
 just chess-adapt  # bounded Lichess sample + Luna + Gemma 4 QLoRA + HF push
+just phone-tui    # Termux chess TUI against llama.cpp (docs/phone-tui.md)
 just test         # pytest + bun test
 just test-e2e     # Playwright; uses its own browser discovery, override with CHESS_STUDIO_CHROMIUM
 just lint         # ruff + biome
@@ -36,6 +37,8 @@ just seed         # repopulate pages and cached eval fixtures
 
 - `web/` React + tldraw frontend. Bun, Vite, TypeScript, Biome.
 - `api/` FastAPI backend. uv, python-chess, ruff, ty.
+- `tui/` phone-first Termux chess TUI. Own uv project; python-chess,
+  httpx, Rich, stdlib SQLite. Never depends on `api/` or `web/`.
 - `data/` datasets (`raw/processed/tiny`), canvas snapshot, uploaded assets.
 - `artifacts/` cached fixture JSON and generated job output.
 - `deck/` Slidev presentation and Vue teaching components.

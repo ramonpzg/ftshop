@@ -42,13 +42,15 @@ just install
 just start
 ```
 
-The default install covers the whiteboard, backend, deck, and standalone
-notebook. On a weak connection, install only the surface you need:
+The default install covers the whiteboard, backend, deck, standalone
+notebook, and phone TUI. On a weak connection, install only the surface
+you need:
 
 ```bash
 just install --whiteboard  # web, sync room, and API
 just install --deck
 just install --nb          # locked root .venv used by Zed and Jupyter
+just install --tui         # isolated pure-Python phone app
 ```
 
 These core installs do not download model weights or the optional multi-GB
@@ -104,7 +106,8 @@ just start-gemma      Run Gemma 4 through llama.cpp on :8080
 just chess-adapt      Prepare/train/publish, or pull the public chess adapter
 just deck             Run Slidev :3030
 just session-notebook Open the standalone Jupyter notebook
-just test             Run backend and frontend tests
+just phone-tui        Run the Termux chess TUI (docs/phone-tui.md)
+just test             Run backend, frontend, deck, and TUI tests
 just test-e2e         Run Playwright smoke tests
 just lint             Run Ruff and Biome
 just typecheck        Run ty and TypeScript checks

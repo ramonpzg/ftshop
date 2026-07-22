@@ -14,7 +14,7 @@ just install
 just start
 ```
 
-`just install` installs all four core surfaces. It deliberately excludes
+`just install` installs all five core surfaces. It deliberately excludes
 model downloads and optional audio dependencies. Limit it when bandwidth or
 time matters:
 
@@ -24,6 +24,7 @@ just install --web
 just install --api
 just install --deck
 just install --nb          # root .venv for Zed and Jupyter
+just install --tui         # isolated pure-Python phone app
 ```
 
 Flags can be combined. `just install --api --deck` installs only those two
@@ -49,11 +50,11 @@ startup.
 
 | Command | What it does |
 |---|---|
-| `just install [flags]` | Install all core surfaces, or selected surfaces with `--whiteboard`, `--web`, `--api`, `--deck`, or `--nb` |
+| `just install [flags]` | Install all core surfaces, or selected surfaces with `--whiteboard`, `--web`, `--api`, `--deck`, `--nb`, or `--tui` |
 | `just start` | Run backend + sync room + frontend together |
 | `just room-url` | Print the single LAN URL attendees open |
 | `just start-backend` / `just start-frontend` / `just start-sync` | Run just one piece |
-| `just test` | Backend `pytest` + web and deck `bun test` (fast, no real browser) |
+| `just test` | Backend, training, web, deck, and TUI unit suites (fast, no real browser) |
 | `just test-backend` / `just test-frontend` | Run just one suite |
 | `just test-e2e` | Playwright multi-client suite; uses Playwright's own browser cache, `CHESS_STUDIO_CHROMIUM` overrides the executable |
 | `just lint` | `ruff check` + Biome lint |
@@ -66,6 +67,7 @@ startup.
 | `just make-media` | Regenerate the committed workshop media fixtures (deterministic; installs the small `media` extra) |
 | `just deck` | The Slidev deck on port 3030 |
 | `just session-notebook` | Open the standalone Jupyter notebook in JupyterLab |
+| `just phone-tui` | Run the phone chess TUI against llama.cpp; see `docs/phone-tui.md` |
 | `just mock-llm` | Fake OpenAI endpoint with configurable latency, for rehearsal |
 | `just load-test` | Simulate a room of attendees against a running backend |
 

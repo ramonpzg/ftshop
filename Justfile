@@ -8,7 +8,8 @@ default:
 # Install all core workshop surfaces, or only the requested ones. Models and
 # optional audio dependencies stay explicit because they are several GB.
 # Examples: `just install --nb`, `just install --deck`,
-# `just install --whiteboard`, `just install --api --web`.
+# `just install --whiteboard`, `just install --api --web`,
+# `just install --tui`.
 install *targets:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -18,12 +19,14 @@ install *targets:
     install_api=0
     install_deck=0
     install_nb=0
+    install_tui=0
 
     if [[ -z "${requested}" ]]; then
         install_web=1
         install_api=1
         install_deck=1
         install_nb=1
+        install_tui=1
     fi
 
     for target in ${requested}; do
@@ -33,6 +36,7 @@ install *targets:
                 install_api=1
                 install_deck=1
                 install_nb=1
+                install_tui=1
                 ;;
             --whiteboard)
                 install_web=1
@@ -50,9 +54,12 @@ install *targets:
             --nb|--notebook)
                 install_nb=1
                 ;;
+            --tui)
+                install_tui=1
+                ;;
             --help)
                 printf '%s\n' \
-                    'Usage: just install [--all|--whiteboard|--web|--api|--deck|--nb] ...' \
+                    'Usage: just install [--all|--whiteboard|--web|--api|--deck|--nb|--tui] ...' \
                     '' \
                     'No flags installs every core surface. Models and optional audio are separate.'
                 exit 0
@@ -81,6 +88,10 @@ install *targets:
         # Keep optional packages Ramon has installed locally (notably
         # MusicGen) while enforcing the locked notebook baseline.
         uv sync --locked --inexact
+    fi
+    if (( install_tui )); then
+        echo "Installing phone chess TUI"
+        (cd tui && uv sync --locked)
     fi
 
 # Local text-to-audio models (musicgen, stable audio). Several GB.
@@ -180,6 +191,21 @@ deck style="paper":
 session-notebook notebook="notebooks/main-nb.ipynb":
     uv run jupyter lab --ServerApp.root_dir=. {{ notebook }}
 
+# The phone chess TUI, desktop convenience run. Expects a llama.cpp
+# server on 127.0.0.1:9017 (`just start-gemma 9017`; the TUI default
+# avoids crowded 8080). The phone itself does not need just:
+# docs/phone-tui.md has the Termux path.
+phone-tui:
+    cd tui && uv run chess-tui
+
+test-tui:
+    cd tui && uv run pytest
+
+# Sdist and wheel build for the TUI. The phone installs from the repo
+# checkout, but the package must always be buildable.
+package-tui:
+    cd tui && uv build
+
 start:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -238,6 +264,7 @@ test:
     cd training && uv run pytest
     cd web && bun test
     cd deck && bun test
+    cd tui && uv run pytest
 
 test-backend:
     cd api && uv run pytest
@@ -252,16 +279,19 @@ lint:
     cd api && uv run ruff check .
     cd training && uv run ruff check .
     cd web && bun run lint
+    cd tui && uv run ruff check .
 
 typecheck:
     cd api && uv run ty check src
     cd training && uv run ty check src
     cd web && bun run typecheck
+    cd tui && uv run ty check src
 
 format:
     cd api && uv run ruff format .
     cd training && uv run ruff format .
     cd web && bun run format
+    cd tui && uv run ruff format .
 
 reset-db:
     cd api && uv run python -m euro_chess_studio.data.reset_db

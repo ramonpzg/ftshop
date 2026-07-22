@@ -1,0 +1,7 @@
+chess tui
+ramon vs gemma-4-2b-local
+
+record  W 1  L 0  D 0
+captures in wins  1
+
+/new  /history  /replay  /help  /quit

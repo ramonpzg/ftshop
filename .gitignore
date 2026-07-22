@@ -7,6 +7,11 @@ api/.venv/
 api/**/__pycache__/
 api/.pytest_cache/
 api/.ruff_cache/
+tui/.venv/
+tui/**/__pycache__/
+tui/.pytest_cache/
+tui/.ruff_cache/
+tui/dist/
 *.pyc
 euro_chess_studio.db
 euro_chess_studio.db-journal
@@ -29,6 +34,7 @@ web/playwright-report/
 .env
 .DS_Store
 *.log
+/musicgen_out.wav
 
 
 .ipynb_checkpoints
