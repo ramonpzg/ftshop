@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Standalone notebook environment for the EuroSciPy fine-tuning workshop"
 requires-python = ">=3.11"
 dependencies = [
+    "fal-client>=1.0.0",
     "httpx>=0.28",
     "ipykernel>=7.0",
     "jax>=0.8",
