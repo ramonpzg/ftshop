@@ -26,9 +26,9 @@ clicks: 3
 
 <!--
 TIMING: 90 seconds.
-SAY: One modality at a time, each one task at one target quality, not a general head-to-head. Each side names the model or provider behind it. The comparison includes training or rental cost, amortisation, request volume, and whether each path met the threshold. Never imply fine-tuning alone lowered a serving bill.
+SAY: One modality at a time, one task at one target quality, not a general head-to-head. The rate-card numbers were checked yesterday and the sources are on the slide; latency and whether each path meets the threshold get measured in this room. Never imply fine-tuning alone lowered a serving bill.
 CLICK: 3. Text is visible first; the three clicks step image, audio, video. One modality on screen at a time, readable from the back.
-SOURCE: model identities use the accepted names; every measured value is a [SOURCE, DATE] placeholder until checked close to the session.
+SOURCE: rates checked 2026-07-22: gpt-5.6-luna $1/$6 per 1M tokens (openrouter.ai), FLUX.2 Flash $0.005/MP and LTX-2-19B $0.0018/MP on fal.ai (costbench.com), RTX 4090 rental $0.69/hr (runpod.io via getdeploying.com). Latency, outcomes, and threshold verdicts are measured live in the session, not quoted.
 CUT: the audio and video steps if time is short.
 FALLBACK: the structure reads without final numbers.
 -->

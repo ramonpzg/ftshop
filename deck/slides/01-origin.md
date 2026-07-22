@@ -52,7 +52,7 @@ FALLBACK: static slide, nothing to fail.
 
 <div class="origin-grid">
 <MediaFrame
-  file="origin-photo.jpg"
+  file="origin-photo.png"
   ratio="4/3"
   expected="Old picture of Ramon, full enough to read from the back of the room."
 />
@@ -357,21 +357,31 @@ FALLBACK: lines land without the meme.
 ---
 layout: side-media
 side: left
+footer: false
 ---
 
-# The end goal, in one object
+# my goal...
 
-<p>It runs on my phone. It records wins, losses, and draws, keeps the moves, and replays the game.</p>
+<p>it runs on my phone, records wins, losses, and draws, keeps the moves, and replays the game.</p>
 
 <div v-click class="reserve objective">
-  <span class="compare-label">objective</span>
-  <p>Win while taking as few opposing pieces as possible.</p>
-  <span class="provenance">PLACEHOLDER: one actual recorded result, e.g. a win with the capture count.</span>
+  <span class="compare-label">ideally...</span>
+  <p>I'd prefer to win while taking as few opposing pieces as possible. Because Sun Tzu says it too</p>
 </div>
+
+<MediaFrame
+  v-click
+  class="reserve"
+  centered
+  file="sun-tzu.jpg"
+  ratio="4/3"
+  width="470px"
+  height="350px"
+/>
 
 ::media::
 
-<PhoneTuiReplay />
+<PhoneTuiReplay height="470px" />
 
 <style>
 .objective {

@@ -86,72 +86,100 @@ export interface CostRow {
   api: CostPath;
 }
 
-const PENDING_FACTS = {
-  outcome: "PENDING",
-  latency: "[SOURCE, DATE]",
-  perRequestCost: "[SOURCE, DATE]",
-  thresholdMet: "PENDING",
-};
+/** Values researched 2026-07-22, the day before the session; sources
+ * in COST_SOURCES below. Cells that need the room or the hardware are
+ * measured live rather than guessed. */
+export const COST_SOURCES =
+  "gpt-5.6-luna $1 in / $6 out per 1M tokens (openrouter.ai, 2026-07-22) · FLUX.2 Flash $0.005/MP and LTX-2-19B $0.0018/MP on fal.ai (costbench.com, 2026-07-22) · RTX 4090 rental $0.69/hr secure, $0.34/hr community (runpod.io via getdeploying.com, 2026-07-22) · text per-request assumes ~400 input + 30 output tokens";
 
-const PENDING_HARDWARE = {
-  device: "[SOURCE, DATE]",
-  setupCost: "[SOURCE, DATE]",
-};
-
-/** Slide 22 economics rows. Model identities use the accepted names
- * where they exist; everything measured is a placeholder until checked
- * close to the session, and every final value gets a source and access
- * date. Threshold attainment is tracked per path, since the point of
- * the slide is that the two paths can disagree on whether the target
- * is met. */
 export const COST_ROWS: CostRow[] = [
   {
     modality: "Text",
     task: "legal-move JSON",
     target: "legal + JSON rate at threshold",
-    volume: "PENDING",
+    volume: "1000 req/session",
     selfHosted: {
-      identity: "gemma-4-2b-local, adapted ckpt PENDING",
-      ...PENDING_FACTS,
-      ...PENDING_HARDWARE,
+      identity: "gemma-4-2b-local + adapter",
+      outcome: "frozen suite, run in session",
+      latency: "measured live",
+      perRequestCost: "$0 marginal",
+      thresholdMet: "in session",
+      device: "presenter laptop",
+      setupCost: "laptop QLoRA run",
     },
-    api: { identity: "gpt-5.6-luna [SOURCE, DATE]", ...PENDING_FACTS },
+    api: {
+      identity: "gpt-5.6-luna, $1/$6 per 1M",
+      outcome: "same suite, run live",
+      latency: "measured live",
+      perRequestCost: "~$0.0006/req",
+      thresholdMet: "in session",
+    },
   },
   {
     modality: "Image",
     task: "themed set, same prompt",
     target: "identity + style adherence",
-    volume: "PENDING",
+    volume: "100 images",
     selfHosted: {
-      identity: "FLUX, style adapter PENDING",
-      ...PENDING_FACTS,
-      ...PENDING_HARDWARE,
+      identity: "FLUX + style adapter",
+      outcome: "same prompt, adapter on",
+      latency: "measured live",
+      perRequestCost: "GPU time only",
+      thresholdMet: "in session",
+      device: "RTX 4090, rented",
+      setupCost: "$0.69/GPU-hr",
     },
-    api: { identity: "configured API image path [SOURCE, DATE]", ...PENDING_FACTS },
+    api: {
+      identity: "FLUX.2 Flash on fal.ai",
+      outcome: "same prompt, no adapter",
+      latency: "sub-second",
+      perRequestCost: "$0.005/MP",
+      thresholdMet: "in session",
+    },
   },
   {
     modality: "Audio",
     task: "same prompt and duration",
     target: "adherence, no clipping",
-    volume: "PENDING",
+    volume: "50 clips",
     selfHosted: {
-      identity: "MusicGen, adapter PENDING",
-      ...PENDING_FACTS,
-      ...PENDING_HARDWARE,
+      identity: "musicgen-small, local",
+      outcome: "the three deck clips",
+      latency: "measured live",
+      perRequestCost: "$0 marginal",
+      thresholdMet: "in session",
+      device: "laptop GPU",
+      setupCost: "$0, open weights",
     },
-    api: { identity: "configured API audio path [SOURCE, DATE]", ...PENDING_FACTS },
+    api: {
+      identity: "hosted audio reference",
+      outcome: "same prompt",
+      latency: "per rate card",
+      perRequestCost: "credit-based",
+      thresholdMet: "in session",
+    },
   },
   {
     modality: "Video",
     task: "saved Luna scene prompt",
     target: "case adherence + continuity",
-    volume: "PENDING",
+    volume: "20 clips",
     selfHosted: {
-      identity: "LTX, rented GPU, ckpt PENDING",
-      ...PENDING_FACTS,
-      ...PENDING_HARDWARE,
+      identity: "LTX-2 on rented GPU",
+      outcome: "the saved scene, staged",
+      latency: "measured live",
+      perRequestCost: "GPU time only",
+      thresholdMet: "in session",
+      device: "RTX 4090, rented",
+      setupCost: "$0.69/GPU-hr",
     },
-    api: { identity: "configured API video path [SOURCE, DATE]", ...PENDING_FACTS },
+    api: {
+      identity: "LTX-2-19B on fal.ai",
+      outcome: "same scene prompt",
+      latency: "per rate card",
+      perRequestCost: "$0.0018/MP",
+      thresholdMet: "in session",
+    },
   },
 ];
 

@@ -233,7 +233,7 @@ test asserts every referenced file name appears in this table.
 | `meme-dog-thinking.jpg` | 1:1 | the dog-thinking meme |
 | `tui-recording.mp4`, `tui-poster.png` | 9:19.5 | Termux TUI session per PLAN_V2 slide 8 |
 | `mapping-game.png` | 4:5 | the completed board and game log the mapping slides share |
-| `image-base.png`, `image-adapted.png` | 1:1 | image adaptation pair, same prompt |
+| `image-qr.jpg`, `analog-chess.jpg` | 1:1 | generated board styles, same model different prompts |
 | `image-style-2.png` | 1:1 | optional second style |
 | `audio-capture.wav` | audio | a capture: wooden piece on wood |
 | `audio-genre.wav` | audio | background music, one genre |

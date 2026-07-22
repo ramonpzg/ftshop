@@ -363,7 +363,7 @@ FALLBACK: placeholders keep the phone geometry.
   <div class="compare-label">BASE</div>
   <div v-click class="reserve">
   <MediaFrame
-    file="image-base.png"
+    file="image-qr.jpg"
     ratio="1/1"
     expected="Base model output: an actual board and pieces, one specific theme."
   />
@@ -373,7 +373,7 @@ FALLBACK: placeholders keep the phone geometry.
   <div class="compare-label">ADAPTED</div>
   <div v-click class="reserve">
   <MediaFrame
-    file="image-adapted.png"
+    file="analog-chess.jpg"
     ratio="1/1"
     expected="Adapted output, same prompt where possible."
   />
@@ -503,15 +503,24 @@ FALLBACK: placeholders keep the rows; the board renders locally.
 # Video from the real-world case
 
 <div class="video-grid">
-<div v-click class="reserve scene-panel">
-  <span class="compare-label">scene prompt</span>
-  <div class="scene-placeholder">
-    PLACEHOLDER: the detailed Luna scene description for one mapping. Camera,
-    light, sound. No board, no pieces, no move notation.
+<div class="video-left">
+  <div v-click class="reserve scene-panel">
+    <span class="compare-label">scene description</span>
+    <div class="scene-placeholder">
+      PLACEHOLDER: the Luna real-world scene description for one mapping.
+      Camera, light, sound. No board, no pieces, no move notation.
+    </div>
+    <span class="provenance">scenario writer: gpt-5.6-luna · CACHED, date pending</span>
   </div>
-  <span class="provenance">scenario writer: gpt-5.6-luna · CACHED, date pending</span>
+  <div v-click class="reserve scene-panel">
+    <span class="compare-label">adapted prompt</span>
+    <div class="scene-placeholder">
+      PLACEHOLDER: the prompt actually sent to the video model, adapted from
+      the description above.
+    </div>
+    <span class="provenance">video model and parameters recorded with the clip</span>
+  </div>
 </div>
-<div v-click class="reserve">
 <MediaFrame
   file="video-scene.mp4"
   ratio="16/9"
@@ -519,7 +528,6 @@ FALLBACK: placeholders keep the rows; the board renders locally.
   poster="/assets/video-scene-poster.png"
   expected="The generated clip staging that case. LTX or the configured API video path."
 />
-</div>
 </div>
 
 <style>
@@ -530,15 +538,20 @@ FALLBACK: placeholders keep the rows; the board renders locally.
   align-items: start;
   margin-top: 0.3rem;
 }
+.video-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 .scene-panel {
   border: 1px solid var(--rule);
   border-radius: 2px;
   background: var(--paper-raised);
-  padding: 1rem 1.2rem;
-  min-height: 12rem;
+  padding: 0.8rem 1rem;
+  min-height: 9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 .scene-placeholder {
   font-size: 0.9rem;
@@ -552,7 +565,7 @@ FALLBACK: placeholders keep the rows; the board renders locally.
 <!--
 TIMING: 60 seconds.
 SAY: The video model stages the real-world situation. It is not trying to animate a chess move. That looked bad and was not the interesting part anyway.
-CLICK: 2. The scene prompt first, then the clip with its poster. Playback is manual.
+CLICK: 2. The scene description first, then the adapted video prompt; the clip sits on the right throughout, playback manual.
 SOURCE: LTX, Gemini, or another video model; identity recorded with the file. The generated scene contains no board, pieces, or move notation unless the source mapping requires one.
 CUT: playback can be skipped; the poster carries the point.
 FALLBACK: poster and placeholder keep the geometry.
@@ -825,13 +838,14 @@ soundtrack, and a scene.
 </div>
 
 <p v-click class="reserve statement-quiet">
-Same recipe every time; only the pairs changed. Whether that is worth
-owning is the next question.
+No single model does all of this, and no provider ships every capability at
+once. When you need one of them, in your style, over and over, adapting a
+small model is what makes it reliable.
 </p>
 
 <!--
 TIMING: 20 seconds.
-SAY: Land the section: one game, four modalities, one recipe. The click hands the room to part 3, which asks whether owning it is worth the trouble.
+SAY: Land the section: one game, four modalities, one recipe. The click makes the pivot: these capabilities are not bespoke to one model or available everywhere at once, and repeated need is what justifies adapting. Part 3 prices that argument.
 CLICK: 1. The handoff line.
 SOURCE: none.
 CUT: never; this is the section close on the default route.

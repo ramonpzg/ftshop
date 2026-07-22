@@ -12,8 +12,8 @@
       </div>
       <p class="footnote">
         Self-hosted: laptop or rented GPU you control, not physical location.
-        Placeholders until checked close to the session; every number gets a
-        source and access date.
+        Cells marked measured live or in session come from the room, not a
+        rate card.
       </p>
     </div>
 
@@ -52,6 +52,8 @@
           </div>
         </div>
       </div>
+
+      <p class="sources">{{ sources }}</p>
     </div>
   </div>
 </template>
@@ -59,7 +61,7 @@
 <script setup>
 import { computed } from "vue";
 import { stepIndex } from "../lib/clicks";
-import { COST_ROWS } from "../lib/fixtures";
+import { COST_ROWS, COST_SOURCES } from "../lib/fixtures";
 
 const props = defineProps({
   /** Slide click count; three clicks step text, image, audio, video.
@@ -69,6 +71,7 @@ const props = defineProps({
 });
 
 const rows = COST_ROWS;
+const sources = COST_SOURCES;
 const active = computed(() => stepIndex(props.clicks, rows.length));
 const current = computed(() => rows[active.value]);
 
@@ -202,5 +205,15 @@ function thresholdClass(value) {
 
 .fact.threshold {
   font-weight: 600;
+}
+
+.sources {
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.5rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--ink-faint);
 }
 </style>
