@@ -45,141 +45,86 @@ export const TEXT_COMPARE_FIXTURE: CompareFixture = {
   provenance: "SCRIPTED REPLAY | sft-v2 | suite a274c01d640a346e | no model trained",
 };
 
-/** One deployment path's measured facts. "Self-hosted" covers both a
- * presenter laptop and rented GPU hardware you control; PLAN_V2 asks
- * for image and video on "local or rented hardware", so the path
- * label is about ownership, not physical location. */
 export interface CostPath {
-  /** The model, checkpoint, or provider behind this path, with its
-   * source and access date once checked. "Self-hosted" versus "api"
-   * is not enough when real values arrive. */
   identity: string;
-  /** The quality result specific to this modality: legal+JSON rate for
-   * text, identity/style for image, adherence/clipping for audio,
-   * case adherence/continuity for video. Free text on purpose; the
-   * four modalities do not share one metric shape. */
-  outcome: string;
-  /** Latency for text/audio, generation time for image/video. */
-  latency: string;
-  /** Marginal cost for one more request on this path. */
-  perRequestCost: string;
-  /** Whether this path reaches the stated quality threshold. */
-  thresholdMet: string;
-}
-
-/** The self-hosted path additionally owns its hardware facts; the API
- * path's hardware is the provider's and has none. */
-export interface SelfHostedPath extends CostPath {
-  device: string;
-  /** Training or rental cost, stated with its amortisation basis. */
-  setupCost: string;
+  cost: string;
+  /** The arithmetic or omission that makes the total interpretable. */
+  basis: string;
 }
 
 export interface CostRow {
   modality: string;
-  task: string;
-  target: string;
-  /** The request-volume assumption the amortisation uses; shared by
-   * both paths, since the comparison holds volume constant. */
-  volume: string;
-  selfHosted: SelfHostedPath;
+  batch: string;
+  selfHosted: CostPath;
   api: CostPath;
+  takeaway: string;
+  source: string;
 }
-
-/** Rate cards checked 2026-07-22. Derived costs use the workload and
- * runtime assumptions printed in each row. Quality stays unclaimed unless
- * it was measured on an actual artifact. */
-export const COST_SOURCES =
-  "Rates, 2026-07-22: OpenRouter Luna $1/$6 per 1M; fal FLUX.2 LoRA $0.021/MP, LTX-2 ~$0.202/5s 720p; Eleven Music $0.15/min; Runpod 4090 $0.69/h, H100 $2.89/h. Totals use the volumes shown.";
 
 export const COST_ROWS: CostRow[] = [
   {
     modality: "Text",
-    task: "legal-move JSON",
-    target: "valid JSON + legal move",
-    volume: "1,000 move replies",
+    batch: "1,000 short chess replies",
     selfHosted: {
-      identity: "Gemma 4 E2B + chess QLoRA",
-      outcome: "8/8 JSON; 8/8 legal (held out)",
-      latency: "not timed separately",
-      perRequestCost: "$0 usage bill",
-      thresholdMet: "yes, 8/8 held out",
-      device: "RTX 2000 Ada, 8GB",
-      setupCost: "4m03s training",
+      identity: "Gemma on this laptop",
+      cost: "$0 API bill",
+      basis: "power, hardware, and setup excluded",
     },
     api: {
-      identity: "gpt-5.6-luna API",
-      outcome: "quality not run on same suite",
-      latency: "~1.66s TTFT (obs.)",
-      perRequestCost: "$0.00058; $0.58/1k",
-      thresholdMet: "not measured",
+      identity: "Luna API",
+      cost: "about $0.58",
+      basis: "400 input + 30 output tokens each",
     },
+    takeaway: "Text API usage is already cheap. Cost alone is a weak reason to adapt.",
+    source: "OpenRouter rate card, checked 22 July 2026.",
   },
   {
     modality: "Image",
-    task: "themed 1 MP image",
-    target: "identity + style adherence",
-    volume: "100 x 1 MP images",
+    batch: "100 one-megapixel images",
     selfHosted: {
-      identity: "FLUX.2 Klein 4B + LoRA",
-      outcome: "~$0.19 compute for 100",
-      latency: "10s assumption",
-      perRequestCost: "~$0.0019 at 10s",
-      thresholdMet: "not measured",
-      device: "RTX 4090, 24GB",
-      setupCost: "$0.69/GPU-hour",
+      identity: "FLUX Klein on a rented 4090",
+      cost: "about $0.19",
+      basis: "assumes 10 seconds each at $0.69/hour",
     },
     api: {
       identity: "FLUX.2 LoRA on fal.ai",
-      outcome: "$2.10 for 100 x 1 MP",
-      latency: "provider not stated",
-      perRequestCost: "$0.021/MP",
-      thresholdMet: "not measured",
+      cost: "$2.10",
+      basis: "100 images x $0.021/megapixel",
     },
+    takeaway: "The usage gap is real. We have not shown equal output quality.",
+    source: "fal and Runpod rate cards; local runtime is an assumption.",
   },
   {
     modality: "Audio",
-    task: "30-second music clip",
-    target: "prompt fit + no clipping",
-    volume: "50 x 30s clips",
+    batch: "50 thirty-second music clips",
     selfHosted: {
-      identity: "musicgen-small, local",
-      outcome: "local clip approved by Ramon",
-      latency: "fast; not timed",
-      perRequestCost: "$0 usage bill",
-      thresholdMet: "yes, human review",
-      device: "RTX 2000 Ada, 8GB",
-      setupCost: "$0, weights cached",
+      identity: "MusicGen on this laptop",
+      cost: "$0 API bill",
+      basis: "power, hardware, and setup excluded",
     },
     api: {
       identity: "Eleven Music API",
-      outcome: "$3.75 for 25 minutes",
-      latency: "provider not stated",
-      perRequestCost: "$0.075 per 30s",
-      thresholdMet: "not measured",
+      cost: "$3.75",
+      basis: "25 output minutes x $0.15/minute",
     },
+    takeaway: "We heard the local result. We did not compare it with Eleven Music.",
+    source: "ElevenLabs API pricing, checked 22 July 2026.",
   },
   {
     modality: "Video",
-    task: "5-second 720p scene",
-    target: "case adherence + continuity",
-    volume: "20 x 5s clips",
+    batch: "20 five-second 720p clips",
     selfHosted: {
-      identity: "LTX-2 19B, self-hosted",
-      outcome: "~$0.59 compute for 20",
-      latency: "~37s at 30 steps",
-      perRequestCost: "~$0.029 at 30 steps",
-      thresholdMet: "not measured",
-      device: "H100 80GB",
-      setupCost: "$2.89/GPU-hour",
+      identity: "LTX on a rented H100",
+      cost: "about $0.59",
+      basis: "30-step estimate at $2.89/hour",
     },
     api: {
       identity: "LTX-2-19B on fal.ai",
-      outcome: "~$4.03 for 20 clips",
-      latency: "provider not stated",
-      perRequestCost: "~$0.202/5s 720p",
-      thresholdMet: "not measured",
+      cost: "about $4.03",
+      basis: "20 clips x fal's $0.2016 example",
     },
+    takeaway: "The API buys simplicity. The rental estimate excludes setup.",
+    source: "fal, Runpod, and LTX rate cards and timing report.",
   },
 ];
 

@@ -188,8 +188,8 @@ late, and the fallback when something fails.
 - Predict: for the last model problem they personally hit, which
   intervention it actually needed.
 - Participants: none; this is the argument.
-- Artifact: economics at a target quality, one row per modality, task
-  and threshold stated, `[SOURCE, DATE]` placeholders until checked;
+- Artifact: four concrete batches, each comparing a machine you control
+  with an API; the total, arithmetic, omissions, and evidence gap are stated;
   the data circles ending in the train/eval split; the style beats by
   name (goth Minions, the corporate-lamp paragraph, the cookie GIF)
   landing on the concrete Canva case; then the decision slide.

@@ -23,10 +23,10 @@ const ECONOMICS_SLIDE = 18;
 // panel's task line. Without this, a stepper stuck on Text would pass
 // the font assertions four times over.
 const MODALITY_STEPS = [
-  { rail: "Text", task: "legal-move JSON" },
-  { rail: "Image", task: "themed 1 MP image" },
-  { rail: "Audio", task: "30-second music clip" },
-  { rail: "Video", task: "5-second 720p scene" },
+  { rail: "Text", batch: "1,000 short chess replies" },
+  { rail: "Image", batch: "100 one-megapixel images" },
+  { rail: "Audio", batch: "50 thirty-second music clips" },
+  { rail: "Video", batch: "20 five-second 720p clips" },
 ];
 
 test("every fact on the economics stepper renders at or above the type floor", async ({ page }) => {
@@ -36,7 +36,7 @@ test("every fact on the economics stepper renders at or above the type floor", a
   await page.waitForSelector(".slidev-page-1", { timeout: 30_000 });
   await page.goto(`${DECK}/${ECONOMICS_SLIDE}`);
   const scope = page.locator(`.slidev-page-${ECONOMICS_SLIDE}`);
-  await expect(scope.locator("h1")).toHaveText("Economics at a target quality", {
+  await expect(scope.locator("h1")).toHaveText("What does repeated use cost?", {
     timeout: 15_000,
   });
 
@@ -47,7 +47,7 @@ test("every fact on the economics stepper renders at or above the type floor", a
     await expect(scope.locator(".cost-at-target .rail-item.active .rail-name")).toHaveText(
       step.rail,
     );
-    await expect(scope.locator(".cost-at-target .task")).toHaveText(step.task);
+    await expect(scope.locator(".cost-at-target .batch")).toHaveText(step.batch);
 
     const sizes = await scope.locator(".cost-at-target *").evaluateAll((elements) =>
       elements

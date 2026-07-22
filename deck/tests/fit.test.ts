@@ -42,20 +42,13 @@ describe("notation representations fit their panel", () => {
 describe("cost rows fit the stepper panel", () => {
   for (const row of COST_ROWS) {
     test(`${row.modality} cells stay short enough`, () => {
-      for (const cell of [row.task, row.target]) {
-        expect(cell.length).toBeLessThanOrEqual(32);
-      }
-      expect(row.volume.length).toBeLessThanOrEqual(20);
-      for (const cell of [row.selfHosted.device, row.selfHosted.setupCost]) {
-        expect(cell.length).toBeLessThanOrEqual(20);
-      }
+      expect(row.batch.length).toBeLessThanOrEqual(32);
+      expect(row.takeaway.length).toBeLessThanOrEqual(80);
+      expect(row.source.length).toBeLessThanOrEqual(70);
       for (const path of [row.selfHosted, row.api]) {
-        // The identity is one mono line in a half-width path panel.
-        expect(path.identity.length).toBeLessThanOrEqual(42);
-        expect(path.outcome.length).toBeLessThanOrEqual(40);
-        for (const cell of [path.latency, path.perRequestCost, path.thresholdMet]) {
-          expect(cell.length).toBeLessThanOrEqual(20);
-        }
+        expect(path.identity.length).toBeLessThanOrEqual(34);
+        expect(path.cost.length).toBeLessThanOrEqual(16);
+        expect(path.basis.length).toBeLessThanOrEqual(44);
       }
     });
   }

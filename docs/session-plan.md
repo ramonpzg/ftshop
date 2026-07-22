@@ -133,8 +133,8 @@ room can see.
 
 ## 3. Why adapt anything (deck part 3)
 
-Economics at a target quality (per task, with sources, never a general
-head-to-head equivalence claim). Providers do not have your data: the
+The cost of one concrete batch (with sources and omissions stated, never a
+general head-to-head claim). Providers do not have your data: the
 private, licensed, reviewed, or newly-created examples that define a
 task, and the split between what trains and what proves
 generalisation. Providers do not know your style, carried by the named
